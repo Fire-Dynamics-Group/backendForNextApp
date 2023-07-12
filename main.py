@@ -1,10 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from pydantic import BaseModel
 
 from script import testFunction
-from time_eq import compute_time_eq
+from time_eq import compute_time_eq, time_eq_test
 
 app = FastAPI() # create instance
 
@@ -29,8 +29,18 @@ class Element(BaseModel):
     comments: str
 
 class ConvertedElement(BaseModel):
+    id: int
     finalPoints: List[Point]
     comments: str
+
+class TimeEqData(BaseModel):
+    convertedPoints: List[ConvertedElement]
+    roomComposition: List[str]
+    openingHeights: List[float]
+    isSprinklered: bool
+    fireLoadDensity: float
+    compartmentHeight: float
+    tLim: float    
 
 @app.get("/items/{item_id}")
 async def read_item(item_id):
@@ -57,18 +67,43 @@ async def read_elements(elements: List[Element]):
     output = testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m)
     return output
 
-mockConvertedPoints = [ConvertedElement(finalPoints=[Point(x=0.2, y=0.0), Point(x=0.2, y=5.2), Point(x=0.0, y=5.2), Point(x=0.0, y=5.8), Point(x=9.7, y=5.8), Point(x=9.7, y=5.6), Point(x=10.0, y=5.6), Point(x=10.0, y=2.4), Point(x=10.4, y=2.4), Point(x=10.4, y=0.1), Point(x=7.3, y=0.1), Point(x=7.3, y=0.0), Point(x=0.2, y=0.0)], comments='obstruction'), ConvertedElement(finalPoints=[Point(x=10.0, y=5.5), Point(x=10.0, y=4.2)], comments='opening'), ConvertedElement(finalPoints=[Point(x=10.4, y=2.4), Point(x=10.4, y=0.1)], comments='opening')]
-@app.post("/timeEq")
-# use == office; value = 511 i.e. 80% fractal
-# material type: reinforced concrete = 1742
-# possibly just access here?
-async def read_timeEq_elements(
-    convertedPoints: List[ConvertedElement], 
-    # wallMaterials: List, 
+# mockConvertedPoints = [ConvertedElement(finalPoints=[Point(x=0.2, y=0.0), Point(x=0.2, y=5.2), Point(x=0.0, y=5.2), Point(x=0.0, y=5.8), Point(x=9.7, y=5.8), Point(x=9.7, y=5.6), Point(x=10.0, y=5.6), Point(x=10.0, y=2.4), Point(x=10.4, y=2.4), Point(x=10.4, y=0.1), Point(x=7.3, y=0.1), Point(x=7.3, y=0.0), Point(x=0.2, y=0.0)], comments='obstruction'), ConvertedElement(finalPoints=[Point(x=10.0, y=5.5), Point(x=10.0, y=4.2)], comments='opening'), ConvertedElement(finalPoints=[Point(x=10.4, y=2.4), Point(x=10.4, y=0.1)], comments='opening')]
+mockConvertedPoints = [ConvertedElement(id=0, finalPoints=[Point(x=0.2, y=0.0), Point(x=0.2, y=5.2), Point(x=0.0, y=5.2), Point(x=0.0, y=5.8), Point(x=9.7, y=5.8), Point(x=9.7, y=5.6), Point(x=10.0, y=5.6), Point(x=10.0, y=2.4), Point(x=10.4, y=2.4), Point(x=10.4, y=0.1), Point(x=7.3, y=0.1), Point(x=7.3, y=0.0), Point(x=0.2, y=0.0)], comments='obstruction'), ConvertedElement(id=1, finalPoints=[Point(x=10.0, y=5.5), Point(x=10.0, y=4.2)], comments='opening'), ConvertedElement(id=2, finalPoints=[Point(x=10.4, y=2.4), Point(x=10.4, y=0.1)], comments='opening')]
+@app.post("/timeEq",
+    responses = {
+        200: {
+            "content": {"image/jpeg": {}}
+        }
+    },
+    response_class=Response
+          )
+async def read_timeEq_elements(data: TimeEqData):
+    
+    convertedPoints = data.convertedPoints
+    roomComposition = data.roomComposition
+    openingHeights = data.openingHeights
+    isSprinklered = data.isSprinklered
+    fireLoadDensity = data.fireLoadDensity
+    compartmentHeight = data.compartmentHeight
+    tLim = data.tLim / 60
+
+    img_data = compute_time_eq(
+        data=convertedPoints, 
+        opening_heights=openingHeights, 
+        room_composition=roomComposition, 
+        is_sprinklered=isSprinklered, 
+        fld=fireLoadDensity, 
+        compartment_height=compartmentHeight, 
+        t_lim=tLim
+        )
+    # data, opening_heights,room_composition,is_sprinklered=False, fld=948, compartment_height=3.15, t_lim= 20/60
+    print("converted: ", convertedPoints)
+    print("roomComposition: ", roomComposition)
+    print("openingHeights: ", openingHeights)
+    # time_eq_test(convertedPoints)
+    print("img_base64: ", img_data)
+    return Response(content=img_data, media_type="image/jpeg")
+
     # roomUse: str, 
     # floorMaterial: str, 
     # ceilingMaterial: str
-    ):
-    compute_time_eq(convertedPoints)
-    print(convertedPoints)
-    return convertedPoints

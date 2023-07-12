@@ -1,7 +1,24 @@
 import math
+import io
+import base64
 import matplotlib.pyplot as plt
 
 from mockData import mockTimeEqElements
+# TODO: move to constants
+font_name_normal = 'Segoe UI'
+light_text_color = (0.59,0.56,0.56)
+chart_config = {        
+        "xtick.color": light_text_color,
+        "ytick.color": light_text_color,
+        "axes.titlecolor": light_text_color,
+        "axes.labelcolor": light_text_color,
+        "axes.edgecolor": light_text_color,
+        "legend.labelcolor": light_text_color,
+        "figure.figsize": [6, 4],
+        'axes.grid': True,
+        'grid.linewidth': '0.05',
+        "grid.color": light_text_color
+        }
 # from shapely.geometry import Polygon
 
 # steel constants
@@ -20,8 +37,8 @@ def calculate_polygon_area(points):
 
     for i in range(n):
         j = (i + 1) % n
-        area += points[i]['x'] * points[j]['y']
-        area -= points[j]['x'] * points[i]['y']
+        area += points[i].x * points[j].y
+        area -= points[j].x * points[i].y
 
     area = abs(area) / 2.0
     return area
@@ -204,10 +221,10 @@ def calcDistPointList(pointsList):
         currentP = pointsList[index]
         nextP = pointsList[index + 1]
 
-        x1 = currentP['x']
-        x2 = nextP['x']
-        y1 = currentP['y']
-        y2 = nextP['y']
+        x1 = currentP.x
+        x2 = nextP.x
+        y1 = currentP.y
+        y2 = nextP.y
         dist += calcDist(x1, y1, x2, y2)
     return dist
     # send into calcDist
@@ -218,9 +235,9 @@ def calcDist(x1, y1, x2, y2):
 # TODO: prep for api call
 # TODO: later save charts
 def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False, fld=948, compartment_height=3.15, t_lim= 20/60):
-    walls = [f for f in data if f['comments']== 'obstruction']
-    openings = [f for f in data if f['comments']== 'opening']
-    b_value = material_b_values['concrete']
+    walls = [f for f in data if f.comments== 'obstruction']
+    openings = [f for f in data if f.comments== 'opening']
+    # b_value = material_b_values['concrete']
 
     combustion_factor = 1
     # TODO:
@@ -229,17 +246,17 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
         fld = fld * 0.65
     wall_length = []
     wall_dimensions = []
-    wall_points = walls[0]['finalPoints']
+    wall_points = walls[0].finalPoints # ['finalPoints']
     floor_area = calculate_polygon_area(wall_points)
     for wall_index in range(len(wall_points)-1):
         # length = distance i to i+1
         currentP = wall_points[wall_index]
         nextP = wall_points[wall_index + 1]
 
-        x1 = currentP['x']
-        x2 = nextP['x']
-        y1 = currentP['y']
-        y2 = nextP['y']
+        x1 = currentP.x
+        x2 = nextP.x
+        y1 = currentP.y
+        y2 = nextP.y
         dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
         wall_length.append(dist)
         wall_dimensions.append(dist * compartment_height)
@@ -247,7 +264,7 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
     room_dimensions = [floor_area, *wall_dimensions, floor_area]
     At = sum(room_dimensions) ## gets At (total area of surfaces) for use throughout.
     # get opening length from data, multiply by window height
-    opening_lengths = [calcDistPointList(f['finalPoints']) for f in openings]
+    opening_lengths = [calcDistPointList(f.finalPoints) for f in openings]
     window_list = []
     for index in range(len(opening_lengths)):
         window_list.append(opening_lengths[index] * opening_heights[index])
@@ -263,10 +280,12 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
     plt.plot(times, temperatures, color = 'blue', linewidth = 0.5,)  ## adds a line
     plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
     plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis   
-    plt.show()
     print("O: ",opening_factor)
     print("b: ", b_enclosure_surface_thermal_property)
-    plt.close()
+    if __name__ == '__main__':
+        plt.show()    
+
+        plt.close()
 
 
     c_p = c_prot  # (J/kg.K) specific heat of the protection
@@ -323,11 +342,11 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
     plt.plot(isofire_t, iso_steel_temps, color = 'red', linewidth = 0.5,)  ## adds a line
     plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
     plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis
+    if __name__ == '__main__':
+        plt.show()    
 
-    plt.show()    
+        plt.close()
     para_steel_temps = []
-
-    plt.close()
 
     Prev_steel = 20
     Prev_gas = 20
@@ -336,36 +355,75 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
         Prev_gas = i
         Prev_steel = steel_temp
         para_steel_temps.append(steel_temp)
-
-    plt.figure(figsize=(6, 4))  ## size of output
-    plt.plot(times, temperatures, color = 'blue', linewidth = 0.5,)  ## adds a line
-    plt.plot(times, para_steel_temps, color = 'red', linewidth = 0.5,)  ## adds a line
-    plt.plot(isofire_t, isofire_T, color = 'green', linewidth = 0.5,)  ## adds a line
-    plt.plot(isofire_t, iso_steel_temps, color = 'purple', linewidth = 0.5,)  ## adds a line
-    plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
-    plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis
-    plt.xlim([0, 400])
-
-    plt.show()
     para_max_temp = max(para_steel_temps)
-    plt.close()
-
     index = (min(range(len(iso_steel_temps)), key=lambda i: abs(iso_steel_temps[i]-para_max_temp)))
     print(f"time equivalency value = {(index+1)/2} minutes")
+    time_eq = (index+1)/2
+    with plt.rc_context(chart_config):
+    # TODO: bring in config
+    # add vertical @ time equivalenc time
+        plt.figure(figsize=(6, 4))  ## size of output
+        plt.plot(times, temperatures, color = 'blue', linewidth = 0.5,)  ## adds a line
+        plt.plot(times, para_steel_temps, color = 'red', linewidth = 0.5,)  ## adds a line
+        plt.plot(isofire_t, isofire_T, color = 'green', linewidth = 0.5,)  ## adds a line
+        plt.plot(isofire_t, iso_steel_temps, color = 'purple', linewidth = 0.5,)  ## adds a line
+        plt.axvline(x=time_eq, color="grey", linestyle='--',label="Time Equivalence", linewidth=0.75)
+        # TODO: calc temp of purple fire at time equivalence
+        # plt.axhline(y=tenable_limit, color='r', linestyle='--',label="Tenability Limit", linewidth=0.75)
+        plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
+        plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis
+        plt.xlim([0, 400])
+        image_buffer = io.BytesIO()
+        plt.savefig(image_buffer, format='jpeg')
+        image_buffer.seek(0)
+        img_base64 = image_buffer.getvalue()
+        # later show and save charts
+        if __name__ == '__main__':
+            plt.show()    
+
+            plt.close()
+    
+
 
     # walls to height by width list
     # get area of ceiling
     # get area of walls
     # get compartment height sent in
     print(data)
-    pass
 
+    return img_base64
+
+def time_eq_test(data):
+    wall_points = [f for f in data if f.comments== 'obstruction'][0].finalPoints
+
+    print("data: ",wall_points)
 
 if __name__ == '__main__':
+    from typing import List
+    from pydantic import BaseModel
+
+    class Point(BaseModel):
+        x: float
+        y: float
+
+    class Element(BaseModel):
+        type: str
+        points: List[Point]
+        comments: str
+
+    class ConvertedElement(BaseModel):
+        id: int
+        finalPoints: List[Point]
+        comments: str
     # room comp -> all concrete
     # find number of openings -> mock heights
-    openings = [f for f in mockTimeEqElements if f['comments']== 'opening']
+    mockConvertedPoints = [ConvertedElement(id=0, finalPoints=[Point(x=0.2, y=0.0), Point(x=0.2, y=5.2), Point(x=0.0, y=5.2), Point(x=0.0, y=5.8), Point(x=9.7, y=5.8), Point(x=9.7, y=5.6), Point(x=10.0, y=5.6), Point(x=10.0, y=2.4), Point(x=10.4, y=2.4), Point(x=10.4, y=0.1), Point(x=7.3, y=0.1), Point(x=7.3, y=0.0), Point(x=0.2, y=0.0)], comments='obstruction'), ConvertedElement(id=1, finalPoints=[Point(x=10.0, y=5.5), Point(x=10.0, y=4.2)], comments='opening'), ConvertedElement(id=2, finalPoints=[Point(x=10.4, y=2.4), Point(x=10.4, y=0.1)], comments='opening')]
+    openings = [f for f in mockConvertedPoints if f.comments== 'opening']
+    wall_points = [f for f in mockConvertedPoints if f.comments== 'obstruction'][0].finalPoints
+    
     # room comp -> all concrete from num walls
-    wall_points = [f for f in mockTimeEqElements if f['comments']== 'obstruction'][0]['finalPoints']
-    room_composition = ['concrete' for f in range(len(wall_points) + 1)]
-    compute_time_eq(data=mockTimeEqElements, opening_heights=[1.5 for f in openings], room_composition=room_composition)
+    # wall_points = [f for f in mockTimeEqElements if f['comments']== 'obstruction'][0]['finalPoints']
+    room_composition = ['concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete', 'concrete']
+    opening_heights = [1.5, 1.5]
+
+    image_data = compute_time_eq(data=mockConvertedPoints, opening_heights=opening_heights, room_composition=room_composition)
