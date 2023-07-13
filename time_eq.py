@@ -28,7 +28,6 @@ rho_prot=290.0  # (kg/m3) density of the protection
 therm_conduct=0.14  # thermal conductivity of the protection
 rho_steel=7850  # (kg/m3) density of steel
 sect_factor=121  # (Ap/V in m-1) section factor of the steel
-fire_resistance_period = 30   # The required guidance FR period in minutes
 failure_temperature = 550  # C - check this with D
 
 material_b_values ={"concrete":math.sqrt(3033240), "brick": math.sqrt(2805000), "plasterboard": math.sqrt(177650)}  ### Table 7.6 of Fundamentals of Fire Phenomena Quintirere 
@@ -235,7 +234,7 @@ def calcDist(x1, y1, x2, y2):
 # window data -> list of width * height
 # TODO: prep for api call
 # TODO: later save charts
-def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False, fld=948, compartment_height=3.15, t_lim= 20/60):
+def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False, fld=948, compartment_height=3.15, t_lim= 20/60, fire_resistance_period=90):
     walls = [f for f in data if f.comments== 'obstruction']
     openings = [f for f in data if f.comments== 'opening']
     # b_value = material_b_values['concrete']
@@ -377,8 +376,8 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
         plt.xlim([0, 400])
         plt.legend(bbox_to_anchor =(0.25,-0.45), ncol=1,loc='lower left', fontsize = 8, frameon=False)
         plt.subplots_adjust(bottom=0.2) # This makes room.
-        if time_eq % 2 == 0:
-            time_eq = round(time_eq, 0)
+        if time_eq % 1 == 0:
+            time_eq = round(time_eq)
         plt.figtext(0.5, 0.02, f'The Equivalent Time of Fire Exposure is {time_eq} Minutes', ha='center', va='center', fontsize = 8, fontname = 'Segoe UI')
         plt.tight_layout() 
 
