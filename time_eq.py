@@ -1,6 +1,5 @@
 import math
 import io
-import base64
 import matplotlib.pyplot as plt
 
 from mockData import mockTimeEqElements
@@ -276,16 +275,16 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
     b_enclosure_surface_thermal_property = get_b_value(room_composition=room_composition, room_dimensions=room_dimensions, At=At) 
     times, temperatures = get_parametric_fire(O=opening_factor, b=b_enclosure_surface_thermal_property, fld=fld, Af=floor_area, At=At, t_lim=t_lim) 
    
-    plt.figure(figsize=(6, 4))  ## size of output
-    plt.plot(times, temperatures, color = 'blue', linewidth = 0.5,)  ## adds a line
-    plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
-    plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis   
-    print("O: ",opening_factor)
-    print("b: ", b_enclosure_surface_thermal_property)
-    if __name__ == '__main__':
-        plt.show()    
+    # plt.figure(figsize=(6, 4))  ## size of output
+    # plt.plot(times, temperatures, color = 'blue', linewidth = 0.5,)  ## adds a line
+    # plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
+    # plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis   
+    # print("O: ",opening_factor)
+    # print("b: ", b_enclosure_surface_thermal_property)
+    # # if __name__ == '__main__':
+    # #     plt.show()    
 
-        plt.close()
+    # #     plt.close()
 
 
     c_p = c_prot  # (J/kg.K) specific heat of the protection
@@ -337,15 +336,15 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
 
     print("thickness", thickness)  
 
-    plt.figure(figsize=(6, 4))  ## size of output
-    plt.plot(isofire_t, isofire_T, color = 'blue', linewidth = 0.5,)  ## adds a line
-    plt.plot(isofire_t, iso_steel_temps, color = 'red', linewidth = 0.5,)  ## adds a line
-    plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
-    plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis
-    if __name__ == '__main__':
-        plt.show()    
+    # plt.figure(figsize=(6, 4))  ## size of output
+    # plt.plot(isofire_t, isofire_T, color = 'blue', linewidth = 0.5,)  ## adds a line
+    # plt.plot(isofire_t, iso_steel_temps, color = 'red', linewidth = 0.5,)  ## adds a line
+    # plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
+    # plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis
+    # # if __name__ == '__main__':
+    # #     plt.show()    
 
-        plt.close()
+    # #     plt.close()
     para_steel_temps = []
 
     Prev_steel = 20
@@ -362,17 +361,20 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
     with plt.rc_context(chart_config):
     # TODO: bring in config
     # add vertical @ time equivalenc time
-        plt.figure(figsize=(6, 4))  ## size of output
-        plt.plot(times, temperatures, color = 'blue', linewidth = 0.5,)  ## adds a line
-        plt.plot(times, para_steel_temps, color = 'red', linewidth = 0.5,)  ## adds a line
-        plt.plot(isofire_t, isofire_T, color = 'green', linewidth = 0.5,)  ## adds a line
-        plt.plot(isofire_t, iso_steel_temps, color = 'purple', linewidth = 0.5,)  ## adds a line
-        plt.axvline(x=time_eq, color="grey", linestyle='--',label="Time Equivalence", linewidth=0.75)
+        # plt.figure(figsize=(6, 4))  ## size of output
+        plt.plot(times, para_steel_temps, color = 'red', label="Protected Steel - Parametric Fire", linewidth = 0.5,)  ## adds a line
+        plt.plot(isofire_t, iso_steel_temps, color = 'purple', label="Protected Steel - ISO Fire",linewidth = 0.5,)  ## adds a line
+        plt.plot(times, temperatures, color = 'blue', label="Parametric Fire", linewidth = 0.5,)  ## adds a line
+        plt.plot(isofire_t, isofire_T, color = 'green', label="ISO Fire", linewidth = 0.5,)  ## adds a line
+        plt.axvline(x=time_eq, color="grey", linestyle='--', linewidth=0.75)
         # TODO: calc temp of purple fire at time equivalence
         # plt.axhline(y=tenable_limit, color='r', linestyle='--',label="Tenability Limit", linewidth=0.75)
         plt.xlabel("Time (Minutes)", fontname = 'Segoe UI', fontsize = 10) ## sets label and font for xaxis
         plt.ylabel("Temperature (C)", fontname = 'Segoe UI', fontsize = 10)  ## sets label and font for y axis
         plt.xlim([0, 400])
+        plt.legend(bbox_to_anchor =(0.25,-0.45), ncol=1,loc='lower left', fontsize = 8, frameon=False)
+        plt.tight_layout() 
+
         image_buffer = io.BytesIO()
         plt.savefig(image_buffer, format='jpeg')
         image_buffer.seek(0)
