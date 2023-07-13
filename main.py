@@ -96,12 +96,7 @@ async def read_timeEq_elements(data: TimeEqData):
         compartment_height=compartmentHeight, 
         t_lim=tLim
         )
-    # data, opening_heights,room_composition,is_sprinklered=False, fld=948, compartment_height=3.15, t_lim= 20/60
-    print("converted: ", convertedPoints)
-    print("roomComposition: ", roomComposition)
-    print("openingHeights: ", openingHeights)
-    # time_eq_test(convertedPoints)
-    print("img_base64: ", img_data)
+
     return Response(content=img_data, media_type="image/jpeg")
 
     # roomUse: str, 
