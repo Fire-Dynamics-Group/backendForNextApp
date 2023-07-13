@@ -13,10 +13,12 @@ chart_config = {
         "axes.labelcolor": light_text_color,
         "axes.edgecolor": light_text_color,
         "legend.labelcolor": light_text_color,
-        "figure.figsize": [6, 4],
+        "figure.figsize": [6, 4.5],
         'axes.grid': True,
         'grid.linewidth': '0.05',
-        "grid.color": light_text_color
+        "grid.color": light_text_color,
+        "text.color": light_text_color,
+        "font.family": font_name_normal
         }
 # from shapely.geometry import Polygon
 
@@ -374,6 +376,10 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
         # TODO: line below chart -> with tenability in mins rounded to 1 dp e.g.
         plt.xlim([0, 400])
         plt.legend(bbox_to_anchor =(0.25,-0.45), ncol=1,loc='lower left', fontsize = 8, frameon=False)
+        plt.subplots_adjust(bottom=0.2) # This makes room.
+        if time_eq % 2 == 0:
+            time_eq = round(time_eq, 0)
+        plt.figtext(0.5, 0.02, f'The Equivalent Time of Fire Exposure is {time_eq} Minutes', ha='center', va='center', fontsize = 8, fontname = 'Segoe UI')
         plt.tight_layout() 
 
         image_buffer = io.BytesIO()
