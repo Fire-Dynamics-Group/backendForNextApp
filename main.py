@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from pydantic import BaseModel
 
-from script import testFunction
+from fds import testFunction
 from time_eq import compute_time_eq, time_eq_test
 
 app = FastAPI() # create instance
@@ -40,7 +40,8 @@ class TimeEqData(BaseModel):
     isSprinklered: bool
     fireLoadDensity: float
     compartmentHeight: float
-    tLim: float    
+    tLim: float  
+    fireResistancePeriod: float  
 
 @app.get("/items/{item_id}")
 async def read_item(item_id):
@@ -86,6 +87,7 @@ async def read_timeEq_elements(data: TimeEqData):
     fireLoadDensity = data.fireLoadDensity
     compartmentHeight = data.compartmentHeight
     tLim = data.tLim / 60
+    fireResistancePeriod = data.fireResistancePeriod
 
     img_data = compute_time_eq(
         data=convertedPoints, 
@@ -94,7 +96,8 @@ async def read_timeEq_elements(data: TimeEqData):
         is_sprinklered=isSprinklered, 
         fld=fireLoadDensity, 
         compartment_height=compartmentHeight, 
-        t_lim=tLim
+        t_lim=tLim,
+        fire_resistance_period=fireResistancePeriod
         )
 
     return Response(content=img_data, media_type="image/jpeg")
