@@ -3,6 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 from pydantic import BaseModel
 
+import io
+from pathlib import Path
+from docxtpl import DocxTemplate
+from fastapi.responses import FileResponse
+
 from fds import testFunction
 from time_eq import compute_time_eq, time_eq_test
 # from radiation import fillWordDoc
@@ -124,10 +129,7 @@ async def radiation_appendix(
     timestepFEDList: List[float],
     accumulatedFEDList: List[float]
 ):
-    import io
-    from pathlib import Path
-    from docxtpl import DocxTemplate
-    from fastapi.responses import FileResponse
+
 
 
     document_name = "Oil Pan Fire Appendix - Template.docx"
