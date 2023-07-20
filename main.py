@@ -135,7 +135,6 @@ async def radiation_appendix(
     document_name = "Oil Pan Fire Appendix - Template.docx"
     document_path = Path(__file__).parent /"Word Templates"/document_name
     doc = DocxTemplate(document_path)
-    bytes_io = fillWordDoc()
     output_filename = "chart.docx"
     def fillWordDoc(CHIP_PAN_ALLOWED=True, HAS_CUSTOM_FIRE_SIZE=False):
         context = {
@@ -153,11 +152,14 @@ async def radiation_appendix(
 
         bytes_io.seek(0)    
         return bytes_io
+    
+    bytes_io = fillWordDoc()
 
     # response = StreamingResponse(bytes_io, media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     # response.headers['Content-Disposition'] = f'attachment; filename="{output_filename}"'
     # return response
     try:
-        return FileResponse(media_type='application/octet-stream',filename=output_filename)
+        return FileResponse(path=output_filename, media_type='application/octet-stream',filename=output_filename)
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail="Could not read file")
