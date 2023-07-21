@@ -112,30 +112,36 @@ async def read_timeEq_elements(data: TimeEqData):
     # floorMaterial: str, 
     # ceilingMaterial: str
 # class 
-from fastapi.responses import StreamingResponse
-@app.post("/radiation",
-    # responses = {
-    #     200: {
-    #         "content": {"image/jpeg": {}}
-    #     }
-    # },
-    # response_class=Response
-          )
-async def radiation_appendix(
-    timeArray: List[float], 
-    accumulatedDistanceList: List[float], 
-    hobDistanceList: List[float], 
-    qList: List[float],
-    timestepFEDList: List[float],
-    accumulatedFEDList: List[float],
-    totalHeatFlux: float,
-    walkingSpeed: float,
-    doorOpeningDuration:float,
-    docName: str,
+class RadiationData(BaseModel):
+    timeArray: List[float]
+    accumulatedDistanceList: List[float]
+    hobDistanceList: List[float]
+    qList: List[float]
+    timestepFEDList: List[float]
+    accumulatedFEDList: List[float]
+    totalHeatFlux: float
+    walkingSpeed: float
+    doorOpeningDuration: float
+    docName: str
 
+from fastapi.responses import StreamingResponse
+@app.post("/radiation")
+async def radiation_appendix(
+    data: RadiationData
 ):
+    timeArray = data.timeArray
+    accumulatedDistanceList = data.accumulatedDistanceList
+    hobDistanceList = data.hobDistanceList
+    qList = data.qList
+    timestepFEDList = data.timestepFEDList
+    accumulatedFEDList = data.accumulatedFEDList
+    totalHeatFlux = data.totalHeatFlux
+    walkingSpeed = data.walkingSpeed
+    doorOpeningDuration = data.doorOpeningDuration
+    docName = data.docName
 
     output_filename = docName    
+
     bytes_io = fillWordDoc(
                             timeArray, 
                             accumulatedDistanceList, 
@@ -145,19 +151,10 @@ async def radiation_appendix(
                             accumulatedFEDList,
                             totalHeatFlux,
                             walkingSpeed,
-                            doorOpeningDuration,         
+                            doorOpeningDuration,
+                            output_filename=output_filename         
                         )
-                # timeArray, 
-                # accumulatedDistanceList, 
-                # hobDistanceList, 
-                # qList, 
-                # timestepFEDList, 
-                # accumulatedFEDList,
-                # # TODO: SEND FROM FRONTEND
-                # totalHeatFlux=476,
-                # walkingSpeed=1.2,
-                # doorOpeningDuration=11,
-                # output_filename="Oil Pan Fire Appendix.docx"    
+  
     try:
         response = StreamingResponse(bytes_io, media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         response.headers['Content-Disposition'] = f'attachment; filename="{output_filename}"'

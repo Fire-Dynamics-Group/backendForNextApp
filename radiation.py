@@ -53,6 +53,7 @@ def fillWordDoc(
     #   {"description": "Chip Pan", "size": 476},
     #   {"description": "Chip Pan Banned", "size": 150.5},
     # ] 
+    print(output_filename, "rad.py")
     if totalHeatFlux == 476:
         CHIP_PAN_ALLOWED = True
         HAS_CUSTOM_FIRE_SIZE = False
@@ -71,16 +72,7 @@ def fillWordDoc(
         HAS_DOOR = False        
     else:
         HAS_CUSTOM_DOOR_DURATION = True
-#    {{FIRE_Q}}
-#   {{THIRD_FIRE_Q}} 
-# HAS_CUSTOM_WALKING_SPEED 
-# WALKING_SPEED 
 
-# further
-    # HAS_DOOR
-    # HAS_CUSTOM_DOOR_OPENING_DURATION
-    # later: image
-# populate table - increase rows by miles
     
     context = {
         "CHIP_PAN_ALLOWED": CHIP_PAN_ALLOWED,
@@ -97,20 +89,9 @@ def fillWordDoc(
 
     doc.render(context)
 
-    # if __name__ == '__main__':
-    # needs to save for tables to be inserted; can then be sent as bytes later
-    # output_filename = "chart.docx"
     doc.save(output_filename)
     document = Document(output_filename)
-    document_text = [para.text for para in document.paragraphs]
 
-    def delete_paragraph(paragraph):
-        p = paragraph._element
-        p.getparent().remove(p)
-        p._p = p._element = None
-
-    def find_paragraghs_containing_string(target_string):
-        return [para.text for para in document.paragraphs if target_string in para.text]
 
     def alter_table_rows(total_rows, table, document, header_rows = 1, has_door=False):
         # header should be increase by 1
@@ -127,16 +108,6 @@ def fillWordDoc(
         for i in range(rows_to_remove):
             # TODO: if has door -> last two rows to remain
             Delete_row_in_table(table, row=-1, document=document)    
-
-    def reformat_table_cell(cell):
-        paragraphs = cell.paragraphs
-        paragraphs[0].alignment = 1 # 1 = centered
-        # for run in paragraphs.runs:
-        run = paragraphs[0].runs
-        font = run[0].font
-        font.size = Pt(9) # pull from object
-        font.name = font_name_light
-        font.color.rgb = RGBColor(64,64,64) #gray color # to be pulled from object
 
     def fill_radiation_table(table_object, doorOpeningDuration=None):
         # LATER include final line for door opening with n/a for distance travelled
@@ -170,90 +141,92 @@ def fillWordDoc(
 
     bytes_io.seek(0)    
     return bytes_io
+if __name__ == '__main__':
 
-fillWordDoc(
-    timeArray=[        
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        10.35
+    bytes_io = fillWordDoc(
+        timeArray=[        
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            10.35
+            ],
+        accumulatedDistanceList=[
+            0,
+            1.2,
+            2.4,
+            3.5999999999999996,
+            5.120459156782531,
+            6.3204591567825315,
+            7.520459156782532,
+            9.352439756686653,
+            10.552439756686653,
+            11.752439756686652,
+            12.967707134626034,
+            13.798241890504794        
         ],
-    accumulatedDistanceList=[
-        0,
-        1.2,
-        2.4,
-        3.5999999999999996,
-        5.120459156782531,
-        6.3204591567825315,
-        7.520459156782532,
-        9.352439756686653,
-        10.552439756686653,
-        11.752439756686652,
-        12.967707134626034,
-        13.798241890504794        
-    ],
-    hobDistanceList=[
-        6.363175307973213,
-        5.175998158550895,
-        3.9964876922923867,
-        2.8342319615668,
-        2.3338112370936126,
-        2.577102339521506,
-        3.2735665636045987,
-        4.1480441286038765,
-        5.104823209281279,
-        6.147533643924898,
-        6.0038604284247725,
-        6.003332407921453        
-    ],
-    qList=[
-        0.31180611318206564,
-        0.47124220132480643,
-        0.7904518908522363,
-        1.5716709278996468,
-        2.3179333771197017,
-        1.9009429005330298,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0        
-    ],
-    timestepFEDList=[
-        0.0026533065097377223,
-        0.0045955302020744765,
-        0.009143136621402696,
-        0.022807717489928544,
-        0.03823887730483287,
-        0.02937309677957744,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0        
-    ],
-    accumulatedFEDList=[
-        0.0026533065097377223,
-        0.007248836711812199,
-        0.016391973333214897,
-        0.03919969082314344,
-        0.07743856812797631,
-        0.10681166490755375,
-        0.10681166490755375,
-        0.10681166490755375,
-        0.10681166490755375,
-        0.10681166490755375,
-        0.10681166490755375,
-        0.10681166490755375        
-    ]
-)
+        hobDistanceList=[
+            6.363175307973213,
+            5.175998158550895,
+            3.9964876922923867,
+            2.8342319615668,
+            2.3338112370936126,
+            2.577102339521506,
+            3.2735665636045987,
+            4.1480441286038765,
+            5.104823209281279,
+            6.147533643924898,
+            6.0038604284247725,
+            6.003332407921453        
+        ],
+        qList=[
+            0.31180611318206564,
+            0.47124220132480643,
+            0.7904518908522363,
+            1.5716709278996468,
+            2.3179333771197017,
+            1.9009429005330298,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0        
+        ],
+        timestepFEDList=[
+            0.0026533065097377223,
+            0.0045955302020744765,
+            0.009143136621402696,
+            0.022807717489928544,
+            0.03823887730483287,
+            0.02937309677957744,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0        
+        ],
+        accumulatedFEDList=[
+            0.0026533065097377223,
+            0.007248836711812199,
+            0.016391973333214897,
+            0.03919969082314344,
+            0.07743856812797631,
+            0.10681166490755375,
+            0.10681166490755375,
+            0.10681166490755375,
+            0.10681166490755375,
+            0.10681166490755375,
+            0.10681166490755375,
+            0.10681166490755375        
+        ]
+    )
+
