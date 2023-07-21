@@ -128,7 +128,11 @@ async def radiation_appendix(
     qList: List[float],
     timestepFEDList: List[float],
     accumulatedFEDList: List[float],
-    docName: str
+    totalHeatFlux: float,
+    walkingSpeed: float,
+    doorOpeningDuration:float,
+    docName: str,
+
 ):
 
     output_filename = docName    
@@ -138,9 +142,22 @@ async def radiation_appendix(
                             hobDistanceList, 
                             qList, 
                             timestepFEDList, 
-                            accumulatedFEDList
+                            accumulatedFEDList,
+                            totalHeatFlux,
+                            walkingSpeed,
+                            doorOpeningDuration,         
                         )
-
+                # timeArray, 
+                # accumulatedDistanceList, 
+                # hobDistanceList, 
+                # qList, 
+                # timestepFEDList, 
+                # accumulatedFEDList,
+                # # TODO: SEND FROM FRONTEND
+                # totalHeatFlux=476,
+                # walkingSpeed=1.2,
+                # doorOpeningDuration=11,
+                # output_filename="Oil Pan Fire Appendix.docx"    
     try:
         response = StreamingResponse(bytes_io, media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
         response.headers['Content-Disposition'] = f'attachment; filename="{output_filename}"'

@@ -48,11 +48,11 @@ def fillWordDoc(
                 doorOpeningDuration=11,
                 output_filename="Oil Pan Fire Appendix.docx"           
         ):
-        # CHIP_PAN_ALLOWED=True, HAS_CUSTOM_FIRE_SIZE=False
-    fireSizeObject = [
-      {"description": "Chip Pan", "size": 476},
-      {"description": "Chip Pan Banned", "size": 150.5},
-    ] 
+    #     # CHIP_PAN_ALLOWED=True, HAS_CUSTOM_FIRE_SIZE=False
+    # fireSizeObject = [
+    #   {"description": "Chip Pan", "size": 476},
+    #   {"description": "Chip Pan Banned", "size": 150.5},
+    # ] 
     if totalHeatFlux == 476:
         CHIP_PAN_ALLOWED = True
         HAS_CUSTOM_FIRE_SIZE = False
@@ -63,6 +63,14 @@ def fillWordDoc(
         CHIP_PAN_ALLOWED = False
         HAS_CUSTOM_FIRE_SIZE = True
 
+    HAS_DOOR = True
+    if doorOpeningDuration == 11:
+        HAS_CUSTOM_DOOR_DURATION = False
+    elif doorOpeningDuration == None:
+        HAS_CUSTOM_DOOR_DURATION = False
+        HAS_DOOR = False        
+    else:
+        HAS_CUSTOM_DOOR_DURATION = True
 #    {{FIRE_Q}}
 #   {{THIRD_FIRE_Q}} 
 # HAS_CUSTOM_WALKING_SPEED 
@@ -81,6 +89,10 @@ def fillWordDoc(
         "THIRD_FIRE_Q": round(totalHeatFlux/3, 1),
         "HAS_CUSTOM_WALKING_SPEED": False,
         "WALKING_SPEED": walkingSpeed,
+        "HAS_CUSTOM_DOOR_DURATION": HAS_CUSTOM_DOOR_DURATION,
+        "DOOR_DURATION": doorOpeningDuration,
+        "HAS_DOOR": HAS_DOOR,
+        "MAX_FED": round(max(accumulatedFEDList), 3)
     }
 
     doc.render(context)
