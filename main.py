@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 
 from fds import testFunction
 from time_eq import compute_time_eq, time_eq_test
-# from radiation import fillWordDoc
+from radiation import fillWordDoc
 
 app = FastAPI() # create instance
 
@@ -127,39 +127,25 @@ async def radiation_appendix(
     hobDistanceList: List[float], 
     qList: List[float],
     timestepFEDList: List[float],
-    accumulatedFEDList: List[float]
+    accumulatedFEDList: List[float],
+    docName: str
 ):
 
+    output_filename = docName    
+    bytes_io = fillWordDoc(
+                            timeArray, 
+                            accumulatedDistanceList, 
+                            hobDistanceList, 
+                            qList, 
+                            timestepFEDList, 
+                            accumulatedFEDList
+                        )
 
-
-    document_name = "Oil Pan Fire Appendix - Template.docx"
-    document_path = Path(__file__).parent /"Word Templates"/document_name
-    doc = DocxTemplate(document_path)
-    output_filename = "chart.docx"
-    def fillWordDoc(CHIP_PAN_ALLOWED=True, HAS_CUSTOM_FIRE_SIZE=False):
-        context = {
-            "CHIP_PAN_ALLOWED": CHIP_PAN_ALLOWED,
-            "HAS_CUSTOM_FIRE_SIZE": HAS_CUSTOM_FIRE_SIZE
-        }
-
-        doc.render(context)
-
-        # if __name__ == '__main__':
-        doc.save(output_filename)
-
-        bytes_io = io.BytesIO()
-        doc.save(bytes_io)
-
-        bytes_io.seek(0)    
-        return bytes_io
-    
-    bytes_io = fillWordDoc()
-
-    # response = StreamingResponse(bytes_io, media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-    # response.headers['Content-Disposition'] = f'attachment; filename="{output_filename}"'
-    # return response
     try:
-        return FileResponse(path=output_filename, media_type='application/octet-stream',filename=output_filename)
+        response = StreamingResponse(bytes_io, media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        response.headers['Content-Disposition'] = f'attachment; filename="{output_filename}"'
+        return response
+        # return FileResponse(path=output_filename, media_type='application/octet-stream',filename=output_filename)
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Could not read file")
