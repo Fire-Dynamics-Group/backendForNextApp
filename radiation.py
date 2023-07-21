@@ -45,7 +45,7 @@ def fillWordDoc(
                 # TODO: SEND FROM FRONTEND
                 totalHeatFlux=476,
                 walkingSpeed=1.2,
-                doorOpeningDuration=11,
+                doorOpeningDuration=None,
                 output_filename="Oil Pan Fire Appendix.docx"           
         ):
     #     # CHIP_PAN_ALLOWED=True, HAS_CUSTOM_FIRE_SIZE=False
@@ -90,12 +90,15 @@ def fillWordDoc(
     doc.render(context)
 
     doc.save(output_filename)
+    
     document = Document(output_filename)
 
 
     def alter_table_rows(total_rows, table, document, header_rows = 1, has_door=False):
         # header should be increase by 1
         current_rows = len(table.rows)
+        if has_door:
+            header_rows += 1
         required_rows = total_rows + header_rows
         # remove bottom rows
         rows_to_remove = current_rows - required_rows
@@ -104,36 +107,69 @@ def fillWordDoc(
             row = -1
         else: # leave last two rows intact
             row = -4
-            rows_to_remove -= 1 
+            rows_to_remove -= 2
         for i in range(rows_to_remove):
             # TODO: if has door -> last two rows to remain
-            Delete_row_in_table(table, row=-1, document=document)    
+            # 
+            if not has_door and i == rows_to_remove - 1:
+                row = 1
+            Delete_row_in_table(table, row=row, document=document)    
 
-    def fill_radiation_table(table_object, doorOpeningDuration=None):
+    def fill_radiation_table(table_object, has_door=False):
         # LATER include final line for door opening with n/a for distance travelled
+        # 
         table_rows = table_object.rows
-        for row_index in range(1,len(table_rows)):
-            list_index = row_index - 1
-            for cell_idx,target_cell in enumerate(table_rows[row_index].cells):
-                if cell_idx == 0:
-                    cell_text = timeArray[list_index]
-                elif cell_idx == 1:
-                    cell_text = round(accumulatedDistanceList[list_index], 2)
-                elif cell_idx == 2:
-                    cell_text = round(hobDistanceList[list_index], 2)
-                elif cell_idx == 3:
-                    cell_text = round(qList[list_index], 2)
-                elif cell_idx == 4:
-                    cell_text = round(timestepFEDList[list_index], 2)
-                elif cell_idx == 5:
-                    cell_text = round(accumulatedFEDList[list_index], 2)
+        if has_door:
+            start_row = 2
+            end = len(table_rows) 
+            # should also skip -3 index, fill -2 and then repeat totalFED for final col -1
+        else:
+            start_row = 1
+            end = len(table_rows)
+        list_index = 0
 
-                replace_table_cell_content(cell=target_cell, replacement_text=str((cell_text)))
+        # perhaps list of indexes needed
+        # repeat cumulative for total row when door present
+        for row_index in range(start_row,end):
+            if has_door and row_index == len(table_rows) - 3:
+                pass
+            else:
+                # list_index = row_index - 1
+                for cell_idx,target_cell in enumerate(table_rows[row_index].cells):
+                    if has_door and row_index == len(table_rows) - 1:
+                        if cell_idx==len(table_rows[row_index].cells) - 1:
+                            cell_text = round(accumulatedFEDList[-1], 2)
+                            replace_table_cell_content(cell=target_cell, replacement_text=str((cell_text)))
+                    else:
+                        if cell_idx == 0:
+                            cell_text = timeArray[list_index]
+                        elif cell_idx == 1:
+                            cell_text = round(accumulatedDistanceList[list_index], 2)
+                        elif cell_idx == 2:
+                            cell_text = round(hobDistanceList[list_index], 2)
+                        elif cell_idx == 3:
+                            cell_text = round(qList[list_index], 2)
+                        elif cell_idx == 4:
+                            cell_text = round(timestepFEDList[list_index], 2)
+                        elif cell_idx == 5:
+                            cell_text = round(accumulatedFEDList[list_index], 2)
 
+                        replace_table_cell_content(cell=target_cell, replacement_text=str((cell_text)))
+                
+                list_index += 1
+                if list_index == len(timeArray):
+                    pass 
+                
     radiation_table = document.tables[1] # later find tables by name below??
-    alter_table_rows(total_rows=len(timeArray), document=document, table=radiation_table)
+    alter_table_rows(total_rows=len(timeArray), document=document, table=radiation_table, has_door=HAS_DOOR)
     # function to input all time, distance,...etc
-    fill_radiation_table(table_object=radiation_table)
+    fill_radiation_table(table_object=radiation_table, has_door=HAS_DOOR)
+
+    # rad_door_table = document.tables[2]
+    # alter_table_rows(total_rows=len(timeArray), document=document, table=rad_door_table, has_door=True)
+    # fill_radiation_table(rad_door_table, has_door=True)
+
+
     document.save(output_filename)
 
     bytes_io = io.BytesIO()
