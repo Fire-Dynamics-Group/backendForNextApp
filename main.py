@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 import io
@@ -121,7 +121,7 @@ class RadiationData(BaseModel):
     accumulatedFEDList: List[float]
     totalHeatFlux: float
     walkingSpeed: float
-    doorOpeningDuration: float
+    doorOpeningDuration: Optional[float] = None 
     docName: str
 
 from fastapi.responses import StreamingResponse
@@ -151,7 +151,7 @@ async def radiation_appendix(
                             accumulatedFEDList,
                             totalHeatFlux,
                             walkingSpeed,
-                            doorOpeningDuration,
+                            doorOpeningDuration, # need to send null/undefined if not applicable
                             output_filename=output_filename         
                         )
   
