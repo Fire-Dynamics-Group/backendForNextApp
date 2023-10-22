@@ -6,7 +6,7 @@ import io
 from pathlib import Path
 from docxtpl import DocxTemplate
 from docx import Document
-from docx.shared import Inches, Pt, RGBColor
+from docx.shared import Pt, RGBColor
 from constants import font_name_light
 
 

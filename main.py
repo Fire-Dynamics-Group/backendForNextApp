@@ -3,11 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional
 from pydantic import BaseModel
 
-import io
-from pathlib import Path
-from docxtpl import DocxTemplate
-from fastapi.responses import FileResponse
-
 from fds import testFunction
 from time_eq import compute_time_eq, time_eq_test
 from radiation import fillWordDoc
@@ -30,9 +25,13 @@ class Point(BaseModel):
     y: float
 
 class Element(BaseModel):
-    type: str
-    points: List[Point]
     comments: str
+    id: int
+    points: List[Point]
+    type: str
+
+class ElementsData(BaseModel):
+    elementList: List[Element]
 
 class ConvertedElement(BaseModel):
     id: int
@@ -49,6 +48,8 @@ class TimeEqData(BaseModel):
     tLim: float  
     fireResistancePeriod: float  
 
+
+
 @app.get("/items/{item_id}")
 async def read_item(item_id):
     return {"item_id": item_id}
@@ -57,14 +58,12 @@ async def read_item(item_id):
 async def read_users():
     return ["Rick", "Morty"]
 # TODO: change route from test
-@app.post("/test")
-async def read_elements(elements: List[Element]):
-    # run simple script
-    # later will have floor heights etc
-    # print(elements[0].points[0].x)
-
-    # # below to be obtained from post request
-    # return elements
+@app.post("/fds")
+# async def read_elements(elements: List[Element]):
+async def read_elements(body: ElementsData):
+    # LATER: should each obstruction and mesh -> send in cell_size and z1 & z2 
+    print(body)
+    elements = body.elementList
     z = 10
     wall_height = 2.5 
     wall_thickness = 0.2 
