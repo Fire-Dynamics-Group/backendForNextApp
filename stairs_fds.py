@@ -17,10 +17,26 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     array = []
     try:
         landings = [ f for f in elements if f.comments == comments]
-        fire_floor_landing_points = landings[0].points
-        fire_floor_halflanding_points = landings[-1].points
+        if landings:
+            fire_floor_landing_points = landings[0].points
+            fire_floor_halflanding_points = landings[-1].points
+        else:
+            # Handle the case where no elements match
+            # For example, return an empty list or raise an exception
+            print("no elements match")
+            return []
     except:
-        landings = [ f for f in elements if f["comments"] == comments]  
+        # landings = [ f for f in elements if f["comments"] == comments]
+        filtered_elements = [f for f in elements if f["comments"] == comments]
+        if filtered_elements:
+            # output = filtered_elements[0]
+            # points = output["points"]
+            landings = filtered_elements
+        else:
+            # Handle the case where no elements match
+            # For example, return an empty list or raise an exception
+            print("no elements match")
+            return []  
         fire_floor_landing_points = landings[0]["points"]
         fire_floor_halflanding_points = landings[1]["points"]
 

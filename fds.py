@@ -191,8 +191,15 @@ else:
 def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_height, px_per_m):
     print("elements: ", elements)
     try:
-        output = [ f for f in elements if f.comments == comments][0] 
-        points = output.points
+        output = [ f for f in elements if f.comments == comments]
+        if output:
+            output = output[0]
+            points = output.points
+        else:
+            # Handle the case where no elements match
+            # For example, return an empty list or raise an exception
+            print("no elements match")
+            return []
     except:
         filtered_elements = [f for f in elements if f["comments"] == comments]
         if filtered_elements:
