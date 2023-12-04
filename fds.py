@@ -1,5 +1,7 @@
 import numpy as np
 
+from stairs_fds import setup_landings
+
 '''
     fds walls - done?
     TODO:
@@ -43,6 +45,7 @@ def points_to_fds_wall_lines(points, wall_thickness, px_per_m, comments, z, wall
         array.append(f"&OBST ID='{obstruction_name_obj[comments]}' XB = {x1},{x2},{y1},{y2},{z1},{z2}, SURF_ID='Plasterboard'/")
         # array.append(convert_print_to_string(("&OBST ID='Corridor Walls'", 'XB =', list_to_comma_str(i), ", SURF_ID='Plasterboard'/")))
     return array
+
 def convert_points_to_dict(points):
     return [{"x": point.x, "y": point.y} for point in points]
 
@@ -52,8 +55,6 @@ def convert_canvas_points_to_fds(points, px_per_m):
     # TODO: incorporate scale before sending co-ordinates
     points = [{"x": p["x"]/px_per_m, "y":p["y"]/px_per_m} for p in points]
     return points
-
-
 
 def points_to_fds_wall_points(points, wall_thickness, px_per_m, comments, z, wall_height,is_stair=False):
     # TODO: points to be zero-ed at bottom-leftmost point
@@ -176,170 +177,82 @@ def add_array_to_fds_array(array, fds_array=fds_array):
 def array_to_str(array):
     array = [ f for f in array if len(f)!= 0]
     return "\n".join(array)
+'''
+filtered_elements = [f for f in elements if f["comments"] == comments]
+if filtered_elements:
+    output = filtered_elements[0]
+    points = output["points"]
+else:
+    # Handle the case where no elements match
+    # For example, return an empty list or raise an exception
+    return []
 
+'''
 def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_height, px_per_m):
-    output = [ f for f in elements if f.comments == comments][0] 
-    obstruction_list = points_to_fds_wall_lines(points=output.points, wall_thickness=wall_thickness, px_per_m=px_per_m, comments=comments, z=z,wall_height=wall_height,is_stair=False)
+    print("elements: ", elements)
+    try:
+        output = [ f for f in elements if f.comments == comments][0] 
+        points = output.points
+    except:
+        filtered_elements = [f for f in elements if f["comments"] == comments]
+        if filtered_elements:
+            output = filtered_elements[0]
+            points = output["points"]
+        else:
+            # Handle the case where no elements match
+            # For example, return an empty list or raise an exception
+            print("no elements match")
+            return []
+        # output = [ f for f in elements if f["comments"] == comments][0]
+        # points = output["points"]
+    obstruction_list = points_to_fds_wall_lines(points=points, wall_thickness=wall_thickness, px_per_m=px_per_m, comments=comments, z=z,wall_height=wall_height,is_stair=False)
     add_array_to_fds_array(obstruction_list)
 
-def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m):
+def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z):
     # turn obstructions into fds code and send back
     obstruction_list = []
     stair_obstruction_list = []
     cell_size = 0.1
-
+    # TODO: test on not including all different elements
 
     add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_height=stair_height, px_per_m=px_per_m)
     add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_height=stair_height, px_per_m=px_per_m)
     create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z)
     create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z)
+    stair_list = setup_landings(comments="landing", fire_floor=fire_floor, total_floors=total_floors, elements=elements, px_per_m=px_per_m, z=z, stair_enclosure_roof_z=stair_enclosure_roof_z)
+    # for stair_row in stair_list:
+    add_array_to_fds_array(stair_list)
     final = array_to_str(fds_array)
-
     return final
+
 
 
 if __name__ == '__main__':
     # points = [{"x":234.58699702156903,"y":1418.6927915113936},{"x":497.1010174980868,"y":1418.6927915113936},{"x":497.1010174980868,"y":1329.3263164555578},{"x":234.58699702156903,"y":1329.3263164555578},{"x":234.58699702156903,"y":1418.6927915113936}]
     # comments = "obstruction"
-    # z = 10
-    # wall_height = 2.5 
-    # wall_thickness = 0.2 
-    # stair_height = 30  
+    z = 10
+    wall_height = 2.5 
+    wall_thickness = 0.2 
+    stair_height = 30  
     px_per_m = 33.600380950221385  
     # array = points_to_fds_wall_lines(points, wall_thickness, px_per_m, comments, is_stair=False)
     # add_array_to_fds_array(array)
     # joined = array_to_str(fds_array)
     comments = 'mesh'
-    elements = [
-    {
-        "type": "polyline",
-        "points": [
-            {
-                "x": 434.8527476376342,
-                "y": 832.0410840625599
-            },
-            {
-                "x": 551.2700186587331,
-                "y": 832.0410840625599
-            },
-            {
-                "x": 551.2700186587331,
-                "y": 780.6805233179574
-            },
-            {
-                "x": 606.0546167863091,
-                "y": 780.6805233179574
-            }
-        ],
-        "comments": "obstruction",
-        "id": 0
-    },
-    {
-        "type": "polyline",
-        "points": [
-            {
-                "x": 606.0546167863091,
-                "y": 832.0410840625599
-            },
-            {
-                "x": 671.1113270628056,
-                "y": 832.0410840625599
-            },
-            {
-                "x": 671.1113270628056,
-                "y": 886.8256821901359
-            },
-            {
-                "x": 606.0546167863091,
-                "y": 886.8256821901359
-            },
-            {
-                "x": 606.0546167863091,
-                "y": 832.0410840625599
-            }
-        ],
-        "comments": "obstruction",
-        "id": 1
-    },
-    {
-        "type": "polyline",
-        "points": [
-            {
-                "x": 609.4786541692825,
-                "y": 1099.1159999344927
-            },
-            {
-                "x": 691.6555513606465,
-                "y": 1099.1159999344927
-            },
-            {
-                "x": 691.6555513606465,
-                "y": 897.0977943390563
-            },
-            {
-                "x": 664.2632522968586,
-                "y": 897.0977943390563
-            },
-            {
-                "x": 664.2632522968586,
-                "y": 917.6420186368973
-            },
-            {
-                "x": 609.4786541692825,
-                "y": 917.6420186368973
-            },
-            {
-                "x": 609.4786541692825,
-                "y": 1099.1159999344927
-            }
-        ],
-        "comments": "stairObstruction",
-        "id": 2
-    },
-    {
-        "type": "polyline",
-        "points": [
-            {
-                "x": 571.814242956574,
-                "y": 1109.3881120834133
-            },
-            {
-                "x": 506.75753268007765,
-                "y": 883.4016448071624
-            },
-            {
-                "x": 400.6123738078992,
-                "y": 883.4016448071624
-            },
-            {
-                "x": 400.6123738078992,
-                "y": 1109.3881120834133
-            },
-            {
-                "x": 571.814242956574,
-                "y": 1109.3881120834133
-            }
-        ],
-        "comments": "stairObstruction",
-        "id": 3
-    },
-    {
-        "type": "rect",
-        "points": [
-            {
-                "x": 575.2382803395476,
-                "y": 883.4016448071624
-            },
-            {
-                "x": 708.775738275514,
-                "y": 1109.3881120834133
-            }
-        ],
-        "comments": "mesh",
-        "id": 4
-    }
-]
+    from mockData import stairElements
     cell_size = 0.1
-    create_mesh(comments, elements, cell_size, px_per_m, z=10)
-    pass
+    final = testFunction(stairElements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor=2, total_floors=7, stair_enclosure_roof_z=40) 
+    # landing_array = setup_landings(
+    #                 comments="landing", 
+    #                 fire_floor=2, 
+    #                 total_floors=7, 
+    #                 elements=stairElements, 
+    #                 px_per_m=px_per_m,
+    #                 z=10, 
+    #                 stair_enclosure_roof_z=50
+    #                 )
+    # for line in landing_array:
+    #     fds_array.append(line)
+    # # TODO: add steps
+    # pass
 
