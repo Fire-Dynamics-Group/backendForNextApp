@@ -110,9 +110,9 @@ def points_to_fds_wall_points(points, wall_thickness, px_per_m, comments, z, wal
     return walls_list
 
 def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, is_stair=False):
+    # TODO: mesh final dimensions to be divisible by cell size
     # LATER: mesh vents 
-    # TODO: STAIR MESHES
-    mesh_height = z2 - z1
+    mesh_delta_z = z2 - z1
     current_cell_size = cell_size # changes for stair upper and lower!!!
     points = convert_canvas_points_to_fds(points, px_per_m)
     x_points = [p['x'] for p in points]
@@ -122,14 +122,15 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, is
     y1 = min(y_points)
     y2 = max(y_points)
     id = mesh_name_obj[comments] # should be mesh1 etc
-    mesh_width = x2 - x1
+    mesh_delta_y = y2 - y1
+    mesh_delta_x = x2 - x1
     k_num = z2 - z1
-    first = f"&MESH ID='{id}{idx}', IJK={round(mesh_width / current_cell_size)},"
-    second = f"{round(mesh_height / current_cell_size)},{round((k_num / current_cell_size))}, XB="
+    first = f"&MESH ID='{id}{idx}', IJK={round(mesh_delta_x / current_cell_size)},"
+    second = f"{round(mesh_delta_y / current_cell_size)},{round((mesh_delta_z / current_cell_size))}, XB="
     third = f"{round((x1),1)},"
     fourth= f"{round((x2),1)},"
     fifth = f"{round((y1),1)},"
-    sixth = f"{round((y2),1)},{z1},{z2}/"
+    sixth = f"{round((y2),1)},{round(z1, 1)},{round(z2, 1)}/"
     line = first + second + third + fourth + fifth + sixth
     fds_array.append(line)
 
@@ -250,9 +251,9 @@ if __name__ == '__main__':
     # add_array_to_fds_array(array)
     # joined = array_to_str(fds_array)
     comments = 'mesh'
-    from mockData import stairElements
+    from mockData import stairElsTwo
     cell_size = 0.1
-    final = testFunction(stairElements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor=2, total_floors=7, stair_enclosure_roof_z=40) 
+    final = testFunction(stairElsTwo, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor=2, total_floors=7, stair_enclosure_roof_z=40) 
     # landing_array = setup_landings(
     #                 comments="landing", 
     #                 fire_floor=2, 
