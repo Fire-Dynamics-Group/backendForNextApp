@@ -29,10 +29,18 @@ class Element(BaseModel):
     comments: str
     id: int
     points: List[Point]
-    type: str
+    type: str 
 
 class ElementsData(BaseModel):
     elementList: List[Element]
+    z: float
+    wall_height: float
+    wall_thickness: float
+    stair_height: float
+    px_per_m: float
+    fire_floor: int
+    total_floors: int
+    stair_enclosure_roof_z: float
 
 class ConvertedElement(BaseModel):
     id: int
@@ -65,12 +73,15 @@ async def read_elements(body: ElementsData):
     # LATER: should each obstruction and mesh -> send in cell_size and z1 & z2 
     print("body: ",body)
     elements = body.elementList
-    z = 10
-    wall_height = 2.5 
-    wall_thickness = 0.2 
-    stair_height = 30
-    px_per_m = 33.6 
-# testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z
+    z = body.z
+    wall_height = body.wall_height 
+    wall_thickness = body.wall_thickness # left as 0.2 for now
+    stair_height = body.stair_height
+    px_per_m = body.px_per_m
+    fire_floor = body.fire_floor
+    total_floors = body.total_floors
+    stair_enclosure_roof_z = body.stair_enclosure_roof_z
+    # TODO: have 
     output = testFunction(
                             elements, 
                             z, 
@@ -78,9 +89,9 @@ async def read_elements(body: ElementsData):
                             wall_thickness, 
                             stair_height, 
                             px_per_m, 
-                            fire_floor=3, 
-                            total_floors=6, 
-                            stair_enclosure_roof_z=40
+                            fire_floor, 
+                            total_floors, 
+                            stair_enclosure_roof_z
                             )
     return output
 

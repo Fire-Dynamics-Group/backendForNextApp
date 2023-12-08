@@ -140,7 +140,7 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height=3.5):
     else:
         meshes = [ f for f in elements if f["comments"] == comments]
     for idx, mesh in enumerate(meshes):
-        print("mesh: ", mesh)
+        # print("mesh: ", mesh)
         if __name__ != '__main__':
             points = mesh.points
         else:
@@ -188,8 +188,8 @@ else:
     return []
 
 '''
-def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_height, px_per_m):
-    print("elements: ", elements)
+def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_enclosure_roof_z, px_per_m):
+    # print("elements: ", elements)
     try:
         output = [ f for f in elements if f.comments == comments]
         if output:
@@ -212,6 +212,10 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
             return []
         # output = [ f for f in elements if f["comments"] == comments][0]
         # points = output["points"]
+    # TODO: walls to go from level zero to max stair enclosure height
+    if comments == "stairObstruction":
+        z = 0
+        wall_height = stair_enclosure_roof_z
     obstruction_list = points_to_fds_wall_lines(points=points, wall_thickness=wall_thickness, px_per_m=px_per_m, comments=comments, z=z,wall_height=wall_height,is_stair=False)
     add_array_to_fds_array(obstruction_list)
 
@@ -222,8 +226,8 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     cell_size = 0.1
     # TODO: test on not including all different elements
 
-    add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_height=stair_height, px_per_m=px_per_m)
-    add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_height=stair_height, px_per_m=px_per_m)
+    add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m)
+    add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m)
     create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z)
     create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z)
     stair_list = setup_landings(comments="landing", fire_floor=fire_floor, total_floors=total_floors, elements=elements, px_per_m=px_per_m, z=z, stair_enclosure_roof_z=stair_enclosure_roof_z)

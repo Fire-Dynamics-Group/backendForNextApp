@@ -1,5 +1,6 @@
 import math
 
+# TODO: add upper landings and stairs
 def convert_points_to_dict(points):
     try:
         return [{"x": point.x, "y": point.y} for point in points]
@@ -37,13 +38,14 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             # For example, return an empty list or raise an exception
             print("no elements match")
             return []  
+        # should be a check for 2 landings at frontend
         fire_floor_landing_points = landings[0]["points"]
         fire_floor_halflanding_points = landings[1]["points"]
 
     # if __name__ != '__main__':
     # else:
 
-    num_upper_landings = total_floors - fire_floor # perhaps need z of top floor? or add one on and use stair roof
+    num_upper_landings = total_floors - fire_floor + 1 # perhaps need z of top floor? or add one on and use stair roof
     num_lower_landings = fire_floor - lowest_floor
 
     # convert to 4 corner points
@@ -51,13 +53,19 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     fire_floor_landing_points = convert_canvas_points_to_fds(fire_floor_landing_points, px_per_m)
     fire_floor_halflanding_points = convert_canvas_points_to_fds(fire_floor_halflanding_points, px_per_m)
     z_list = []
-    z_diff_lower = round((z - lowest_floor_landing_z) / num_lower_landings, 2)
-    z_diff_higher = round((stair_enclosure_roof_z - z) / (num_upper_landings + 1), 2)
+    try:
+        z_diff_lower = round((z - lowest_floor_landing_z) / num_lower_landings, 2)
+    except:
+        z_diff_lower = 0
+    try:
+        z_diff_higher = round((stair_enclosure_roof_z - z) / (num_upper_landings), 2)
+    except:
+        z_diff_higher = 0
     # lower z's
     lower_z = [lowest_floor_landing_z + (x * z_diff_lower) for x in range(num_lower_landings)]
     lower_z_halflanding = [round(x + 0.5 * z_diff_lower, 3) for x in lower_z]
     # upper z's
-    upper_z = [z + (x * z_diff_higher) for x in range(num_lower_landings)] # includes top floor!
+    upper_z = [z + (x * z_diff_higher) for x in range(num_upper_landings)] # includes top floor!
     upper_z_halflanding = [round(x + 0.5 * z_diff_higher, 3) for x in upper_z[:-1]]
     z_landing = lower_z + upper_z
     z_halflanding = lower_z_halflanding + upper_z_halflanding
@@ -174,14 +182,35 @@ def create_landings_fds_lines():
 
 if __name__ == '__main__':     
     px_per_m = 33.600380950221385
-    from mockData import stairElements
+    from mockData import stairElsTwo
+    # setup_landings(
+    #                 comments="landing", 
+    #                 fire_floor=4, 
+    #                 total_floors=7, 
+    #                 elements=stairElsTwo, 
+    #                 px_per_m=px_per_m,
+    #                 z=25, 
+    #                 stair_enclosure_roof_z=60
+    #                 )
+    
+    '''
+    elementList=[Element(comments='stairObstruction', id=0, points=[Point(x=609.0521531954386, y=915.2423067144568), Point(x=665.630768519605, y=915.2423067144568), Point(x=665.630768519605, y=895.2733836588687), Point(x=695.5841531029872, y=895.2733836588687), Point(x=695.5841531029872, y=1094.9626142147501), Point(x=609.0521531954386, y=1094.9626142147501), Point(x=609.0521531954386, y=915.2423067144568)], type='polyline')] 
+    z=3.0 
+    wall_height=3.0 
+    wall_thickness=0.2 
+    stair_height=20.0 
+    px_per_m=33.6 
+    fire_floor=1 
+    total_floors=8 
+    stair_enclosure_roof_z=25.0
+    '''
     setup_landings(
                     comments="landing", 
-                    fire_floor=4, 
-                    total_floors=7, 
-                    elements=stairElements, 
-                    px_per_m=px_per_m,
-                    z=25, 
-                    stair_enclosure_roof_z=60
-                    )
-                    
+                    fire_floor=3, 
+                    total_floors=6, 
+                    elements=stairElsTwo,
+                    # elements=[{"comments":"landing","points":[{"x":609.0521531954386,"y":915.2423067144568},{"x":665.630768519605,"y":915.2423067144568},{"x":665.630768519605,"y":895.2733836588687},{"x":695.5841531029872,"y":895.2733836588687},{"x":695.5841531029872,"y":1094.9626142147501},{"x":609.0521531954386,"y":1094.9626142147501},{"x":609.0521531954386,"y":915.2423067144568}],"type":"polyline"}], 
+                    px_per_m=33.6,
+                    z=10, 
+                    stair_enclosure_roof_z=35.0 
+    )
