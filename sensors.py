@@ -21,12 +21,15 @@ def Sensor_Generator(z, points, sensor_type, area, is_firefighting_dist=False,st
             counter += 1
     return array
 
-def run_sensors(floor_z_list, sensor_points_list):
+def run_sensors(floor_points_list):
     sensor_types = ["TEMPERATURE", "PRESSURE", "VISIBILITY", "VELOCITY"]
     sensor_array = []
+    floor_z_list = [ f[-1] for f in floor_points_list ]
+    sensor_points_list = [ f[:2] for f in floor_points_list]
+
     for sens_type in sensor_types:
         for idx, floor_z in enumerate(floor_z_list):
             sensor_point = sensor_points_list[idx]
         # for i in range(12): # for each point use 1.8 above floor level
             sensor_array += (Sensor_Generator(z=[floor_z+1.8], points=[sensor_point], sensor_type=sens_type, area="stair", is_firefighting_dist=False,start_from_index=idx))
-pass
+    return sensor_array

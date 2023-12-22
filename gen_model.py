@@ -96,6 +96,7 @@ def gen_stairs(room_width, room_length, stair_width, stair_enclosure_roof_z, fir
     #     {"x": stair_start_pos[0], "y": stair_start_pos[1]+stair_landing_depth+stair_depth},
     #     {"x": stair_start_pos[0]+stair_landing_width, "y": stair_start_pos[1]+2*stair_landing_depth+stair_depth},
     # ]
+    # TODO: add sensors above each stair and landing
     array = []
     array = gen_landings(fire_floor_landing_points, fire_floor_halflanding_points, z, stair_enclosure_roof_z, lowest_floor_landing_z=0, num_lower_landings=0, num_upper_landings=total_floors, array=array)
     wall_array = points_to_fds_wall_lines(wall_points, wall_thickness=0.2, px_per_m=1, comments="stairObstruction", z=0, wall_height=stair_enclosure_roof_z,is_stair=False)
@@ -104,13 +105,26 @@ def gen_stairs(room_width, room_length, stair_width, stair_enclosure_roof_z, fir
     final_wall_points1_array = points_to_fds_wall_lines(final_wall_points1, wall_thickness=0.2, px_per_m=1, comments="obstruction", z=0, wall_height=room_height,is_stair=False)
     final_wall_points2_array = points_to_fds_wall_lines(final_wall_points2, wall_thickness=0.2, px_per_m=1, comments="obstruction", z=0, wall_height=room_height,is_stair=False)
     # sensor_array = run_sensors(floor_z_list, sensor_points_list)
+    # extract all step coordinates from array
+    step_list = [f for f in array if 'STEP' in f or 'LANDING' in f]
+    temp = [f.split(',')[1:7] for f in step_list]
+    import re
+    float_regex = r"[-+]?\d*\.\d+|\d+"
 
+    # Extracting only the floats from each string
+    floats_nested_list = []
+    for sublist in temp:
+        floats_list = [float(match) for item in sublist for match in re.findall(float_regex, item)]
+        floats_nested_list.append(floats_list)
+    mid_step_points = [[round((x1+x2)/2, 2), round((y1+y2)/2, 2), z2] for [x1, x2, y1, y2, z1, z2] in floats_nested_list]
+    sensor_array = run_sensors(mid_step_points)
 
     array += wall_array + incomplete_wall_array + room_points_array
     if room_length != stair_start_pos[1]+stair_landing_width:
         array += final_wall_points1_array
     if stair_start_pos[1] != 0:
         array += final_wall_points2_array
+    array += sensor_array
     return array
 
 def array_to_str(array):
