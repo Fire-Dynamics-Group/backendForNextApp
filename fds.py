@@ -18,7 +18,9 @@ obstruction_name_obj = { # LATER: send in via api
 
 mesh_name_obj = { # LATER: send in via api
     "mesh": "Mesh",
-    "stairMesh": "Stair Mesh"
+    "stairMesh": "Stair Mesh",
+    "stairMeshUpper": "Stair Mesh Upper",
+    "stairMeshLower": "Stair Mesh Lower",
 }
 
 header = [
@@ -47,7 +49,10 @@ def points_to_fds_wall_lines(points, wall_thickness, px_per_m, comments, z, wall
     return array
 
 def convert_points_to_dict(points):
-    return [{"x": point.x, "y": point.y} for point in points]
+    try:
+        return [{"x": point.x, "y": point.y} for point in points]
+    except:
+        return points
 
 def convert_canvas_points_to_fds(points, px_per_m):
     if __name__ != '__main__':
@@ -127,15 +132,16 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, is
     k_num = z2 - z1
     first = f"&MESH ID='{id}{idx}', IJK={round(mesh_delta_x / current_cell_size)},"
     second = f"{round(mesh_delta_y / current_cell_size)},{round((mesh_delta_z / current_cell_size))}, XB="
-    third = f"{round((x1),1)},"
-    fourth= f"{round((x2),1)},"
-    fifth = f"{round((y1),1)},"
-    sixth = f"{round((y2),1)},{round(z1, 1)},{round(z2, 1)}/"
+    third = f"{round(x1 / cell_size) * cell_size},"
+    fourth= f"{round(x2 / cell_size) * cell_size},"
+    fifth = f"{round(y1 / cell_size) * cell_size},"
+    sixth = f"{round(y2 / cell_size) * cell_size},{round(z1 / cell_size) * cell_size},{round(z2 / cell_size) * cell_size}/"
     line = first + second + third + fourth + fifth + sixth
     fds_array.append(line)
 
 
-def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height=3.5):
+def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z=None):
+    # TODO: have upper and lower stair meshes created
     if __name__ != '__main__':
         meshes = [ f for f in elements if f.comments == comments]
     else:
@@ -148,6 +154,13 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height=3.5):
             points = mesh["points"]
         # pass index?
         create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, is_stair=False)
+
+        if comments == "stairMesh":
+            # upper and lower stair meshes
+            upper_comment = "stairMeshUpper"
+            lower_comment = "stairMeshLower"
+            create_fds_mesh_lines(points, 0.2, 0, z, px_per_m, comments=lower_comment, idx=idx, is_stair=True)
+            create_fds_mesh_lines(points, 0.2, z + wall_height, stair_enclosure_roof_z, px_per_m, comments=upper_comment, idx=idx, is_stair=True)
         # x1 = min([p["x"] for p in points])
         # x2 = max([p["x"] for p in points])
         # y1 = min([p["y"] for p in points])
@@ -229,8 +242,9 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
 
     add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m)
     add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m)
-    create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z)
-    create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z)
+    create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, wall_height=wall_height)
+    # TODO: have stair meshes at higher and lower levels
+    create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, wall_height=wall_height, stair_enclosure_roof_z=stair_enclosure_roof_z)
     stair_list = setup_landings(comments="landing", fire_floor=fire_floor, total_floors=total_floors, elements=elements, px_per_m=px_per_m, z=z, stair_enclosure_roof_z=stair_enclosure_roof_z)
     # for stair_row in stair_list:
     add_array_to_fds_array(stair_list)

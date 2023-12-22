@@ -52,6 +52,23 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     # convert to fds coordinates
     fire_floor_landing_points = convert_canvas_points_to_fds(fire_floor_landing_points, px_per_m)
     fire_floor_halflanding_points = convert_canvas_points_to_fds(fire_floor_halflanding_points, px_per_m)
+
+    # also half landing
+    # 
+    # assume 8 steps between 
+    # start at landing; find if pos or negative to half landing
+    # step in tread distance; step_heihgt
+    '''
+    step height depends on height between landing and next half landing etc
+    add to fds file
+    '''
+    array = gen_landings(fire_floor_landing_points, fire_floor_halflanding_points, z, stair_enclosure_roof_z, lowest_floor_landing_z, num_lower_landings, num_upper_landings, array)
+
+    return array
+
+
+def gen_landings(fire_floor_landing_points, fire_floor_halflanding_points, z, stair_enclosure_roof_z, lowest_floor_landing_z, num_lower_landings, num_upper_landings, array):
+    # TODO: when half landing x > landing x; stair should start at x2 of landing and go to x1 of half landing
     z_list = []
     try:
         z_diff_lower = round((z - lowest_floor_landing_z) / num_lower_landings, 2)
@@ -90,30 +107,37 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         stair_direction = 'x'
         delta_interlandings = max(landing_x1 - halflanding_x2, halflanding_x1 - landing_x2)
         stair1_y1_list = [landing_y1 for x in range(8)]
-        stair1_y2_list = [landing_y2 for x in range(8)]
+        stair2_y2_list = [landing_y2 for x in range(8)]
+        stair_y_mid_list = [landing_y1 + (landing_y2 - landing_y1)/2 for x in range(8)]
+        stair1_y2_list = stair_y_mid_list
+        stair2_y1_list = stair_y_mid_list
+
         # find stair direction lists
         '''
             start at landing go to half landing
+            TODO: include stair_1_x2_list etc
         '''
         tread = math.ceil(100*(delta_interlandings / 8)) / 100 
         if landing_x1 - halflanding_x2 < halflanding_x1 - landing_x2:
             # plus x
-            stair_x1_list = [landing_x1 + tread*x for x in range(8)]
-            stair_x2_list = [landing_x2 + tread*x for x in range(8)]
+            stair1_x1_list = [landing_x2 + tread*x - 0.01 for x in range(8)]
+            stair1_x2_list = [x + tread*2 for x in stair1_x1_list]
             pass
         else:
             # minus x
-            stair_x1_list = [landing_x1 - tread*x for x in range(8)]
-            stair_x2_list = [landing_x2 - tread*x for x in range(8)]
+            stair1_x1_list = [landing_x1 - tread*x for x in range(8)]
+            stair1_x2_list = [x - tread*2 for x in stair1_x1_list]
 
+        stair2_x1_list = stair1_x1_list[::-1]
+        stair2_x2_list = stair1_x2_list[::-1]
     else:
         stair_direction = 'y'
         delta_interlandings = max(landing_y1 - halflanding_y2, halflanding_y1 - landing_y2)
-        stair_x1_list = [landing_x1 for x in range(8)]
-        stair_x2_list = [landing_x2 for x in range(8)]
+        stair1_x1_list = [landing_x1 for x in range(8)]
+        stair2_x2_list = [landing_x2 for x in range(8)]
         stair_x_mid_list = [landing_x1 + (landing_x2 - landing_x1)/2 for x in range(8)]
-        stair_1_x2_list = stair_x_mid_list
-        stair_2_x1_list = stair_x_mid_list
+        stair1_x2_list = stair_x_mid_list
+        stair2_x1_list = stair_x_mid_list
         
         tread = math.ceil(100*(delta_interlandings / 8)) / 100 
 
@@ -149,7 +173,7 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                 current_step_z1 = round(z_current + (step_num * height_per_step), 3)
                 current_step_z2 = round(z_current + ((step_num + 1) * height_per_step), 3)
                 # 
-                current_step_line = f"&OBST ID='STEP1', XB = {round(stair_x1_list[step_num], 3)}, {round(stair_1_x2_list[step_num], 3)}, {round(stair1_y1_list[step_num], 3)}, {round(stair1_y2_list[step_num], 3)},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
+                current_step_line = f"&OBST ID='STEP1', XB = {round(stair1_x1_list[step_num], 3)}, {round(stair1_x2_list[step_num], 3)}, {round(stair1_y1_list[step_num], 3)}, {round(stair1_y2_list[step_num], 3)},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
                 array.append(current_step_line)
     for idx, z_current in enumerate(z_halflanding):
         output = f"&OBST ID='HALFLANDING', XB = {round(halflanding_x1, 3)}, {round(halflanding_x2, 3)}, {round(halflanding_y1, 3)}, {round(halflanding_y2, 3)},{round(z_current - 0.2, 3)}, {round(z_current, 3)}, SURF_ID = 'Plasterboard'/"
@@ -162,23 +186,11 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                 current_step_z1 = round(z_current + (step_num * height_per_step), 3)
                 current_step_z2 = round(z_current + ((step_num + 1) * height_per_step), 3)
                 # 
-                current_step_line = f"&OBST ID='STEP2', XB = {round(stair_2_x1_list[step_num], 3)}, {round(stair_x2_list[step_num], 3)}, {round(stair2_y1_list[step_num], 3)}, {round(stair2_y2_list[step_num], 3)},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
+                current_step_line = f"&OBST ID='STEP2', XB = {round(stair2_x1_list[step_num], 3)}, {round(stair2_x2_list[step_num], 3)}, {round(stair2_y1_list[step_num], 3)}, {round(stair2_y2_list[step_num], 3)},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
                 array.append(current_step_line)
-    # also half landing
-    # 
-    # assume 8 steps between 
-    # start at landing; find if pos or negative to half landing
-    # step in tread distance; step_heihgt
-    '''
-    step height depends on height between landing and next half landing etc
-    add to fds file
-    '''
-
     return array
-    pass
 
-def create_landings_fds_lines():
-    pass
+
 
 if __name__ == '__main__':     
     px_per_m = 33.600380950221385
@@ -206,8 +218,8 @@ if __name__ == '__main__':
     '''
     setup_landings(
                     comments="landing", 
-                    fire_floor=3, 
-                    total_floors=6, 
+                    fire_floor=0, 
+                    total_floors=3, 
                     elements=stairElsTwo,
                     # elements=[{"comments":"landing","points":[{"x":609.0521531954386,"y":915.2423067144568},{"x":665.630768519605,"y":915.2423067144568},{"x":665.630768519605,"y":895.2733836588687},{"x":695.5841531029872,"y":895.2733836588687},{"x":695.5841531029872,"y":1094.9626142147501},{"x":609.0521531954386,"y":1094.9626142147501},{"x":609.0521531954386,"y":915.2423067144568}],"type":"polyline"}], 
                     px_per_m=33.6,
