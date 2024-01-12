@@ -113,7 +113,7 @@ def points_to_fds_wall_points(points, wall_thickness, px_per_m, comments, z, wal
         walls_list.append([x1, x2, y1, y2, z1, z2])
     
     return walls_list
-
+# send in array or add to array after
 def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, is_stair=False):
     # TODO: mesh final dimensions to be divisible by cell size
     # LATER: mesh vents 
@@ -137,8 +137,23 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, is
     fifth = f"{round(y1 / cell_size) * cell_size},"
     sixth = f"{round(y2 / cell_size) * cell_size},{round(z1 / cell_size) * cell_size},{round(z2 / cell_size) * cell_size}/"
     line = first + second + third + fourth + fifth + sixth
-    fds_array.append(line)
+    return line
 
+
+'''
+def Stair_Mesh_Vent (stair_height, mesh_data_stair_mesh):
+    
+    MESH_VENT = round(mesh_data_stair_mesh.iloc[0]['X'],1), round(mesh_data_stair_mesh.iloc[0]['X1'],1), round(mesh_data_stair_mesh.iloc[0]['Y'],1), round(mesh_data_stair_mesh.iloc[0]['Y1'],1) ,round(stair_height+0.4,1), round(stair_height+0.4,1) 
+    
+    
+    return [convert_print_to_string(("&VENT ID = 'Mesh Vent: Stair Mesh Top [ZMAX]', SURF_ID='OPEN', XB =",list_to_comma_str(MESH_VENT),'/' ))]
+'''    
+
+def Stair_Mesh_Vent (points, stair_enclosure_roof_z, cell_size=0.2):
+    
+    MESH_VENT = f"{points[0]['x']}, {points[1]['x']}, {points[-1]['y']}, {points[0]['y']}, {stair_enclosure_roof_z + 0.4}, {stair_enclosure_roof_z + 0.4}"
+    
+    return [f"&VENT ID = 'Mesh Vent: Stair Mesh Top [ZMAX]', SURF_ID='OPEN', XB = {MESH_VENT} /"]
 
 def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z=None):
     # TODO: have upper and lower stair meshes created
@@ -153,14 +168,17 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height, stair_e
         else:
             points = mesh["points"]
         # pass index?
-        create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, is_stair=False)
+        fds_array.append(create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, is_stair=False))
+        
 
         if comments == "stairMesh":
             # upper and lower stair meshes
             upper_comment = "stairMeshUpper"
             lower_comment = "stairMeshLower"
-            create_fds_mesh_lines(points, 0.2, 0, z, px_per_m, comments=lower_comment, idx=idx, is_stair=True)
-            create_fds_mesh_lines(points, 0.2, z + wall_height, stair_enclosure_roof_z, px_per_m, comments=upper_comment, idx=idx, is_stair=True)
+            fds_array.append(create_fds_mesh_lines(points, 0.2, 0, z, px_per_m, comments=lower_comment, idx=idx, is_stair=True))
+            fds_array.append(create_fds_mesh_lines(points, 0.2, z + wall_height, stair_enclosure_roof_z + 0.4, px_per_m, comments=upper_comment, idx=idx, is_stair=True))
+            # fds_array.append(Stair_Mesh_Vent(points, stair_enclosure_roof_z))
+            
         # x1 = min([p["x"] for p in points])
         # x2 = max([p["x"] for p in points])
         # y1 = min([p["y"] for p in points])
