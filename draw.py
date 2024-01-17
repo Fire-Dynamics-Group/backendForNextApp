@@ -140,11 +140,15 @@ def fds_draw_clone(
 
     highest_y2 = highest_y
 
+    delta_x = highest_x2 - lowest_x1
+    delta_y = highest_y2 - lowest_y1
+    diff_deltas = abs(delta_x - delta_y)
 
 
     # # Adjust image size to include the border
-    image_width = image_width + 2 * border_width
-    image_height = image_width + 2 * border_width
+    b_width = 50
+    image_width = image_width + 2 * b_width
+    image_height = image_width + 2 * b_width
     # Calculate the scaling factor for x1, x2, y1, y2
     scaling_factor = image_width
     def convert_single_point(coordinates, scaling_factor):
@@ -152,14 +156,15 @@ def fds_draw_clone(
         for coords in coordinates:
             x, y, z = coords
             # Subtract the lowest x1 and y1 values and adjust y coordinates
-            x -= lowest_x1
-            y -= lowest_y1
+            x -= lowest_x1 
+            # x+= 
+            y += diff_deltas + 5
             y = highest_y2 - y # flip y
             x += border_width
             y += border_width
             # Scale and convert to pixels
-            x = int(x/highest_x2 * scaling_factor)
-            y = int(y/highest_x2 * scaling_factor)
+            x = int(x/(highest_x2+b_width) * scaling_factor) + b_width
+            y = int(y/(highest_x2+b_width) * scaling_factor) + b_width
             updated_coordinates.append((x, y, z))
         return updated_coordinates
     # Process the coordinates and update the list of tuples
@@ -170,19 +175,19 @@ def fds_draw_clone(
             # Subtract the lowest x1 and y1 values and adjust y coordinates
             x1 -= lowest_x1
             x2 -= lowest_x1
-            y1 -= lowest_y1
+            y1 += diff_deltas + 5 # gives b_width pixel cushion at bottom
             y1 = highest_y2 - y1
-            y2 -= lowest_y1
+            y2 += diff_deltas + 5
             y2 = highest_y2 - y2
             x1 += border_width
             x2 += border_width
             y1 += border_width
             y2 += border_width
             # Scale and convert to pixels
-            x1 = int(x1/highest_x2 * scaling_factor)
-            x2 = int(x2/highest_x2 * scaling_factor)
-            y1 = int(y1/highest_x2 * scaling_factor)
-            y2 = int(y2/highest_x2 * scaling_factor)
+            x1 = int(x1/(highest_x2+b_width) * scaling_factor) + b_width
+            x2 = int(x2/(highest_x2+b_width) * scaling_factor) + b_width
+            y1 = int(y1/(highest_x2+b_width) * scaling_factor) + b_width
+            y2 = int(y2/(highest_x2+b_width) * scaling_factor) + b_width
             y1, y2 = min(y1, y2), max(y1, y2)
             x1, x2 = min(x1, x2), max(x1, x2)
             updated_coordinates.append((x1, x2, y1, y2, z1, z2))
@@ -231,7 +236,7 @@ def fds_draw_clone(
     background_color = (255, 255, 255)  # White
 
     # Create an Image object
-    image = Image.new("RGB", (int(highest_x2 + border_width), int(highest_y2 + border_width)), background_color)
+    image = Image.new("RGB", (int(highest_x2 + b_width), int(highest_y2 + b_width)), background_color)
 
     # Create a drawing object to draw on the image
     draw = ImageDraw.Draw(image)
@@ -273,7 +278,85 @@ def fds_draw_clone(
                 left_upper = (int(x1), int(y1))
                 right_lower = (int(x2), int(y2))
                 draw.rectangle([left_upper, right_lower], outline=outline_color, fill=fill_color)
-
+    # create object for each type of obstruction - legend
+    legend_object = {
+        "fire": {
+            "color": "red",
+            "label": "Fire",
+            "outline": "black",
+            "width": 20,
+            "shape": "rect",
+            "points": fire_locations  
+        },
+        "sprinkler": {
+            "color": "blue",
+            "label": "Sprinkler",
+            "outline": "blue",
+            "width": 10,
+            "radius": 40,
+            "shape": "circle",
+            "points": sprinkler_locations        
+        },
+        "sensor": {
+            "color": "yellow",
+            "label": "Point Sensor",
+            "outline": "black",
+            "width": 10,
+            "radius": 40,
+            "shape": "circle",
+            "points": sensor_locations      
+        },
+        "aov": {
+            "color": "white",
+            "label": "AOV",
+            "outline": "black",
+            "width": 20,
+            "shape": "rect",
+            "points": aov_locations
+        },
+        "inlet": {
+            "color": "grey",
+            "label": "Inlet",
+            "outline": "red",
+            "width": 20,
+            "shape": "rect",
+            "points": inlet_locations
+        },
+        "mech_vent": {
+            "color": "black",
+            "label": "Mech Vent",
+            "outline": "green",
+            "width": 20,
+            "shape": "rect",
+            "points": mech_vent_locations
+        },
+        "flat_door": {
+            "color": "black",
+            "label": "Flat Door",
+            "outline": "green",
+            "width": 20,
+            "shape": "rect",
+            "points": flat_door_locations
+        },
+        "stair_door": {
+            "color": "black",
+            "label": "Stair Door",
+            "outline": "green",
+            "width": 20,
+            "shape": "rect",
+            "points": stair_door_locations
+        },
+        "misc_door": {
+            "color": "black",
+            "label": "Misc Door",
+            "outline": "green",
+            "width": 20,
+            "shape": "rect",
+            "points": misc_door_locations
+        },
+    }
+    from draw_legend import create_legend
+    create_legend(legend_object)
     draw_rect(fire_locations, "black", "red")
     draw_rect(aov_locations, "black", "white")
     draw_rect(inlet_locations, "red", "grey")
