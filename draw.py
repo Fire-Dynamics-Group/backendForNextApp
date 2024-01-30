@@ -2,7 +2,7 @@ import re
 from PIL import Image, ImageDraw
 
 def fds_draw_clone(
-        path_to_fds_file ="dev_folder\FS1 MOE.fds"
+        path_to_fds_file ="dev_folder\FS2_MOE.fds"
 ):
         # -*- coding: utf-8 -*-
 
@@ -70,7 +70,7 @@ def fds_draw_clone(
                     xb_data = re.split("/|,QUANTITY", xb_data)[0]
                     coordinates = [float(coord) for coord in xb_data.split(',') if is_numeric(coord)]
                     sprinkler_locations.append(tuple(coordinates))
-                if "QUANTITY='" in line:
+                if "QUANTITY='" in line and "time" not in line.lower():
                     xb_data = line.split("XYZ=")[1]
                     xb_data = re.split("/|,QUANTITY", xb_data)[0]
                     # xb_data = line.split("XYZ=")[1].split(",QUANTITY")[0]
@@ -224,15 +224,6 @@ def fds_draw_clone(
     z_cut_low = fire_locations[0][-2] - 0.3
     z_cut_high = fire_locations[0][-1] + 3
 
-
-    # # Create a new image with a white background
-    # image_w = highest_x2 + border_width
-    # image_h = highest_y2 + border_width
-    # image_width = highest_x2 + border_width  # Adjust as needed
-    # image_height = highest_y2 + border_width  # Adjust as needed
-    # image_width = 1180
-    # image_height = 1180
-    # image_width = 7650
     background_color = (255, 255, 255)  # White
 
     # Create an Image object
@@ -315,15 +306,15 @@ def fds_draw_clone(
             "points": aov_locations
         },
         "inlet": {
-            "color": "grey",
+            "color": "darkorange",
             "label": "Inlet",
-            "outline": "red",
+            "outline": "darkorange",
             "width": 20,
             "shape": "rect",
             "points": inlet_locations
         },
         "mech_vent": {
-            "color": "black",
+            "color": "green",
             "label": "Mech Vent",
             "outline": "green",
             "width": 20,
@@ -341,7 +332,7 @@ def fds_draw_clone(
         "stair_door": {
             "color": "black",
             "label": "Stair Door",
-            "outline": "green",
+            "outline": "blue",
             "width": 20,
             "shape": "rect",
             "points": stair_door_locations
@@ -349,7 +340,7 @@ def fds_draw_clone(
         "misc_door": {
             "color": "black",
             "label": "Misc Door",
-            "outline": "green",
+            "outline": "hotpink",
             "width": 20,
             "shape": "rect",
             "points": misc_door_locations
@@ -357,16 +348,24 @@ def fds_draw_clone(
     }
     from draw_legend import create_legend
     create_legend(legend_object)
-    draw_rect(fire_locations, "black", "red")
-    draw_rect(aov_locations, "black", "white")
-    draw_rect(inlet_locations, "red", "grey")
+    def create_figure(legend_object):
+        for name, sub_obj in legend_object.items():
+            if sub_obj['points']:
+                if sub_obj['shape'] == 'rect':
+                    draw_rect(sub_obj['points'], sub_obj['outline'], sub_obj['color'])
+                else:
+                    draw_circle(sub_obj['points'], sub_obj['outline'], sub_obj['color'])
+    create_figure(legend_object)
+    # draw_rect(fire_locations, "black", "red")
+    # draw_rect(aov_locations, "black", "white")
+    # draw_rect(inlet_locations, "red", "grey")
     draw_rect(mech_vent_locations, "green", "black")
-    draw_rect(flat_door_locations, "green", "black")
-    draw_rect(stair_door_locations, "green", "black")
-    draw_rect(misc_door_locations, "green", "black")
+    # draw_rect(flat_door_locations, "green", "black")
+    # draw_rect(stair_door_locations, "green", "black")
+    # draw_rect(misc_door_locations, "green", "black")
 
-    draw_circle(sensor_locations, "black", "yellow")
-    draw_circle(sprinkler_locations, "blue", "blue")
+    # draw_circle(sensor_locations, "black", "yellow")
+    # draw_circle(sprinkler_locations, "blue", "blue")
 
 
 

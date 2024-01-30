@@ -1,13 +1,6 @@
 from PIL import Image, ImageDraw, ImageFont
 
-def create_legend(legend_object):
-    # Define legend items
-    # legend_items = {
-    #     "Red": (255, 0, 0),
-    #     "Green": (0, 255, 0),
-    #     "Blue": (0, 0, 255)
-    # }
-
+def create_legend(legend_object, save_path='legend.png'):
     # Font for text in the legend
     font_location = 'SEGOEUIL.TTF'#'C:\Windows\Fonts\Segoe UI\SEGOEUIL.TTF.ttf' #SEGOEUIL.TTF
     font = ImageFont.truetype(font_location, 16)
@@ -49,4 +42,4 @@ def create_legend(legend_object):
             y += box_height + padding
 
     # Save the legend image
-    legend_img.save('legend.png')
+    legend_img.save(save_path)
