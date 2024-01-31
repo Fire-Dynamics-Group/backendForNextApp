@@ -109,7 +109,7 @@ def points_to_fds_wall_points(points, wall_thickness, px_per_m, comments, z, wal
     
     return walls_list
 
-def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, is_stair=False):
+def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fds_array, is_stair=False):
     # LATER: mesh vents 
     # TODO: STAIR MESHES
     mesh_height = z2 - z1
@@ -134,7 +134,7 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, is
     fds_array.append(line)
 
 
-def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height=3.5):
+def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5):
     if __name__ != '__main__':
         meshes = [ f for f in elements if f.comments == comments]
     else:
@@ -146,7 +146,7 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height=3.5):
         else:
             points = mesh["points"]
         # pass index?
-        create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, is_stair=False)
+        create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, fds_array, is_stair=False)
         # x1 = min([p["x"] for p in points])
         # x2 = max([p["x"] for p in points])
         # y1 = min([p["y"] for p in points])
@@ -164,13 +164,13 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, wall_height=3.5):
     # LATER: should be use agnostic -> send in cell_size and mesh z1 and z2 
     pass
 
-fds_array = header
+# fds_array = header.copy()
 
 def add_rows_to_fds_array(fds_array, *args):
     for element in (args):
         fds_array.append(element)
 
-def add_array_to_fds_array(array, fds_array=fds_array):
+def add_array_to_fds_array(array, fds_array):
     add_rows_to_fds_array(fds_array, *array)
 
 
@@ -188,7 +188,7 @@ else:
     return []
 
 '''
-def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_enclosure_roof_z, px_per_m):
+def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_enclosure_roof_z, px_per_m, fds_array):
     # print("elements: ", elements)
     try:
         output = [ f for f in elements if f.comments == comments]
@@ -217,22 +217,23 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
         z = 0
         wall_height = stair_enclosure_roof_z
     obstruction_list = points_to_fds_wall_lines(points=points, wall_thickness=wall_thickness, px_per_m=px_per_m, comments=comments, z=z,wall_height=wall_height,is_stair=False)
-    add_array_to_fds_array(obstruction_list)
+    add_array_to_fds_array(obstruction_list, fds_array)
 
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z):
     # turn obstructions into fds code and send back
+    fds_array = header.copy()  # Initialize fds_array here
     obstruction_list = []
     stair_obstruction_list = []
     cell_size = 0.1
     # TODO: test on not including all different elements
 
-    add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m)
-    add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m)
-    create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z)
-    create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z)
+    add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
+    add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
+    create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
+    create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
     stair_list = setup_landings(comments="landing", fire_floor=fire_floor, total_floors=total_floors, elements=elements, px_per_m=px_per_m, z=z, stair_enclosure_roof_z=stair_enclosure_roof_z)
     # for stair_row in stair_list:
-    add_array_to_fds_array(stair_list)
+    add_array_to_fds_array(stair_list, fds_array)
     final = array_to_str(fds_array)
     return final
 
