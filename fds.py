@@ -105,7 +105,6 @@ def points_to_fds_wall_points(points, wall_thickness, px_per_m, comments, z, wal
 def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fds_array, is_stair=False):
     # LATER: mesh vents 
     # TODO: STAIR MESHES
-    mesh_height = z2 - z1
     current_cell_size = cell_size # changes for stair upper and lower!!!
     points = convert_canvas_points_to_fds(points, px_per_m)
     x_points = [p['x'] for p in points]
@@ -114,11 +113,16 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     x2 = max(x_points)
     y1 = min(y_points)
     y2 = max(y_points)
+    z1 = min(z1, z2)
+    z2 = max(z1, z2)
+    mesh_deltaY = round(y2 - y1, 3)
+    mesh_deltaZ = round(z2 - z1, 3)
+    mesh_deltaX = round(x2 - x1, 3)
     id = mesh_name_obj[comments] # should be mesh1 etc
-    mesh_width = x2 - x1
-    k_num = z2 - z1
-    first = f"&MESH ID='{id}{idx}', IJK={round(mesh_width / current_cell_size)},"
-    second = f"{round(mesh_height / current_cell_size)},{round((k_num / current_cell_size))}, XB="
+    # mesh_width = x2 - x1
+    # k_num = z2 - z1
+    first = f"&MESH ID='{id}{idx}', IJK={round(mesh_deltaX / current_cell_size)},"
+    second = f"{round(mesh_deltaY / current_cell_size)},{round((mesh_deltaZ / current_cell_size))}, XB="
     third = f"{round((x1),1)},"
     fourth= f"{round((x2),1)},"
     fifth = f"{round((y1),1)},"
