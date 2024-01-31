@@ -50,8 +50,8 @@ def convert_points_to_dict(points):
     return [{"x": point.x, "y": point.y} for point in points]
 
 def convert_canvas_points_to_fds(points, px_per_m):
-    if __name__ != '__main__':
-        points = convert_points_to_dict(points)
+    # if __name__ != '__main__':
+    #     points = convert_points_to_dict(points)
     # TODO: incorporate scale before sending co-ordinates
     points = [{"x": p["x"]/px_per_m, "y":p["y"]/px_per_m} for p in points]
     return points
@@ -135,16 +135,16 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
 
 
 def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5):
-    if __name__ != '__main__':
-        meshes = [ f for f in elements if f.comments == comments]
-    else:
-        meshes = [ f for f in elements if f["comments"] == comments]
+    # if __name__ != '__main__':
+    #     meshes = [ f for f in elements if f.comments == comments]
+    # else:
+    meshes = [ f for f in elements if f["comments"] == comments]
     for idx, mesh in enumerate(meshes):
         # print("mesh: ", mesh)
-        if __name__ != '__main__':
-            points = mesh.points
-        else:
-            points = mesh["points"]
+        # if __name__ != '__main__':
+        #     points = mesh.points
+        # else:
+        points = mesh["points"]
         # pass index?
         create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, fds_array, is_stair=False)
         # x1 = min([p["x"] for p in points])
@@ -219,6 +219,64 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
     obstruction_list = points_to_fds_wall_lines(points=points, wall_thickness=wall_thickness, px_per_m=px_per_m, comments=comments, z=z,wall_height=wall_height,is_stair=False)
     add_array_to_fds_array(obstruction_list, fds_array)
 
+def returnOrigin(elements):
+    min_x = float('inf')  # Start with a very large number
+    min_y = float('inf')
+    for element in elements:
+        if __name__ != '__main__':
+            points = element.points
+        else:
+            points = element['points']
+        for point in points:
+            if __name__ != '__main__':
+                pointX = point.x
+                pointY = point.y
+            else:
+                pointX = point['x']
+                pointY = point['y']
+            x = pointX  # Assuming each point is a tuple or list (x, y)
+            y = pointY
+            if x < min_x:
+                min_x = x
+            if y < min_y:
+                min_y = y
+    return min_x, min_y
+
+def makeElementsRelativeToOrigin(elements, origin):
+    new_elements = []
+    for element in elements:
+        new_points = []
+        if __name__ != '__main__':
+            points = element.points
+        else:
+            points = element['points']
+        for point in points:
+            if __name__ != '__main__':
+                pointX = point.x
+                pointY = point.y
+            else:
+                pointX = point['x']
+                pointY = point['y']
+            new_points.append({
+                'x': pointX - origin[0],
+                'y': pointY - origin[1]
+            })
+        if __name__ != '__main__':
+            new_elements.append({
+                'comments': element.comments,
+                'id': element.id,
+                'points': new_points,
+                'type': element.type
+            })
+        else:
+            new_elements.append({
+                'comments': element['comments'],
+                'id': element['id'],
+                'points': new_points,
+                'type': element['type']
+            })
+    return new_elements
+
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z):
     # turn obstructions into fds code and send back
     fds_array = header.copy()  # Initialize fds_array here
@@ -226,7 +284,9 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     stair_obstruction_list = []
     cell_size = 0.1
     # TODO: test on not including all different elements
-
+    # TODO: find bottom left point as origin and change all points to be relative to that
+    origin = returnOrigin(elements)
+    elements = makeElementsRelativeToOrigin(elements, origin)
     add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
     add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
     create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
