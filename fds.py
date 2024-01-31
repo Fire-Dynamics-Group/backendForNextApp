@@ -43,15 +43,12 @@ def points_to_fds_wall_lines(points, wall_thickness, px_per_m, comments, z, wall
     for i in np.round(walls_list,2):
         x1,x2,y1,y2,z1,z2 = i
         array.append(f"&OBST ID='{obstruction_name_obj[comments]}' XB = {x1},{x2},{y1},{y2},{z1},{z2}, SURF_ID='Plasterboard'/")
-        # array.append(convert_print_to_string(("&OBST ID='Corridor Walls'", 'XB =', list_to_comma_str(i), ", SURF_ID='Plasterboard'/")))
     return array
 
 def convert_points_to_dict(points):
     return [{"x": point.x, "y": point.y} for point in points]
 
 def convert_canvas_points_to_fds(points, px_per_m):
-    # if __name__ != '__main__':
-    #     points = convert_points_to_dict(points)
     # TODO: incorporate scale before sending co-ordinates
     points = [{"x": p["x"]/px_per_m, "y":p["y"]/px_per_m} for p in points]
     return points
@@ -70,10 +67,6 @@ def points_to_fds_wall_points(points, wall_thickness, px_per_m, comments, z, wal
 
     # check if orthogonal if not create non ortho wall
     for i in range(len(points) - 1):
-        # # i and j
-        # if i == len(points) - 1:
-        #     j = 0
-        # else:
         j = i + 1
 
         p1 = points[i]
@@ -135,36 +128,12 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
 
 
 def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5):
-    # if __name__ != '__main__':
-    #     meshes = [ f for f in elements if f.comments == comments]
-    # else:
     meshes = [ f for f in elements if f["comments"] == comments]
     for idx, mesh in enumerate(meshes):
-        # print("mesh: ", mesh)
-        # if __name__ != '__main__':
-        #     points = mesh.points
-        # else:
         points = mesh["points"]
         # pass index?
         create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, fds_array, is_stair=False)
-        # x1 = min([p["x"] for p in points])
-        # x2 = max([p["x"] for p in points])
-        # y1 = min([p["y"] for p in points])
-        # y2 = max([p["y"] for p in points])
-        # z1 = 0
-        # z2 = 0
-        # # create fds lines array
 
-
-        # add_array_to_fds_array(obstruction_list)
-    # is it required to snap mesh to each other? 
-    # should not be required as points already snap to nearest 0.1m 
-
-    # check if stair or normal mesh
-    # LATER: should be use agnostic -> send in cell_size and mesh z1 and z2 
-    pass
-
-# fds_array = header.copy()
 
 def add_rows_to_fds_array(fds_array, *args):
     for element in (args):
@@ -177,17 +146,7 @@ def add_array_to_fds_array(array, fds_array):
 def array_to_str(array):
     array = [ f for f in array if len(f)!= 0]
     return "\n".join(array)
-'''
-filtered_elements = [f for f in elements if f["comments"] == comments]
-if filtered_elements:
-    output = filtered_elements[0]
-    points = output["points"]
-else:
-    # Handle the case where no elements match
-    # For example, return an empty list or raise an exception
-    return []
 
-'''
 def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_enclosure_roof_z, px_per_m, fds_array):
     # print("elements: ", elements)
     try:
@@ -210,8 +169,7 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
             # For example, return an empty list or raise an exception
             print("no elements match")
             return []
-        # output = [ f for f in elements if f["comments"] == comments][0]
-        # points = output["points"]
+
     # TODO: walls to go from level zero to max stair enclosure height
     if comments == "stairObstruction":
         z = 0
