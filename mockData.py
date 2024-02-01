@@ -1,4 +1,8 @@
+# TODO: add mock doors
 stairElements = [
+
+        {"type":"polyline","points":[{"x":599.2261676529155,"y":958.7618682446648},{"x":599.2261676529155,"y":921.0962234207673}],"comments":"door","id":0},
+        {"type":"polyline","points":[{"x":667.7091582418202,"y":876.5822795379793},{"x":667.7091582418202,"y":838.9166347140817}],"comments":"door","id":1},
         {
             "type": "polyline",
             "points": [

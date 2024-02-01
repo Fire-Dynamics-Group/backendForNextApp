@@ -81,7 +81,7 @@ async def read_elements(body: ElementsData):
     fire_floor = body.fire_floor
     total_floors = body.total_floors
     stair_enclosure_roof_z = body.stair_enclosure_roof_z
-    # TODO: have 
+    # TODO: use doors -> turn to holes 
     output = testFunction(
                             elements, 
                             z, 

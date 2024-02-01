@@ -56,7 +56,6 @@ def convert_canvas_points_to_fds(points, px_per_m):
 def points_to_fds_wall_points(points, wall_thickness, px_per_m, comments, z, wall_height,is_stair=False):
     # TODO: points to be zero-ed at bottom-leftmost point
     walls_list = []
-    points = convert_canvas_points_to_fds(points, px_per_m)
     
     if is_stair:
         z1 = 0
@@ -106,7 +105,7 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     # LATER: mesh vents 
     # TODO: STAIR MESHES
     current_cell_size = cell_size # changes for stair upper and lower!!!
-    points = convert_canvas_points_to_fds(points, px_per_m)
+    
     x_points = [p['x'] for p in points]
     y_points = [p['y'] for p in points]
     x1 = min(x_points)
@@ -150,6 +149,39 @@ def add_array_to_fds_array(array, fds_array):
 def array_to_str(array):
     array = [ f for f in array if len(f)!= 0]
     return "\n".join(array)
+
+def add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, door_height=2.1):
+    # LATER each door should be sent in with opening and closing times etc
+    # TODO: add door holes
+    doors = [ f for f in elements if "door" in f["comments"]]
+    # LATER: send individual heights for doors and obstructions
+    depth = 0.2
+    line_array = []
+    for idx, door in enumerate(doors):
+        points = door["points"]
+        deltaX = abs(points[1]["x"] - points[0]["x"])
+        deltaY = abs(points[1]["y"] - points[0]["y"])
+        z1 = z
+        z2 = z + door_height
+        x1 = min(points[0]["x"], points[0]["x"])
+        x2 = max(points[1]["x"], points[1]["x"])
+        y1 = min(points[0]["y"], points[0]["y"])
+        y2 = max(points[1]["y"], points[1]["y"])
+        if deltaX < deltaY:
+            # horizontal door
+            x1 -= depth
+            x2 += depth
+        else:
+            # vertical door
+            y1 -= depth
+            y2 += depth
+        # TODO: have ctrl if not always open door
+        fds_line = f"&HOLE ID='Holedoor{idx}', XB ={x1},{x2},{y1},{y2},{z1},{z2}/"
+        line_array.append(fds_line)
+    return line_array
+        
+    # 
+
 
 def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_enclosure_roof_z, px_per_m, fds_array):
     # print("elements: ", elements)
@@ -238,23 +270,30 @@ def makeElementsRelativeToOrigin(elements, origin):
                 'type': element['type']
             })
     return new_elements
-
+def convertElPointsToCoords(elements, px_per_m):
+    for element in elements:
+        points = element['points']
+        element['points'] = convert_canvas_points_to_fds(points, px_per_m)
+    return elements
+# TODO: use doors -> turn to holes
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z):
-    # turn obstructions into fds code and send back
     fds_array = header.copy()  # Initialize fds_array here
-    obstruction_list = []
-    stair_obstruction_list = []
+
     cell_size = 0.1
-    # TODO: test on not including all different elements
-    # TODO: find bottom left point as origin and change all points to be relative to that
+
+    # find bottom left point as origin and change all points to be relative to that
     origin = returnOrigin(elements)
     elements = makeElementsRelativeToOrigin(elements, origin)
+    elements = convertElPointsToCoords(elements, px_per_m)
     add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
     add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
+    # add door holes
+    door_array = add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, door_height=2.1)
     create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
     create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
     stair_list = setup_landings(comments="landing", fire_floor=fire_floor, total_floors=total_floors, elements=elements, px_per_m=px_per_m, z=z, stair_enclosure_roof_z=stair_enclosure_roof_z)
     # for stair_row in stair_list:
+    add_array_to_fds_array(door_array, fds_array)
     add_array_to_fds_array(stair_list, fds_array)
     final = array_to_str(fds_array)
     return final
