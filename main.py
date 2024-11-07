@@ -4,7 +4,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 
 from fds import testFunction
-from time_eq import compute_time_eq, time_eq_test
+from time_eq import compute_time_eq
 from radiation import fillWordDoc
 
 app = FastAPI() # create instance
@@ -163,7 +163,7 @@ async def radiation_appendix(
     docName = data.docName
 
     output_filename = docName    
-
+    print("output_filename: ", output_filename)
     bytes_io = fillWordDoc(
                             timeArray, 
                             accumulatedDistanceList, 

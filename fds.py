@@ -21,7 +21,7 @@ mesh_name_obj = { # LATER: send in via api
     "stairMesh": "Stair Mesh"
 }
 
-header = [
+header = "\n".join([
         "&SURF ID='Plasterboard',",
         "      COLOR='GRAY 80',",
         "      DEFAULT=.TRUE.,",
@@ -34,7 +34,7 @@ header = [
         "      SPECIFIC_HEAT=0.84,",
         "      CONDUCTIVITY=0.48,",
         "      DENSITY=1440.0/"
-      ]
+      ])
 
 def points_to_fds_wall_lines(points, wall_thickness, px_per_m, comments, z, wall_height,is_stair=False):
     array = []
@@ -128,6 +128,7 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     sixth = f"{round((y2),1)},{z1},{z2}/"
     line = first + second + third + fourth + fifth + sixth
     fds_array.append(line)
+    return fds_array
 
 
 def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5):
@@ -135,15 +136,17 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_heig
     for idx, mesh in enumerate(meshes):
         points = mesh["points"]
         # pass index?
-        create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, fds_array, is_stair=False)
-
+        fds_array.append('/n'.join(create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, fds_array, is_stair=False)))
+    return fds_array
 
 def add_rows_to_fds_array(fds_array, *args):
     for element in (args):
         fds_array.append(element)
+    return fds_array
 
 def add_array_to_fds_array(array, fds_array):
-    add_rows_to_fds_array(fds_array, *array)
+    fds_array = add_rows_to_fds_array(fds_array, *array)
+    return fds_array
 
 
 def array_to_str(array):
@@ -155,7 +158,7 @@ def add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, d
     # TODO: add door holes
     doors = [ f for f in elements if "door" in f["comments"]]
     # LATER: send individual heights for doors and obstructions
-    depth = 0.2
+    depth = 0.4
     line_array = []
     for idx, door in enumerate(doors):
         points = door["points"]
@@ -188,8 +191,9 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
     try:
         output = [ f for f in elements if f.comments == comments]
         if output:
-            output = output[0]
-            points = output.points
+            output = output
+            dev = True
+            # points = output.points
         else:
             # Handle the case where no elements match
             # For example, return an empty list or raise an exception
@@ -198,8 +202,9 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
     except:
         filtered_elements = [f for f in elements if f["comments"] == comments]
         if filtered_elements:
-            output = filtered_elements[0]
-            points = output["points"]
+            output = filtered_elements
+            dev = False
+            # points = output["points"]
         else:
             # Handle the case where no elements match
             # For example, return an empty list or raise an exception
@@ -210,8 +215,14 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
     if comments == "stairObstruction":
         z = 0
         wall_height = stair_enclosure_roof_z
-    obstruction_list = points_to_fds_wall_lines(points=points, wall_thickness=wall_thickness, px_per_m=px_per_m, comments=comments, z=z,wall_height=wall_height,is_stair=False)
-    add_array_to_fds_array(obstruction_list, fds_array)
+    for f in output:
+        if dev:
+            points = f.points
+        else:
+            points = f["points"]
+        obstruction_list = points_to_fds_wall_lines(points=points, wall_thickness=wall_thickness, px_per_m=px_per_m, comments=comments, z=z,wall_height=wall_height,is_stair=False)
+        add_array_to_fds_array(obstruction_list, fds_array)
+    return fds_array
 
 def returnOrigin(elements):
     min_x = float('inf')  # Start with a very large number
@@ -270,14 +281,66 @@ def makeElementsRelativeToOrigin(elements, origin):
                 'type': element['type']
             })
     return new_elements
+
 def convertElPointsToCoords(elements, px_per_m):
     for element in elements:
         points = element['points']
         element['points'] = convert_canvas_points_to_fds(points, px_per_m)
     return elements
-# TODO: use doors -> turn to holes
+
+def fire_surface(hrr_kw, fire_area, is_steady_state=False):
+    if not is_steady_state:
+        array = ["&SURF ID='Fire',",
+        "      COLOR='RED',",
+        f"      HRRPUA={hrr_kw/fire_area}",
+        "      RAMP_Q='Fire_RAMP_Q'",
+        "      TMP_FRONT=300.0/"]
+    else: # steady_state fire
+        array = ["&SURF ID='Fire',",
+        "      COLOR='RED',",
+        f"      HRRPUA={hrr_kw/fire_area}", 
+        "      TMP_FRONT=300.0/"]
+    return array
+
+def fuel_reaction(Soot_Yield, Heat_of_Combustion):    ## Specifies a Polyurethane reaction, with heat of combustion as specified previously
+    array = ["&REAC ID='POLYURETHANE',",
+    "      FYI='NFPA Babrauskas',",
+    "      FUEL = 'REAC_FUEL',",
+    "      C=6.3,",
+    "      H=7.1,",
+    "      O=2.1,",
+    "      N=1.0,",
+    "      SOOT_YIELD =", (Soot_Yield),",",
+    "      HEAT_OF_COMBUSTION =" ,(Heat_of_Combustion),"/"]
+    return array
+
+def find_fire_obstruction(elements, z):
+    fires = [ f for f in elements if f["comments"] == "fire"]
+    array = []
+    for fire in fires:
+        points = fire['points'][0]
+        fire_x = points["x"]
+        fire_y = points["y"]
+        fire_D = 2
+        fire_H = 0.2
+        fire_B = 0.1
+        array.append('/n'.join(Fire_Obstruction(fire_D, fire_H, fire_B, fire_x, fire_y, z)))
+    return array
+
+def Fire_Obstruction(Fire_D, Fire_H, Fire_B, fire_x, fire_y, z):## Create a Function that generates the fire obstruction 
+    # TODO: add sprinklers using calcs
+    fire_Co = np.round([fire_x - Fire_D/2, fire_x + Fire_D/2, fire_y - Fire_D/2, fire_y+ Fire_D/2, z+Fire_B, z+Fire_H],2) 
+    fire_x1 = round(fire_x - Fire_D/2, 2)
+    fire_x2 = round(fire_x + Fire_D/2, 2)
+    fire_y1 = round(fire_y - Fire_D/2, 2)
+    fire_y2 = round(fire_y + Fire_D/2, 2)
+    fire_z1 = round(z+Fire_B, 2)
+    fire_z2 = round(z+Fire_H, 2)
+    return [f"&OBST ID='Fire', XB = {fire_x1},{fire_x2},{fire_y1},{fire_y2},{fire_z1},{fire_z2}, SURF_IDS='Fire','Plasterboard','Plasterboard'/"]
+
+# TODO: add fire; get fire size sent in?
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z):
-    fds_array = header.copy()  # Initialize fds_array here
+    fds_array = [header]  # Initialize fds_array here
 
     cell_size = 0.1
 
@@ -285,16 +348,20 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     origin = returnOrigin(elements)
     elements = makeElementsRelativeToOrigin(elements, origin)
     elements = convertElPointsToCoords(elements, px_per_m)
-    add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
-    add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
+    fds_array = add_obstruction_to_fds(comments='obstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
+    fds_array = add_obstruction_to_fds(comments='stairObstruction', elements=elements, z=z, wall_height=wall_height, wall_thickness=wall_thickness, stair_enclosure_roof_z=stair_enclosure_roof_z, px_per_m=px_per_m, fds_array=fds_array)
+    # for now add fire with default size etc
+    fire_surface_array = fire_surface(hrr_kw=1000, fire_area=10, is_steady_state=False)
+    fds_array = add_array_to_fds_array(find_fire_obstruction(elements, z), fds_array)
     # add door holes
     door_array = add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, door_height=2.1)
-    create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
-    create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
+    fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
+    fds_array = create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
     stair_list = setup_landings(comments="landing", fire_floor=fire_floor, total_floors=total_floors, elements=elements, px_per_m=px_per_m, z=z, stair_enclosure_roof_z=stair_enclosure_roof_z)
     # for stair_row in stair_list:
-    add_array_to_fds_array(door_array, fds_array)
-    add_array_to_fds_array(stair_list, fds_array)
+    fds_array = add_array_to_fds_array(door_array, fds_array)
+    fds_array = add_array_to_fds_array(fire_surface_array, fds_array)
+    fds_array = add_array_to_fds_array(stair_list, fds_array)
     final = array_to_str(fds_array)
     return final
 

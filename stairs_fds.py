@@ -14,6 +14,7 @@ def convert_canvas_points_to_fds(points, px_per_m):
     points = [{"x": p["x"]/px_per_m, "y":p["y"]/px_per_m} for p in points]
     return points
 
+# TODO: landings to be guaged from being closer to stair door; or be marked on drawing
 def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, stair_enclosure_roof_z, lowest_floor_landing_z=0, lowest_floor=0):
     array = []
     try:
@@ -49,9 +50,9 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     num_lower_landings = fire_floor - lowest_floor
 
     # convert to 4 corner points
-    # convert to fds coordinates
-    fire_floor_landing_points = convert_canvas_points_to_fds(fire_floor_landing_points, px_per_m)
-    fire_floor_halflanding_points = convert_canvas_points_to_fds(fire_floor_halflanding_points, px_per_m)
+    # # convert to fds coordinates
+    # fire_floor_landing_points = convert_canvas_points_to_fds(fire_floor_landing_points, px_per_m)
+    # fire_floor_halflanding_points = convert_canvas_points_to_fds(fire_floor_halflanding_points, px_per_m)
     z_list = []
     try:
         z_diff_lower = round((z - lowest_floor_landing_z) / num_lower_landings, 2)
@@ -105,7 +106,13 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             # minus x
             stair_x1_list = [landing_x1 - tread*x for x in range(8)]
             stair_x2_list = [landing_x2 - tread*x for x in range(8)]
+        stair_y_mid_list = [landing_y1 + (landing_y2 - landing_y1)/2 for x in range(8)]
+        # TODO: debug to find how to get right values
+        stair_1_y2_list = stair_y_mid_list
+        stair_2_y1_list = stair_y_mid_list
 
+        stair2_x1_list = stair_x1_list[::-1] # stair_x1_list
+        stair2_x2_list = stair_x2_list[::-1] # stair_1_x2_list
     else:
         stair_direction = 'y'
         delta_interlandings = max(landing_y1 - halflanding_y2, halflanding_y1 - landing_y2)
