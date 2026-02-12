@@ -3,3 +3,5 @@ uvicorn[standard]
 numpy
 matplotlib
 docxtpl
+docx-mailmerge2
+python-docx

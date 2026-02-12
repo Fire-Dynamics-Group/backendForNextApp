@@ -6,8 +6,11 @@ from pydantic import BaseModel
 from fds import testFunction
 from time_eq import compute_time_eq
 from radiation import fillWordDoc
+from routers.fee_proposal import router as fee_proposal_router
 
 app = FastAPI() # create instance
+
+app.include_router(fee_proposal_router, prefix="/fee-proposals", tags=["Fee Proposals"])
 
 app.add_middleware(
     CORSMiddleware,
