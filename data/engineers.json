@@ -21,18 +21,30 @@
     "full_name": "Joana Kruk",
     "email_prefix": "joana",
     "phone_number": "+44 (0)7423 301 173",
-    "job_title": "Senior Fire Engineer"
+    "job_title": "Associate"
   },
   {
     "full_name": "Diana Prostire",
     "email_prefix": "diana",
     "phone_number": "+44 (0)7436 869 697",
-    "job_title": "Associate \u2013 Fire Engineer"
+    "job_title": "Associate Director - Fire Engineer"
   },
   {
     "full_name": "Eoghan O\u2019Meara",
     "email_prefix": "eoghan",
     "phone_number": "+44 (0)7887 657 710",
+    "job_title": "Associate"
+  },
+  {
+    "full_name": "Kevin Kurniawan",
+    "email_prefix": "kevin",
+    "phone_number": "+44 (0)7918 810 443",
+    "job_title": "Senior Fire Engineer"
+  },
+  {
+    "full_name": "Kirsty Cameron",
+    "email_prefix": "kirsty",
+    "phone_number": "+44 (0)7393 308 974",
     "job_title": "Senior Fire Engineer"
   }
 ]
