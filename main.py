@@ -7,10 +7,12 @@ from fds import testFunction
 from time_eq import compute_time_eq
 from radiation import fillWordDoc
 from routers.fee_proposal import router as fee_proposal_router
+from routers.efs import router as efs_router
 
 app = FastAPI() # create instance
 
 app.include_router(fee_proposal_router, prefix="/fee-proposals", tags=["Fee Proposals"])
+app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"])
 
 app.add_middleware(
     CORSMiddleware,
