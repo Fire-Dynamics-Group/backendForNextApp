@@ -1,11 +1,14 @@
 from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 from fds import testFunction
-from time_eq import compute_time_eq
-from radiation import fillWordDoc
+try:
+    from time_eq import compute_time_eq
+    from radiation import fillWordDoc
+except ImportError as e:
+    print(f"Warning: Optional modules not loaded: {e}")
 from routers.fee_proposal import router as fee_proposal_router
 from routers.efs import router as efs_router
 
@@ -13,6 +16,14 @@ app = FastAPI() # create instance
 
 app.include_router(fee_proposal_router, prefix="/fee-proposals", tags=["Fee Proposals"])
 app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"])
+
+try:
+    from routers.projects import router as projects_router
+    from routers.floors import router as floors_router
+    app.include_router(projects_router, prefix="/projects", tags=["Projects"])
+    app.include_router(floors_router, prefix="/projects", tags=["Floors"])
+except (ImportError, ValueError) as e:
+    print(f"Warning: Project/floor routers not loaded: {e}")
 
 app.add_middleware(
     CORSMiddleware,

@@ -6,3 +6,9 @@ matplotlib
 docxtpl
 docx-mailmerge2
 python-docx
+sqlalchemy[asyncio]
+asyncpg
+alembic
+boto3
+python-dotenv
+python-multipart
