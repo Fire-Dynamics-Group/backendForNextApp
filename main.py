@@ -14,6 +14,15 @@ from routers.efs import router as efs_router
 
 app = FastAPI() # create instance
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+    expose_headers=["Content-Disposition"],  # Allow frontend to read filename
+)
+
 app.include_router(fee_proposal_router, prefix="/fee-proposals", tags=["Fee Proposals"])
 app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"])
 
@@ -24,15 +33,6 @@ try:
     app.include_router(floors_router, prefix="/projects", tags=["Floors"])
 except (ImportError, ValueError) as e:
     print(f"Warning: Project/floor routers not loaded: {e}")
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
-    expose_headers=["Content-Disposition"],  # Allow frontend to read filename
-)
 # aims:
 # host this app 
 # bring in all data from next js app
