@@ -127,16 +127,15 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     fifth = f"{round((y1),1)},"
     sixth = f"{round((y2),1)},{z1},{z2}/"
     line = first + second + third + fourth + fifth + sixth
-    fds_array.append(line)
-    return fds_array
+    return line
 
 
 def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5):
     meshes = [ f for f in elements if f["comments"] == comments]
     for idx, mesh in enumerate(meshes):
         points = mesh["points"]
-        # pass index?
-        fds_array.append('/n'.join(create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, fds_array, is_stair=False)))
+        line = create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, fds_array, is_stair=False)
+        fds_array.append(line)
     return fds_array
 
 def add_rows_to_fds_array(fds_array, *args):
