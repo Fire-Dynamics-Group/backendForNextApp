@@ -195,9 +195,8 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
             # points = output.points
         else:
             # Handle the case where no elements match
-            # For example, return an empty list or raise an exception
             print("no elements match")
-            return []
+            return fds_array
     except:
         filtered_elements = [f for f in elements if f["comments"] == comments]
         if filtered_elements:
@@ -206,9 +205,8 @@ def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, s
             # points = output["points"]
         else:
             # Handle the case where no elements match
-            # For example, return an empty list or raise an exception
             print("no elements match")
-            return []
+            return fds_array
 
     # TODO: walls to go from level zero to max stair enclosure height
     if comments == "stairObstruction":
