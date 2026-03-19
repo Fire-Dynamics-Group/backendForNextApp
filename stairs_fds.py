@@ -15,7 +15,7 @@ def convert_canvas_points_to_fds(points, px_per_m):
     return points
 
 # TODO: landings to be guaged from being closer to stair door; or be marked on drawing
-def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, stair_enclosure_roof_z, lowest_floor_landing_z=0, lowest_floor=0):
+def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, stair_enclosure_roof_z, lowest_floor_landing_z=0, lowest_floor=0, landing_roles=None, landing_up_side=None):
     array = []
     try:
         landings = [ f for f in elements if f.comments == comments]
@@ -42,6 +42,18 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         # should be a check for 2 landings at frontend
         fire_floor_landing_points = landings[0]["points"]
         fire_floor_halflanding_points = landings[1]["points"]
+
+    # Use explicit roles if provided, otherwise fall back to array order
+    if landing_roles:
+        floor_landing = next((l for l in landings if landing_roles.get(str(l.id if hasattr(l, 'id') else l.get('id', ''))) == 'floor'), None)
+        half_landing = next((l for l in landings if landing_roles.get(str(l.id if hasattr(l, 'id') else l.get('id', ''))) == 'half'), None)
+        if floor_landing and half_landing:
+            try:
+                fire_floor_landing_points = floor_landing.points
+                fire_floor_halflanding_points = half_landing.points
+            except:
+                fire_floor_landing_points = floor_landing["points"]
+                fire_floor_halflanding_points = half_landing["points"]
 
     # if __name__ != '__main__':
     # else:
@@ -96,12 +108,18 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         '''
             start at landing go to half landing
         '''
-        tread = math.ceil(100*(delta_interlandings / 8)) / 100 
-        if landing_x1 - halflanding_x2 < halflanding_x1 - landing_x2:
+        tread = math.ceil(100*(delta_interlandings / 8)) / 100
+        # Determine stair direction: use landing_up_side if provided, else heuristic
+        if landing_up_side == 'right':
+            go_plus_x = True
+        elif landing_up_side == 'left':
+            go_plus_x = False
+        else:
+            go_plus_x = landing_x1 - halflanding_x2 < halflanding_x1 - landing_x2
+        if go_plus_x:
             # plus x
             stair_x1_list = [landing_x1 + tread*x for x in range(8)]
             stair_x2_list = [landing_x2 + tread*x for x in range(8)]
-            pass
         else:
             # minus x
             stair_x1_list = [landing_x1 - tread*x for x in range(8)]
@@ -122,15 +140,19 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         stair_1_x2_list = stair_x_mid_list
         stair_2_x1_list = stair_x_mid_list
         
-        tread = math.ceil(100*(delta_interlandings / 8)) / 100 
+        tread = math.ceil(100*(delta_interlandings / 8)) / 100
 
-        if landing_y1 - halflanding_y2 < halflanding_y1 - landing_y2:
+        # Determine stair direction: use landing_up_side if provided, else heuristic
+        if landing_up_side == 'bottom':
+            go_plus_y = True
+        elif landing_up_side == 'top':
+            go_plus_y = False
+        else:
+            go_plus_y = landing_y1 - halflanding_y2 < halflanding_y1 - landing_y2
+        if go_plus_y:
             # plus y
-            # TODO: start at end of landing
             stair1_y1_list = [landing_y2 + tread*x for x in range(8)]
             stair1_y2_list = [x + tread*2 for x in stair1_y1_list]
-
-            pass
         else:
             # minus y
             stair1_y1_list = [landing_y1 - tread*x for x in range(8)]
@@ -155,8 +177,17 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             for step_num in range(8):
                 current_step_z1 = round(z_current + (step_num * height_per_step), 3)
                 current_step_z2 = round(z_current + ((step_num + 1) * height_per_step), 3)
-                # 
-                current_step_line = f"&OBST ID='STEP1', XB = {round(stair_x1_list[step_num], 3)}, {round(stair_1_x2_list[step_num], 3)}, {round(stair1_y1_list[step_num], 3)}, {round(stair1_y2_list[step_num], 3)},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
+                if stair_direction == 'x':
+                    s1_x1 = round(stair_x1_list[step_num], 3)
+                    s1_x2 = round(stair_x2_list[step_num], 3)
+                    s1_y1 = round(stair1_y1_list[step_num], 3)
+                    s1_y2 = round(stair_1_y2_list[step_num], 3)
+                else:
+                    s1_x1 = round(stair_x1_list[step_num], 3)
+                    s1_x2 = round(stair_1_x2_list[step_num], 3)
+                    s1_y1 = round(stair1_y1_list[step_num], 3)
+                    s1_y2 = round(stair1_y2_list[step_num], 3)
+                current_step_line = f"&OBST ID='STEP1', XB = {s1_x1}, {s1_x2}, {s1_y1}, {s1_y2},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
                 array.append(current_step_line)
     for idx, z_current in enumerate(z_halflanding):
         output = f"&OBST ID='HALFLANDING', XB = {round(halflanding_x1, 3)}, {round(halflanding_x2, 3)}, {round(halflanding_y1, 3)}, {round(halflanding_y2, 3)},{round(z_current - 0.2, 3)}, {round(z_current, 3)}, SURF_ID = 'Plasterboard'/"
@@ -168,8 +199,17 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             for step_num in range(8):
                 current_step_z1 = round(z_current + (step_num * height_per_step), 3)
                 current_step_z2 = round(z_current + ((step_num + 1) * height_per_step), 3)
-                # 
-                current_step_line = f"&OBST ID='STEP2', XB = {round(stair_2_x1_list[step_num], 3)}, {round(stair_x2_list[step_num], 3)}, {round(stair2_y1_list[step_num], 3)}, {round(stair2_y2_list[step_num], 3)},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
+                if stair_direction == 'x':
+                    s2_x1 = round(stair2_x1_list[step_num], 3)
+                    s2_x2 = round(stair2_x2_list[step_num], 3)
+                    s2_y1 = round(stair_2_y1_list[step_num], 3)
+                    s2_y2 = round(stair1_y2_list[step_num], 3)
+                else:
+                    s2_x1 = round(stair_2_x1_list[step_num], 3)
+                    s2_x2 = round(stair_x2_list[step_num], 3)
+                    s2_y1 = round(stair2_y1_list[step_num], 3)
+                    s2_y2 = round(stair2_y2_list[step_num], 3)
+                current_step_line = f"&OBST ID='STEP2', XB = {s2_x1}, {s2_x2}, {s2_y1}, {s2_y2},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
                 array.append(current_step_line)
     # also half landing
     # 
