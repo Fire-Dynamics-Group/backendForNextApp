@@ -207,16 +207,6 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             # Both interfacing steps overlap their landings with matching max z:
             # step 0 z2 = z_current (source landing), step N-1 z2 = z_dest (destination landing)
             height_per_step = (z_halflanding[idx] - z_current) / (num_steps - 1)
-            # Extra bottom overlap step: sits on floor landing, z2 = landing z
-            if stair_direction == 'x':
-                s1_bot_y1 = round(max(landing_y1, halflanding_y1), 3)
-                s1_bot_y2 = round(max(landing_y1, halflanding_y1) + (min(landing_y2, halflanding_y2) - max(landing_y1, halflanding_y1))/2, 3)
-                overlap_line = f"&OBST ID='STEP1', XB = {round(landing_x1, 3)}, {round(landing_x2, 3)}, {s1_bot_y1}, {s1_bot_y2},{round(z_current - height_per_step, 3)}, {round(z_current, 3)}, SURF_ID = 'Plasterboard'/"
-            else:
-                s1_bot_x1 = round(max(landing_x1, halflanding_x1), 3)
-                s1_bot_x2 = round(max(landing_x1, halflanding_x1) + (min(landing_x2, halflanding_x2) - max(landing_x1, halflanding_x1))/2, 3)
-                overlap_line = f"&OBST ID='STEP1', XB = {s1_bot_x1}, {s1_bot_x2}, {round(landing_y1, 3)}, {round(landing_y2, 3)},{round(z_current - height_per_step, 3)}, {round(z_current, 3)}, SURF_ID = 'Plasterboard'/"
-            array.append(overlap_line)
             for step_num in range(num_steps):
                 current_step_z1 = round(z_current + ((step_num - 1) * height_per_step), 3)
                 current_step_z2 = round(z_current + (step_num * height_per_step), 3)
@@ -230,11 +220,23 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                     s1_x2 = round(stair_x2_list[step_num], 3)
                     s1_y1 = round(stair1_y1_list[step_num], 3)
                     s1_y2 = round(stair_1_y2_list[step_num], 3)
+                    # Extend bottom step into source landing
+                    if step_num == 0:
+                        if go_plus_x:
+                            s1_x1 = round(landing_x1, 3)
+                        else:
+                            s1_x2 = round(landing_x2, 3)
                 else:
                     s1_x1 = round(stair_x1_list[step_num], 3)
                     s1_x2 = round(stair_1_x2_list[step_num], 3)
                     s1_y1 = round(stair1_y1_list[step_num], 3)
                     s1_y2 = round(stair1_y2_list[step_num], 3)
+                    # Extend bottom step into source landing
+                    if step_num == 0:
+                        if go_plus_y:
+                            s1_y1 = round(landing_y1, 3)
+                        else:
+                            s1_y2 = round(landing_y2, 3)
                 current_step_line = f"&OBST ID='STEP1', XB = {s1_x1}, {s1_x2}, {s1_y1}, {s1_y2},{current_step_z1}, {current_step_z2}, SURF_ID = 'Plasterboard'/"
                 array.append(current_step_line)
     for idx, z_current in enumerate(z_halflanding):
@@ -243,16 +245,6 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
 
         if idx < len(z_halflanding):
             height_per_step = (z_landing[idx+1] - z_current) / (num_steps - 1)
-            # Extra bottom overlap step: sits on half landing, z2 = half landing z
-            if stair_direction == 'x':
-                s2_bot_y1 = round(max(landing_y1, halflanding_y1) + (min(landing_y2, halflanding_y2) - max(landing_y1, halflanding_y1))/2, 3)
-                s2_bot_y2 = round(min(landing_y2, halflanding_y2), 3)
-                overlap_line = f"&OBST ID='STEP2', XB = {round(halflanding_x1, 3)}, {round(halflanding_x2, 3)}, {s2_bot_y1}, {s2_bot_y2},{round(z_current - height_per_step, 3)}, {round(z_current, 3)}, SURF_ID = 'Plasterboard'/"
-            else:
-                s2_bot_x1 = round(max(landing_x1, halflanding_x1) + (min(landing_x2, halflanding_x2) - max(landing_x1, halflanding_x1))/2, 3)
-                s2_bot_x2 = round(min(landing_x2, halflanding_x2), 3)
-                overlap_line = f"&OBST ID='STEP2', XB = {s2_bot_x1}, {s2_bot_x2}, {round(halflanding_y1, 3)}, {round(halflanding_y2, 3)},{round(z_current - height_per_step, 3)}, {round(z_current, 3)}, SURF_ID = 'Plasterboard'/"
-            array.append(overlap_line)
             for step_num in range(num_steps):
                 current_step_z1 = round(z_current + ((step_num - 1) * height_per_step), 3)
                 current_step_z2 = round(z_current + (step_num * height_per_step), 3)
@@ -266,11 +258,23 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                     s2_x2 = round(stair2_x2_list[step_num], 3)
                     s2_y1 = round(stair_2_y1_list[step_num], 3)
                     s2_y2 = round(stair1_y2_list[step_num], 3)
+                    # Extend bottom step into source (half) landing
+                    if step_num == 0:
+                        if go_plus_x:
+                            s2_x2 = round(halflanding_x2, 3)
+                        else:
+                            s2_x1 = round(halflanding_x1, 3)
                 else:
                     s2_x1 = round(stair_2_x1_list[step_num], 3)
                     s2_x2 = round(stair_x2_list[step_num], 3)
                     s2_y1 = round(stair2_y1_list[step_num], 3)
                     s2_y2 = round(stair2_y2_list[step_num], 3)
+                    # Extend bottom step into source (half) landing
+                    if step_num == 0:
+                        if go_plus_y:
+                            s2_y1 = round(halflanding_y1, 3)
+                        else:
+                            s2_y2 = round(halflanding_y2, 3)
                 current_step_line = f"&OBST ID='STEP2', XB = {s2_x1}, {s2_x2}, {s2_y1}, {s2_y2},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
                 array.append(current_step_line)
     # also half landing
