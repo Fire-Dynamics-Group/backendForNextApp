@@ -57,7 +57,7 @@ class ElementsData(BaseModel):
     fire_floor: int
     total_floors: int
     stair_enclosure_roof_z: float
-    scenario_type: Optional[str] = "moe"
+    scenario_type: Optional[str] = None
     sim_end_time: Optional[int] = 300
     include_sensors: Optional[bool] = True
     corridor_sensor_heights: Optional[List[float]] = [2.0]
@@ -113,10 +113,19 @@ async def read_elements(body: ElementsData):
     fire_floor = body.fire_floor
     total_floors = body.total_floors
     stair_enclosure_roof_z = body.stair_enclosure_roof_z
+    scenario_type = body.scenario_type
+    sim_end_time = body.sim_end_time
+    door_leakages_enabled = body.door_leakages_enabled
+    door_leakage_config = body.door_leakage_config
+    door_openings = body.door_openings
+    door_roles = body.door_roles
     landing_roles = body.landing_roles
     landing_up_side = body.landing_up_side
+    obstruction_transparency = body.obstruction_transparency
+    aov_mode = body.aov_mode
+    aov_activation_time = body.aov_activation_time
     stair_style = body.stair_style
-    # TODO: use doors -> turn to holes
+
     output = testFunction(
                             elements,
                             z,
@@ -127,9 +136,18 @@ async def read_elements(body: ElementsData):
                             fire_floor,
                             total_floors,
                             stair_enclosure_roof_z,
+                            scenario_type=scenario_type,
+                            sim_end_time=sim_end_time,
+                            door_openings=door_openings,
+                            door_leakages_enabled=door_leakages_enabled,
+                            door_leakage_config=door_leakage_config,
+                            door_roles=door_roles,
                             landing_roles=landing_roles,
                             landing_up_side=landing_up_side,
-                            stair_style=stair_style
+                            obstruction_transparency=obstruction_transparency,
+                            aov_mode=aov_mode,
+                            aov_activation_time=aov_activation_time,
+                            stair_style=stair_style,
                             )
     print("output: ", output)
     return output

@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 class ProjectCreate(BaseModel):
     name: str
     settings: dict[str, Any] = {}
+    created_by: Optional[str] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -22,6 +23,7 @@ class ProjectUpdate(BaseModel):
 class ProjectSummary(BaseModel):
     id: uuid.UUID
     name: str
+    created_by: Optional[str] = None
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

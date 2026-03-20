@@ -22,17 +22,19 @@ router = APIRouter()
 
 @router.post("", response_model=ProjectSummary, status_code=201)
 async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)):
-    project = Project(name=body.name, settings=body.settings)
+    project = Project(name=body.name, settings=body.settings, created_by=body.created_by)
     db.add(project)
     await db.commit()
     await db.refresh(project)
     return project
 
 
-@router.get("", response_model=list[ProjectSummary])
+@router.get("", response_model=list[ProjectDetail])
 async def list_projects(db: AsyncSession = Depends(get_db)):
     result = await db.execute(
-        select(Project).order_by(Project.updated_at.desc())
+        select(Project)
+        .options(selectinload(Project.floors))
+        .order_by(Project.updated_at.desc())
     )
     return result.scalars().all()
 

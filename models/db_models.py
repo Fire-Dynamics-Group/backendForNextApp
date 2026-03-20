@@ -27,6 +27,7 @@ class Project(Base):
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     name = Column(Text, nullable=False)
     settings = Column(JSONB, default=dict)
+    created_by = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
