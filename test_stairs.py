@@ -269,15 +269,28 @@ class TestIndividualStyleStepWidth:
 class TestOverlappingStyleStepWidth:
     """In overlapping style, each step should be the full landing width."""
 
-    def test_step_width_equals_landing_width(self):
+    def test_step1_width_equals_halflanding_width(self):
+        """STEP1 goes TO the half landing, so uses half landing width."""
         lines = run_setup(LANDING_RIGHT, HALFLANDING_RIGHT, "right", stair_style="overlapping")
         data = get_parsed_lines(lines)
         first_flight = data["step1"][:8]
+        hl_width = HALFLANDING_RIGHT[1]["x"] - HALFLANDING_RIGHT[0]["x"]  # 1.649
+        for i, step in enumerate(first_flight):
+            step_width = round(step["x2"] - step["x1"], 3)
+            assert abs(step_width - hl_width) < 0.01, (
+                f"Overlapping STEP1 {i} width {step_width} should equal half landing width {hl_width}"
+            )
+
+    def test_step2_width_equals_landing_width(self):
+        """STEP2 goes TO the floor landing, so uses floor landing width."""
+        lines = run_setup(LANDING_RIGHT, HALFLANDING_RIGHT, "right", stair_style="overlapping")
+        data = get_parsed_lines(lines)
+        first_flight = data["step2"][:8]
         landing_width = LANDING_RIGHT[1]["x"] - LANDING_RIGHT[0]["x"]  # 2.662
         for i, step in enumerate(first_flight):
             step_width = round(step["x2"] - step["x1"], 3)
             assert abs(step_width - landing_width) < 0.01, (
-                f"Overlapping step {i} width {step_width} should equal landing width {landing_width}"
+                f"Overlapping STEP2 {i} width {step_width} should equal landing width {landing_width}"
             )
 
 

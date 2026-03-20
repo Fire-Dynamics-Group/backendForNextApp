@@ -124,10 +124,10 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             # Individual treads: each step is one tread wide, placed side by side
             tread = math.ceil(100*(delta_interlandings / num_steps)) / 100
             if go_plus_x:
-                # STEP1: from landing near edge toward half landing
+                # STEP1: bottom step at landing edge, top step at half landing edge
                 stair_x1_list = [landing_x2 + tread*x for x in range(num_steps)]
                 stair_x2_list = [landing_x2 + tread*(x+1) for x in range(num_steps)]
-                # STEP2: from half landing near edge toward floor landing
+                # STEP2: bottom step at half landing edge, top step at landing edge
                 stair2_x1_list = [halflanding_x1 - tread*(x+1) for x in range(num_steps)]
                 stair2_x2_list = [halflanding_x1 - tread*x for x in range(num_steps)]
             else:
@@ -136,21 +136,23 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                 stair2_x1_list = [halflanding_x2 + tread*x for x in range(num_steps)]
                 stair2_x2_list = [halflanding_x2 + tread*(x+1) for x in range(num_steps)]
         else:
-            # Overlapping style: each step is the full landing width, shifted by tread
-            # step 0 sits at its own landing, so num_steps-1 tread intervals bridge the gap
+            # Overlapping style: top step (step 7) overlaps the destination landing,
+            # bottom step (step 0) just protrudes from the source landing.
             tread = math.ceil(100*(delta_interlandings / (num_steps - 1))) / 100
             if go_plus_x:
-                # STEP1: starts at floor landing, steps toward half landing
-                stair_x1_list = [landing_x1 + tread*x for x in range(num_steps)]
-                stair_x2_list = [landing_x2 + tread*x for x in range(num_steps)]
-                # STEP2: starts at half landing, steps toward floor landing
-                stair2_x1_list = [halflanding_x1 - tread*x for x in range(num_steps)]
-                stair2_x2_list = [halflanding_x2 - tread*x for x in range(num_steps)]
+                # STEP1: top step (7) at half landing, bottom step (0) near floor landing
+                stair_x1_list = [halflanding_x1 - tread*(num_steps-1-x) for x in range(num_steps)]
+                stair_x2_list = [halflanding_x2 - tread*(num_steps-1-x) for x in range(num_steps)]
+                # STEP2: top step (7) at floor landing, bottom step (0) near half landing
+                stair2_x1_list = [landing_x1 + tread*(num_steps-1-x) for x in range(num_steps)]
+                stair2_x2_list = [landing_x2 + tread*(num_steps-1-x) for x in range(num_steps)]
             else:
-                stair_x1_list = [landing_x1 - tread*x for x in range(num_steps)]
-                stair_x2_list = [landing_x2 - tread*x for x in range(num_steps)]
-                stair2_x1_list = [halflanding_x1 + tread*x for x in range(num_steps)]
-                stair2_x2_list = [halflanding_x2 + tread*x for x in range(num_steps)]
+                # STEP1: top step at half landing, bottom step near floor landing
+                stair_x1_list = [halflanding_x1 + tread*(num_steps-1-x) for x in range(num_steps)]
+                stair_x2_list = [halflanding_x2 + tread*(num_steps-1-x) for x in range(num_steps)]
+                # STEP2: top step at floor landing, bottom step near half landing
+                stair2_x1_list = [landing_x1 - tread*(num_steps-1-x) for x in range(num_steps)]
+                stair2_x2_list = [landing_x2 - tread*(num_steps-1-x) for x in range(num_steps)]
 
         stair_y_mid_list = [common_y1 + (common_y2 - common_y1)/2 for x in range(num_steps)]
         stair_1_y2_list = stair_y_mid_list
