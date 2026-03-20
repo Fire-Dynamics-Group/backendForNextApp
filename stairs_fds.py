@@ -15,7 +15,7 @@ def convert_canvas_points_to_fds(points, px_per_m):
     return points
 
 # TODO: landings to be guaged from being closer to stair door; or be marked on drawing
-def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, stair_enclosure_roof_z, lowest_floor_landing_z=0, lowest_floor=0, landing_roles=None, landing_up_side=None):
+def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, stair_enclosure_roof_z, lowest_floor_landing_z=0, lowest_floor=0, landing_roles=None, landing_up_side=None, stair_style="overlapping"):
     array = []
     try:
         landings = [ f for f in elements if f.comments == comments]
@@ -97,18 +97,18 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     ''' assume first rect is landing adn second is half landing 
         return fds lines
     '''
+    num_steps = 8
     delta_x1 = abs(landing_x1 - halflanding_x1)
     delta_y1 = abs(landing_y1 - halflanding_y1)
     if delta_x1 > delta_y1:
         stair_direction = 'x'
         delta_interlandings = max(landing_x1 - halflanding_x2, halflanding_x1 - landing_x2)
-        stair1_y1_list = [landing_y1 for x in range(8)]
-        stair1_y2_list = [landing_y2 for x in range(8)]
+        stair1_y1_list = [landing_y1 for x in range(num_steps)]
+        stair1_y2_list = [landing_y2 for x in range(num_steps)]
         # find stair direction lists
         '''
             start at landing go to half landing
         '''
-        tread = math.ceil(100*(delta_interlandings / 8)) / 100
         # Determine stair direction: use landing_up_side if provided, else heuristic
         if landing_up_side == 'right':
             go_plus_x = True
@@ -116,31 +116,43 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             go_plus_x = False
         else:
             go_plus_x = landing_x1 - halflanding_x2 < halflanding_x1 - landing_x2
-        if go_plus_x:
-            # plus x
-            stair_x1_list = [landing_x1 + tread*x for x in range(8)]
-            stair_x2_list = [landing_x2 + tread*x for x in range(8)]
+
+        if stair_style == "individual":
+            # Individual treads: each step is one tread wide, placed side by side
+            tread = math.ceil(100*(delta_interlandings / num_steps)) / 100
+            if go_plus_x:
+                stair_x1_list = [landing_x2 + tread*x for x in range(num_steps)]
+                stair_x2_list = [landing_x2 + tread*(x+1) for x in range(num_steps)]
+            else:
+                stair_x1_list = [landing_x1 - tread*(x+1) for x in range(num_steps)]
+                stair_x2_list = [landing_x1 - tread*x for x in range(num_steps)]
         else:
-            # minus x
-            stair_x1_list = [landing_x1 - tread*x for x in range(8)]
-            stair_x2_list = [landing_x2 - tread*x for x in range(8)]
-        stair_y_mid_list = [landing_y1 + (landing_y2 - landing_y1)/2 for x in range(8)]
-        # TODO: debug to find how to get right values
+            # Overlapping style: each step is the full landing width, shifted by tread
+            # step 0 sits at the landing, so num_steps-1 tread intervals bridge the gap
+            tread = math.ceil(100*(delta_interlandings / (num_steps - 1))) / 100
+            if go_plus_x:
+                stair_x1_list = [landing_x1 + tread*x for x in range(num_steps)]
+                stair_x2_list = [landing_x2 + tread*x for x in range(num_steps)]
+            else:
+                stair_x1_list = [landing_x1 - tread*x for x in range(num_steps)]
+                stair_x2_list = [landing_x2 - tread*x for x in range(num_steps)]
+
+        stair_y_mid_list = [landing_y1 + (landing_y2 - landing_y1)/2 for x in range(num_steps)]
         stair_1_y2_list = stair_y_mid_list
         stair_2_y1_list = stair_y_mid_list
 
-        stair2_x1_list = stair_x1_list[::-1] # stair_x1_list
-        stair2_x2_list = stair_x2_list[::-1] # stair_1_x2_list
+        stair2_x1_list = stair_x1_list[::-1]
+        stair2_x2_list = stair_x2_list[::-1]
     else:
         stair_direction = 'y'
         delta_interlandings = max(landing_y1 - halflanding_y2, halflanding_y1 - landing_y2)
-        stair_x1_list = [landing_x1 for x in range(8)]
-        stair_x2_list = [landing_x2 for x in range(8)]
-        stair_x_mid_list = [landing_x1 + (landing_x2 - landing_x1)/2 for x in range(8)]
+        stair_x1_list = [landing_x1 for x in range(num_steps)]
+        stair_x2_list = [landing_x2 for x in range(num_steps)]
+        stair_x_mid_list = [landing_x1 + (landing_x2 - landing_x1)/2 for x in range(num_steps)]
         stair_1_x2_list = stair_x_mid_list
         stair_2_x1_list = stair_x_mid_list
-        
-        tread = math.ceil(100*(delta_interlandings / 8)) / 100
+
+        tread = math.ceil(100*(delta_interlandings / num_steps)) / 100
 
         # Determine stair direction: use landing_up_side if provided, else heuristic
         if landing_up_side == 'bottom':
@@ -151,11 +163,11 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             go_plus_y = landing_y1 - halflanding_y2 < halflanding_y1 - landing_y2
         if go_plus_y:
             # plus y
-            stair1_y1_list = [landing_y2 + tread*x for x in range(8)]
+            stair1_y1_list = [landing_y2 + tread*x for x in range(num_steps)]
             stair1_y2_list = [x + tread*2 for x in stair1_y1_list]
         else:
             # minus y
-            stair1_y1_list = [landing_y1 - tread*x for x in range(8)]
+            stair1_y1_list = [landing_y1 - tread*x for x in range(num_steps)]
             stair1_y2_list = [x - tread*2 for x in stair1_y1_list]
 
         stair2_y1_list = stair1_y1_list[::-1]
@@ -173,8 +185,8 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         # # should 
         if idx < len(z_halflanding):
             # height counting current as zero
-            height_per_step = math.ceil(100*((z_halflanding[idx] - z_current) / 8)) / 100
-            for step_num in range(8):
+            height_per_step = math.ceil(100*((z_halflanding[idx] - z_current) / num_steps)) / 100
+            for step_num in range(num_steps):
                 current_step_z1 = round(z_current + (step_num * height_per_step), 3)
                 current_step_z2 = round(z_current + ((step_num + 1) * height_per_step), 3)
                 if stair_direction == 'x':
@@ -195,8 +207,8 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
 
         if idx < len(z_halflanding):
             # height counting current as zero
-            height_per_step = math.ceil(100*((z_landing[idx+1] - z_current) / 8)) / 100
-            for step_num in range(8):
+            height_per_step = math.ceil(100*((z_landing[idx+1] - z_current) / num_steps)) / 100
+            for step_num in range(num_steps):
                 current_step_z1 = round(z_current + (step_num * height_per_step), 3)
                 current_step_z2 = round(z_current + ((step_num + 1) * height_per_step), 3)
                 if stair_direction == 'x':
