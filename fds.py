@@ -116,10 +116,8 @@ def points_to_fds_wall_points(points, wall_thickness, px_per_m, comments, z, wal
     return walls_list
 
 def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fds_array, is_stair=False):
-    # LATER: mesh vents 
-    # TODO: STAIR MESHES
-    current_cell_size = cell_size # changes for stair upper and lower!!!
-    
+    current_cell_size = cell_size
+
     x_points = [p['x'] for p in points]
     y_points = [p['y'] for p in points]
     x1 = min(x_points)
@@ -131,9 +129,7 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     mesh_deltaY = round(y2 - y1, 3)
     mesh_deltaZ = round(z2 - z1, 3)
     mesh_deltaX = round(x2 - x1, 3)
-    id = mesh_name_obj[comments] # should be mesh1 etc
-    # mesh_width = x2 - x1
-    # k_num = z2 - z1
+    id = mesh_name_obj[comments]
     first = f"&MESH ID='{id}{idx}', IJK={round(mesh_deltaX / current_cell_size)},"
     second = f"{round(mesh_deltaY / current_cell_size)},{round((mesh_deltaZ / current_cell_size))}, XB="
     third = f"{round((x1),1)},"
@@ -144,13 +140,30 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     return line
 
 
-def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5):
+def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5, z2_override=None):
     meshes = [ f for f in elements if f["comments"] == comments]
+    z_top = z2_override if z2_override is not None else z + wall_height
     for idx, mesh in enumerate(meshes):
         points = mesh["points"]
-        line = create_fds_mesh_lines(points, cell_size, z, z + wall_height, px_per_m, comments, idx, fds_array, is_stair=False)
+        line = create_fds_mesh_lines(points, cell_size, z, z_top, px_per_m, comments, idx, fds_array, is_stair=False)
         fds_array.append(line)
     return fds_array
+
+
+def create_stair_mesh_vent(elements, stair_enclosure_roof_z):
+    """Create an OPEN vent at ZMAX of each stair mesh (0.4m above the roof)."""
+    stair_meshes = [f for f in elements if f["comments"] == "stairMesh"]
+    lines = []
+    z_top = round(stair_enclosure_roof_z + 0.4, 1)
+    for idx, mesh in enumerate(stair_meshes):
+        x_points = [p['x'] for p in mesh["points"]]
+        y_points = [p['y'] for p in mesh["points"]]
+        x1 = round(min(x_points), 1)
+        x2 = round(max(x_points), 1)
+        y1 = round(min(y_points), 1)
+        y2 = round(max(y_points), 1)
+        lines.append(f"&VENT ID='Mesh Vent: Stair Mesh{idx} [ZMAX]', SURF_ID='OPEN', XB={x1},{x2},{y1},{y2},{z_top},{z_top}/")
+    return lines
 
 def add_rows_to_fds_array(fds_array, *args):
     for element in (args):
@@ -459,7 +472,12 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
 
     # 3. Meshes
     fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
-    fds_array = create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
+    stair_mesh_z_top = round(stair_enclosure_roof_z + 0.4, 1)
+    fds_array = create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array, z2_override=stair_mesh_z_top)
+
+    # 3a. Stair mesh vent (OPEN at ZMAX)
+    stair_mesh_vent_lines = create_stair_mesh_vent(elements, stair_enclosure_roof_z)
+    fds_array = add_array_to_fds_array(stair_mesh_vent_lines, fds_array)
 
     # 4. Obstructions
     fire_wall_transparency = obstruction_transparency.get("fireFloorWalls", 0.0)
