@@ -61,12 +61,12 @@ HALFLANDING_LEFT = [{"x": 10.143, "y": 8.621}, {"x": 12.805, "y": 14.2}]
 
 def assert_no_gap_x_plus(data, halflanding_x1, label=""):
     """For +x stairs: last step x2 must reach or overlap halflanding_x1."""
-    first_flight = data["step1"][:8]
+    first_flight = data["step1"][:9]
     last_step_x2 = max(s["x2"] for s in first_flight)
     gap = halflanding_x1 - last_step_x2
     assert gap <= 0, f"{label}STEP1 gap of {gap:.3f}m (x2={last_step_x2}, hl_x1={halflanding_x1})"
 
-    first_flight_s2 = data["step2"][:8]
+    first_flight_s2 = data["step2"][:9]
     nearest_x2 = max(s["x2"] for s in first_flight_s2)
     gap2 = halflanding_x1 - nearest_x2
     assert gap2 <= 0, f"{label}STEP2 gap of {gap2:.3f}m (x2={nearest_x2}, hl_x1={halflanding_x1})"
@@ -74,12 +74,12 @@ def assert_no_gap_x_plus(data, halflanding_x1, label=""):
 
 def assert_no_gap_x_minus(data, halflanding_x2, label=""):
     """For -x stairs: last step x1 must reach or pass halflanding_x2."""
-    first_flight = data["step1"][:8]
+    first_flight = data["step1"][:9]
     furthest_x1 = min(s["x1"] for s in first_flight)
     gap = furthest_x1 - halflanding_x2
     assert gap <= 0, f"{label}STEP1 gap of {gap:.3f}m (x1={furthest_x1}, hl_x2={halflanding_x2})"
 
-    first_flight_s2 = data["step2"][:8]
+    first_flight_s2 = data["step2"][:9]
     furthest_x1_s2 = min(s["x1"] for s in first_flight_s2)
     gap2 = furthest_x1_s2 - halflanding_x2
     assert gap2 <= 0, f"{label}STEP2 gap of {gap2:.3f}m (x1={furthest_x1_s2}, hl_x2={halflanding_x2})"
@@ -244,8 +244,9 @@ class TestIndividualStyleStepWidth:
     def test_step_width_equals_tread(self):
         lines = run_setup(LANDING_RIGHT, HALFLANDING_RIGHT, "right", stair_style="individual")
         data = get_parsed_lines(lines)
-        first_flight = data["step1"][:8]
-        # All steps should have the same width (one tread)
+        # Skip the extra overlap step [0], check regular steps [1:]
+        first_flight = data["step1"][1:9]
+        # All regular steps should have the same width (one tread)
         widths = [round(s["x2"] - s["x1"], 3) for s in first_flight]
         assert len(set(widths)) == 1, f"Steps have varying widths: {widths}"
         # The width should be much smaller than the landing width
@@ -257,7 +258,7 @@ class TestIndividualStyleStepWidth:
     def test_steps_do_not_overlap_in_stair_direction(self):
         lines = run_setup(LANDING_RIGHT, HALFLANDING_RIGHT, "right", stair_style="individual")
         data = get_parsed_lines(lines)
-        first_flight = data["step1"][:8]
+        first_flight = data["step1"][:9]
         # Sort by x1 and check no overlaps
         sorted_steps = sorted(first_flight, key=lambda s: s["x1"])
         for i in range(len(sorted_steps) - 1):
@@ -269,28 +270,28 @@ class TestIndividualStyleStepWidth:
 class TestOverlappingStyleStepWidth:
     """In overlapping style, each step should be the full landing width."""
 
-    def test_step1_width_equals_halflanding_width(self):
-        """STEP1 goes TO the half landing, so uses half landing width."""
+    def test_step1_regular_width_equals_halflanding_width(self):
+        """STEP1 regular steps use half landing width (skip extra overlap step [0])."""
         lines = run_setup(LANDING_RIGHT, HALFLANDING_RIGHT, "right", stair_style="overlapping")
         data = get_parsed_lines(lines)
-        first_flight = data["step1"][:8]
-        hl_width = HALFLANDING_RIGHT[1]["x"] - HALFLANDING_RIGHT[0]["x"]  # 1.649
-        for i, step in enumerate(first_flight):
+        regular_steps = data["step1"][1:9]
+        hl_width = HALFLANDING_RIGHT[1]["x"] - HALFLANDING_RIGHT[0]["x"]
+        for i, step in enumerate(regular_steps):
             step_width = round(step["x2"] - step["x1"], 3)
             assert abs(step_width - hl_width) < 0.01, (
-                f"Overlapping STEP1 {i} width {step_width} should equal half landing width {hl_width}"
+                f"Overlapping STEP1 regular step {i} width {step_width} should equal HL width {hl_width}"
             )
 
-    def test_step2_width_equals_landing_width(self):
-        """STEP2 goes TO the floor landing, so uses floor landing width."""
+    def test_step2_regular_width_equals_landing_width(self):
+        """STEP2 regular steps use floor landing width (skip extra overlap step [0])."""
         lines = run_setup(LANDING_RIGHT, HALFLANDING_RIGHT, "right", stair_style="overlapping")
         data = get_parsed_lines(lines)
-        first_flight = data["step2"][:8]
-        landing_width = LANDING_RIGHT[1]["x"] - LANDING_RIGHT[0]["x"]  # 2.662
-        for i, step in enumerate(first_flight):
+        regular_steps = data["step2"][1:9]
+        landing_width = LANDING_RIGHT[1]["x"] - LANDING_RIGHT[0]["x"]
+        for i, step in enumerate(regular_steps):
             step_width = round(step["x2"] - step["x1"], 3)
             assert abs(step_width - landing_width) < 0.01, (
-                f"Overlapping STEP2 {i} width {step_width} should equal landing width {landing_width}"
+                f"Overlapping STEP2 regular step {i} width {step_width} should equal landing width {landing_width}"
             )
 
 
