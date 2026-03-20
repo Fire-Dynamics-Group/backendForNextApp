@@ -149,9 +149,12 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     else:
         stair_direction = 'y'
         delta_interlandings = max(landing_y1 - halflanding_y2, halflanding_y1 - landing_y2)
-        stair_x1_list = [landing_x1 for x in range(num_steps)]
-        stair_x2_list = [landing_x2 for x in range(num_steps)]
-        stair_x_mid_list = [landing_x1 + (landing_x2 - landing_x1)/2 for x in range(num_steps)]
+        # Use the overlap of both landings' x ranges so steps fit within both
+        common_x1 = max(landing_x1, halflanding_x1)
+        common_x2 = min(landing_x2, halflanding_x2)
+        stair_x1_list = [common_x1 for x in range(num_steps)]
+        stair_x2_list = [common_x2 for x in range(num_steps)]
+        stair_x_mid_list = [common_x1 + (common_x2 - common_x1)/2 for x in range(num_steps)]
         stair_1_x2_list = stair_x_mid_list
         stair_2_x1_list = stair_x_mid_list
 
