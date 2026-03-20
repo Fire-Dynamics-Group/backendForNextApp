@@ -336,7 +336,7 @@ def Fire_Obstruction(Fire_D, Fire_H, Fire_B, fire_x, fire_y, z):## Create a Func
     return [f"&OBST ID='Fire', XB = {fire_x1},{fire_x2},{fire_y1},{fire_y2},{fire_z1},{fire_z2}, SURF_IDS='Fire','Plasterboard','Plasterboard'/"]
 
 # TODO: add fire; get fire size sent in?
-def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z):
+def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z, landing_roles=None, landing_up_side=None, stair_style="overlapping"):
     fds_array = [header]  # Initialize fds_array here
 
     cell_size = 0.1
@@ -354,7 +354,7 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     door_array = add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, door_height=2.1)
     fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
     fds_array = create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
-    stair_list = setup_landings(comments="landing", fire_floor=fire_floor, total_floors=total_floors, elements=elements, px_per_m=px_per_m, z=z, stair_enclosure_roof_z=stair_enclosure_roof_z)
+    stair_list = setup_landings(comments="landing", fire_floor=fire_floor, total_floors=total_floors, elements=elements, px_per_m=px_per_m, z=z, stair_enclosure_roof_z=stair_enclosure_roof_z, landing_roles=landing_roles, landing_up_side=landing_up_side, stair_style=stair_style)
     # for stair_row in stair_list:
     fds_array = add_array_to_fds_array(door_array, fds_array)
     fds_array = add_array_to_fds_array(fire_surface_array, fds_array)

@@ -57,6 +57,22 @@ class ElementsData(BaseModel):
     fire_floor: int
     total_floors: int
     stair_enclosure_roof_z: float
+    scenario_type: Optional[str] = "moe"
+    sim_end_time: Optional[int] = 300
+    include_sensors: Optional[bool] = True
+    corridor_sensor_heights: Optional[List[float]] = [2.0]
+    stair_sensor_heights: Optional[List[float]] = [0.5, 1.0, 1.5, 2.0]
+    is_sprinklered: Optional[bool] = True
+    door_leakages_enabled: Optional[bool] = True
+    door_leakage_config: Optional[dict] = {}
+    door_openings: Optional[dict] = {}
+    door_roles: Optional[dict] = {}
+    landing_roles: Optional[dict] = {}
+    landing_up_side: Optional[str] = None
+    obstruction_transparency: Optional[dict] = {}
+    aov_mode: Optional[str] = "always_open"
+    aov_activation_time: Optional[float] = None
+    stair_style: Optional[str] = "overlapping"
 
 class ConvertedElement(BaseModel):
     id: int
@@ -97,17 +113,23 @@ async def read_elements(body: ElementsData):
     fire_floor = body.fire_floor
     total_floors = body.total_floors
     stair_enclosure_roof_z = body.stair_enclosure_roof_z
-    # TODO: use doors -> turn to holes 
+    landing_roles = body.landing_roles
+    landing_up_side = body.landing_up_side
+    stair_style = body.stair_style
+    # TODO: use doors -> turn to holes
     output = testFunction(
-                            elements, 
-                            z, 
-                            wall_height, 
-                            wall_thickness, 
-                            stair_height, 
-                            px_per_m, 
-                            fire_floor, 
-                            total_floors, 
-                            stair_enclosure_roof_z
+                            elements,
+                            z,
+                            wall_height,
+                            wall_thickness,
+                            stair_height,
+                            px_per_m,
+                            fire_floor,
+                            total_floors,
+                            stair_enclosure_roof_z,
+                            landing_roles=landing_roles,
+                            landing_up_side=landing_up_side,
+                            stair_style=stair_style
                             )
     print("output: ", output)
     return output
