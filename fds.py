@@ -150,20 +150,72 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_heig
     return fds_array
 
 
-def create_stair_mesh_vent(elements, stair_enclosure_roof_z):
-    """Create an OPEN vent at ZMAX of each stair mesh (0.4m above the roof)."""
+def snap_to_grid(val, grid=0.2):
+    """Snap a value to the nearest grid multiple."""
+    return round(round(val / grid) * grid, 1)
+
+
+def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array):
+    """Create up to 3 stair meshes: Lower (0.2m), Middle/fire floor (0.1m), Upper (0.2m).
+
+    - Lower: 0 to z (below fire floor) — skipped if fire floor is at ground level
+    - Middle: z to z+wall_height (fire floor) — 0.1m cell size
+    - Upper: z+wall_height to stair_enclosure_roof_z+0.4 — skipped if not enough height (<=2m)
+    """
     stair_meshes = [f for f in elements if f["comments"] == "stairMesh"]
-    lines = []
-    z_top = round(stair_enclosure_roof_z + 0.4, 1)
+    coarse_cell = 2 * cell_size  # 0.2m
+
     for idx, mesh in enumerate(stair_meshes):
-        x_points = [p['x'] for p in mesh["points"]]
-        y_points = [p['y'] for p in mesh["points"]]
+        points = mesh["points"]
+        x_points = [p['x'] for p in points]
+        y_points = [p['y'] for p in points]
         x1 = round(min(x_points), 1)
         x2 = round(max(x_points), 1)
         y1 = round(min(y_points), 1)
         y2 = round(max(y_points), 1)
-        lines.append(f"&VENT ID='Mesh Vent: Stair Mesh{idx} [ZMAX]', SURF_ID='OPEN', XB={x1},{x2},{y1},{y2},{z_top},{z_top}/")
-    return lines
+        dx = round(x2 - x1, 3)
+        dy = round(y2 - y1, 3)
+
+        # Lower mesh: 0 to z (below fire floor)
+        lower_z1 = snap_to_grid(0)
+        lower_z2 = snap_to_grid(z)
+        if lower_z2 > lower_z1:
+            dz = round(lower_z2 - lower_z1, 3)
+            fds_array.append(
+                f"&MESH ID='Stair Mesh_Lower{idx}', IJK={round(dx/coarse_cell)},{round(dy/coarse_cell)},{round(dz/coarse_cell)}, XB={x1},{x2},{y1},{y2},{lower_z1},{lower_z2}/"
+            )
+
+        # Middle mesh: z to z+wall_height (fire floor — fine 0.1m mesh)
+        mid_z1 = snap_to_grid(z)
+        mid_z2 = snap_to_grid(z + wall_height)
+        upper_z_top = snap_to_grid(stair_enclosure_roof_z + 0.4)
+        has_upper = (upper_z_top - mid_z2) > 2
+
+        if not has_upper:
+            # No upper mesh — extend middle to the top
+            mid_z2 = upper_z_top
+
+        dz = round(mid_z2 - mid_z1, 3)
+        fds_array.append(
+            f"&MESH ID='Stair Mesh_Middle{idx}', IJK={round(dx/cell_size)},{round(dy/cell_size)},{round(dz/cell_size)}, XB={x1},{x2},{y1},{y2},{mid_z1},{mid_z2}/"
+        )
+
+        # Upper mesh: z+wall_height to stair_enclosure_roof_z+0.4 (coarse 0.2m)
+        if has_upper:
+            upper_z1 = mid_z2
+            dz = round(upper_z_top - upper_z1, 3)
+            fds_array.append(
+                f"&MESH ID='Stair Mesh_Upper{idx}', IJK={round(dx/coarse_cell)},{round(dy/coarse_cell)},{round(dz/coarse_cell)}, XB={x1},{x2},{y1},{y2},{upper_z1},{upper_z_top}/"
+            )
+
+        # Mesh vent at ZMAX of the topmost stair mesh
+        top_z = upper_z_top if has_upper else mid_z2
+        top_label = "Upper" if has_upper else "Middle"
+        fds_array.append(
+            f"&VENT ID='Mesh Vent: Stair Mesh_{top_label}{idx} [ZMAX]', SURF_ID='OPEN', XB={x1},{x2},{y1},{y2},{top_z},{top_z}/"
+        )
+
+    return fds_array
 
 def add_rows_to_fds_array(fds_array, *args):
     for element in (args):
@@ -472,12 +524,9 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
 
     # 3. Meshes
     fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
-    stair_mesh_z_top = round(stair_enclosure_roof_z + 0.4, 1)
-    fds_array = create_mesh(comments='stairMesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array, z2_override=stair_mesh_z_top)
 
-    # 3a. Stair mesh vent (OPEN at ZMAX)
-    stair_mesh_vent_lines = create_stair_mesh_vent(elements, stair_enclosure_roof_z)
-    fds_array = add_array_to_fds_array(stair_mesh_vent_lines, fds_array)
+    # 3a. Stair meshes (Lower 0.2m / Middle 0.1m / Upper 0.2m) + mesh vent at ZMAX
+    fds_array = create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array)
 
     # 4. Obstructions
     fire_wall_transparency = obstruction_transparency.get("fireFloorWalls", 0.0)
