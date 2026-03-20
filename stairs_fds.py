@@ -204,11 +204,12 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         # loop through landing to half landing
         # # should 
         if idx < len(z_halflanding):
-            # height counting current as zero
-            height_per_step = math.ceil(100*((z_halflanding[idx] - z_current) / num_steps)) / 100
+            # Both interfacing steps overlap their landings with matching max z:
+            # step 0 z2 = z_current (source landing), step N-1 z2 = z_dest (destination landing)
+            height_per_step = (z_halflanding[idx] - z_current) / (num_steps - 1)
             for step_num in range(num_steps):
-                current_step_z1 = round(z_current + (step_num * height_per_step), 3)
-                current_step_z2 = round(z_current + ((step_num + 1) * height_per_step), 3)
+                current_step_z1 = round(z_current + ((step_num - 1) * height_per_step), 3)
+                current_step_z2 = round(z_current + (step_num * height_per_step), 3)
                 if stair_direction == 'x':
                     s1_x1 = round(stair_x1_list[step_num], 3)
                     s1_x2 = round(stair_x2_list[step_num], 3)
@@ -226,11 +227,10 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         array.append(output)
 
         if idx < len(z_halflanding):
-            # height counting current as zero
-            height_per_step = math.ceil(100*((z_landing[idx+1] - z_current) / num_steps)) / 100
+            height_per_step = (z_landing[idx+1] - z_current) / (num_steps - 1)
             for step_num in range(num_steps):
-                current_step_z1 = round(z_current + (step_num * height_per_step), 3)
-                current_step_z2 = round(z_current + ((step_num + 1) * height_per_step), 3)
+                current_step_z1 = round(z_current + ((step_num - 1) * height_per_step), 3)
+                current_step_z2 = round(z_current + (step_num * height_per_step), 3)
                 if stair_direction == 'x':
                     s2_x1 = round(stair2_x1_list[step_num], 3)
                     s2_x2 = round(stair2_x2_list[step_num], 3)
