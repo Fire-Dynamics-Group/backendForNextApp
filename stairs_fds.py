@@ -124,28 +124,37 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             # Individual treads: each step is one tread wide, placed side by side
             tread = math.ceil(100*(delta_interlandings / num_steps)) / 100
             if go_plus_x:
+                # STEP1: from landing near edge toward half landing
                 stair_x1_list = [landing_x2 + tread*x for x in range(num_steps)]
                 stair_x2_list = [landing_x2 + tread*(x+1) for x in range(num_steps)]
+                # STEP2: from half landing near edge toward floor landing
+                stair2_x1_list = [halflanding_x1 - tread*(x+1) for x in range(num_steps)]
+                stair2_x2_list = [halflanding_x1 - tread*x for x in range(num_steps)]
             else:
                 stair_x1_list = [landing_x1 - tread*(x+1) for x in range(num_steps)]
                 stair_x2_list = [landing_x1 - tread*x for x in range(num_steps)]
+                stair2_x1_list = [halflanding_x2 + tread*x for x in range(num_steps)]
+                stair2_x2_list = [halflanding_x2 + tread*(x+1) for x in range(num_steps)]
         else:
             # Overlapping style: each step is the full landing width, shifted by tread
-            # step 0 sits at the landing, so num_steps-1 tread intervals bridge the gap
+            # step 0 sits at its own landing, so num_steps-1 tread intervals bridge the gap
             tread = math.ceil(100*(delta_interlandings / (num_steps - 1))) / 100
             if go_plus_x:
+                # STEP1: starts at floor landing, steps toward half landing
                 stair_x1_list = [landing_x1 + tread*x for x in range(num_steps)]
                 stair_x2_list = [landing_x2 + tread*x for x in range(num_steps)]
+                # STEP2: starts at half landing, steps toward floor landing
+                stair2_x1_list = [halflanding_x1 - tread*x for x in range(num_steps)]
+                stair2_x2_list = [halflanding_x2 - tread*x for x in range(num_steps)]
             else:
                 stair_x1_list = [landing_x1 - tread*x for x in range(num_steps)]
                 stair_x2_list = [landing_x2 - tread*x for x in range(num_steps)]
+                stair2_x1_list = [halflanding_x1 + tread*x for x in range(num_steps)]
+                stair2_x2_list = [halflanding_x2 + tread*x for x in range(num_steps)]
 
         stair_y_mid_list = [common_y1 + (common_y2 - common_y1)/2 for x in range(num_steps)]
         stair_1_y2_list = stair_y_mid_list
         stair_2_y1_list = stair_y_mid_list
-
-        stair2_x1_list = stair_x1_list[::-1]
-        stair2_x2_list = stair_x2_list[::-1]
     else:
         stair_direction = 'y'
         delta_interlandings = max(landing_y1 - halflanding_y2, halflanding_y1 - landing_y2)
@@ -168,16 +177,19 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         else:
             go_plus_y = landing_y1 - halflanding_y2 < halflanding_y1 - landing_y2
         if go_plus_y:
-            # plus y
+            # plus y: STEP1 from landing toward half landing
             stair1_y1_list = [landing_y2 + tread*x for x in range(num_steps)]
             stair1_y2_list = [x + tread*2 for x in stair1_y1_list]
+            # STEP2: from half landing toward floor landing
+            stair2_y1_list = [halflanding_y1 - tread*(x+2) for x in range(num_steps)]
+            stair2_y2_list = [halflanding_y1 - tread*x for x in range(num_steps)]
         else:
-            # minus y
+            # minus y: STEP1 from landing toward half landing
             stair1_y1_list = [landing_y1 - tread*x for x in range(num_steps)]
             stair1_y2_list = [x - tread*2 for x in stair1_y1_list]
-
-        stair2_y1_list = stair1_y1_list[::-1]
-        stair2_y2_list = stair1_y2_list[::-1]
+            # STEP2: from half landing toward floor landing
+            stair2_y1_list = [halflanding_y2 + tread*x for x in range(num_steps)]
+            stair2_y2_list = [halflanding_y2 + tread*(x+2) for x in range(num_steps)]
 
     # tread = math.ceil(100*(delta_interlandings / 8)) / 100 # diff between landings / 8
     # steps should be halfway of landing expanse i.e. to middle of the landing to the outerside
