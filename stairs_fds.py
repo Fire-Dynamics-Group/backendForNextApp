@@ -103,8 +103,11 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     if delta_x1 > delta_y1:
         stair_direction = 'x'
         delta_interlandings = max(landing_x1 - halflanding_x2, halflanding_x1 - landing_x2)
-        stair1_y1_list = [landing_y1 for x in range(num_steps)]
-        stair1_y2_list = [landing_y2 for x in range(num_steps)]
+        # Use the overlap of both landings' y ranges so steps fit within both
+        common_y1 = max(landing_y1, halflanding_y1)
+        common_y2 = min(landing_y2, halflanding_y2)
+        stair1_y1_list = [common_y1 for x in range(num_steps)]
+        stair1_y2_list = [common_y2 for x in range(num_steps)]
         # find stair direction lists
         '''
             start at landing go to half landing
@@ -137,7 +140,7 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                 stair_x1_list = [landing_x1 - tread*x for x in range(num_steps)]
                 stair_x2_list = [landing_x2 - tread*x for x in range(num_steps)]
 
-        stair_y_mid_list = [landing_y1 + (landing_y2 - landing_y1)/2 for x in range(num_steps)]
+        stair_y_mid_list = [common_y1 + (common_y2 - common_y1)/2 for x in range(num_steps)]
         stair_1_y2_list = stair_y_mid_list
         stair_2_y1_list = stair_y_mid_list
 
