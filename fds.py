@@ -246,6 +246,12 @@ def add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, d
     for idx, door in enumerate(doors):
         points = door["points"]
         door_id = str(door.get("id", idx))
+
+        # Skip leakage-only doors — they don't get holes
+        role = door_roles.get(door_id, "")
+        if role == "leakage":
+            continue
+
         deltaX = abs(points[1]["x"] - points[0]["x"])
         deltaY = abs(points[1]["y"] - points[0]["y"])
         z1 = z
@@ -262,15 +268,99 @@ def add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, d
             y2 += depth
 
         # Use door role to determine CTRL_ID
-        role = door_roles.get(door_id, "")
         ctrl_suffix = ""
         if scenario_type != "none" and role in ROLE_TO_CTRL_ID:
             ctrl_suffix = f", CTRL_ID='{ROLE_TO_CTRL_ID[role]}'"
 
-        role_label = role.capitalize() if role else f"door{idx}"
+        role_label = "Always Open" if role == "always_open" else (role.capitalize() if role else f"door{idx}")
         fds_line = f"&HOLE ID='{role_label} Door Hole', XB ={x1},{x2},{y1},{y2},{z1},{z2}{ctrl_suffix}/"
         line_array.append(fds_line)
     return line_array
+
+
+def generate_door_leakage_vents(door, door_index, z, door_height=2.1, cell_size=0.1, seal_type="non-smoke-sealed", wall_thickness=0.2):
+    """Generate &VENT + &HVAC LEAK lines for a leakage-only door.
+
+    Follows the original Python exe logic from door_leakages.py:
+    - 4 pairs of vents (top, bottom, left, right) on each face of the wall
+    - Vent 1 on one face, Vent 2 on the opposite face (offset by wall_thickness)
+    - Connected by HVAC LEAK lines
+    - Gap sizes depend on seal type
+    """
+    points = door["points"]
+    x1 = points[0]["x"]
+    x2 = points[1]["x"]
+    y1 = points[0]["y"]
+    y2 = points[1]["y"]
+    z1 = z
+    z2 = z + door_height
+
+    x_delta = abs(x2 - x1)
+    y_delta = abs(y2 - y1)
+    door_width = round(max(x_delta, y_delta), 5)
+
+    if seal_type == "smoke-sealed":
+        bottom_gap = 0.003
+        other_gaps = 0.00035
+        prefix = "smoke_sealed"
+    else:
+        bottom_gap = 0.01
+        other_gaps = 0.004
+        prefix = "nonsmoke_sealed"
+
+    door_name = f"{prefix}_door{door_index}"
+    is_smoke_sealed = seal_type == "smoke-sealed"
+    wt = wall_thickness
+
+    # Determine vent positions based on door orientation
+    # Vent 1 sits on the door line face, Vent 2 is offset by wall_thickness to the other face
+    if x_delta > y_delta:
+        # Door extends in X — wall is thin in Y, vents on Y faces
+        # Wall extends negative Y: from y1-wt to y1. Vent 1 at y1, Vent 2 at y1 - wt
+        y1_v2 = round(y1 - wt, 5)
+        top_coords_1 = f"{x1},{x2},{y1},{y1},{round(z1 + door_height - cell_size, 5)},{z2}"
+        top_coords_2 = f"{x1},{x2},{y1_v2},{y1_v2},{round(z1 + door_height - cell_size, 5)},{z2}"
+        bottom_coords_1 = f"{x1},{x2},{y1},{y1},{z1},{round(z1 + cell_size, 5)}"
+        bottom_coords_2 = f"{x1},{x2},{y1_v2},{y1_v2},{z1},{round(z1 + cell_size, 5)}"
+        left_coords_1 = f"{x1},{round(x1 + cell_size, 5)},{y1},{y1},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+        left_coords_2 = f"{x1},{round(x1 + cell_size, 5)},{y1_v2},{y1_v2},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+        right_coords_1 = f"{round(x2 - cell_size, 5)},{x2},{y1},{y1},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+        right_coords_2 = f"{round(x2 - cell_size, 5)},{x2},{y1_v2},{y1_v2},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+    else:
+        # Door extends in Y — wall is thin in X, vents on X faces
+        # Vent 1 at x1, Vent 2 at x1 + wt (opposite face)
+        x1_v2 = round(x1 + wt, 5)
+        top_coords_1 = f"{x1},{x1},{y1},{y2},{round(z1 + door_height - cell_size, 5)},{z2}"
+        top_coords_2 = f"{x1_v2},{x1_v2},{y1},{y2},{round(z1 + door_height - cell_size, 5)},{z2}"
+        bottom_coords_1 = f"{x1},{x1},{y1},{y2},{z1},{round(z1 + cell_size, 5)}"
+        bottom_coords_2 = f"{x1_v2},{x1_v2},{y1},{y2},{z1},{round(z1 + cell_size, 5)}"
+        left_coords_1 = f"{x1},{x1},{y1},{round(y1 + cell_size, 5)},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+        left_coords_2 = f"{x1_v2},{x1_v2},{y1},{round(y1 + cell_size, 5)},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+        right_coords_1 = f"{x1},{x1},{round(y2 - cell_size, 5)},{y2},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+        right_coords_2 = f"{x1_v2},{x1_v2},{round(y2 - cell_size, 5)},{y2},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+
+    lines = []
+    sides = [
+        ("Top", top_coords_1, top_coords_2, round(door_width * other_gaps, 6)),
+        ("Bottom", bottom_coords_1, bottom_coords_2, round(door_width * bottom_gap, 6)),
+        ("Left", left_coords_1, left_coords_2, round(door_height * other_gaps, 6)),
+        ("Right", right_coords_1, right_coords_2, round(door_height * other_gaps, 6)),
+    ]
+
+    for side_name, coords_1, coords_2, area in sides:
+        vent1_id = f"Door_{door_name}_{side_name.lower()} vent 1"
+        vent2_id = f"Door_{door_name}_{side_name.lower()} vent 2"
+
+        lines.append(f"&VENT ID='{vent1_id}', SURF_ID='INERT', XB={coords_1}, RGB=200,200,200 / {door_name}, {side_name} Vent 1")
+
+        if not is_smoke_sealed:
+            lines.append(f"&VENT ID='{vent2_id}', SURF_ID='INERT', XB={coords_2}, RGB=200,200,200 / {door_name}, {side_name} Vent 2")
+
+        hvac_vent2 = "AMBIENT" if is_smoke_sealed else f"Door_{door_name}_{side_name.lower()} vent 2"
+        lines.append(f"&HVAC ID='Door_{door_name}_{side_name.lower()} leak', TYPE_ID='LEAK', VENT_ID='{vent1_id}', VENT2_ID='{hvac_vent2}', AREA={area}, LEAK_ENTHALPY=.TRUE. / {door_name} {side_name.lower()} leak")
+        lines.append("")
+
+    return lines
 
 
 def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_enclosure_roof_z, px_per_m, fds_array, transparency=None):
@@ -496,10 +586,97 @@ def create_aov_sprinkler_devc(elements, stair_enclosure_roof_z):
     ]
 
 
+def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, cell_size=0.2, extract_number=1):
+    """Generate FDS lines for an extract shaft: MESH, opening HOLE, top VENT, and optional SURF.
+
+    Returns a list of FDS lines.
+    """
+    points = extract_element["points"]
+    x1 = points[0]["x"]
+    y1 = points[0]["y"]
+    x2 = points[1]["x"]
+    y2 = points[1]["y"]
+
+    shaft_type = config.get("type", "natural")
+    shaft_width = config.get("shaftWidth", 0.9)
+    shaft_depth = config.get("shaftDepth", 0.9)
+    flow_rate = config.get("flowRate", 3.0)
+    activation = config.get("activation", "always_open")
+    activation_time = config.get("activationTime", None)
+
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+
+    lines = []
+
+    # Determine shaft position extending perpendicular from the opening
+    # Opening is on the wall; shaft extends outward by shaft_depth
+    if dx > dy:
+        # Horizontal opening: shaft extends in Y
+        shaft_x1 = round(min(x1, x2), 2)
+        shaft_x2 = round(max(x1, x2), 2)
+        shaft_y1 = round(y1, 2)
+        shaft_y2 = round(y1 + shaft_depth, 2)
+    else:
+        # Vertical opening: shaft extends in X
+        shaft_x1 = round(x1, 2)
+        shaft_x2 = round(x1 + shaft_depth, 2)
+        shaft_y1 = round(min(y1, y2), 2)
+        shaft_y2 = round(max(y1, y2), 2)
+
+    # Ground level (shaft goes from 0 to roof)
+    shaft_z1 = 0
+    shaft_z2 = round(stair_enclosure_roof_z + 2, 1)  # extend slightly above roof
+
+    # MESH for the shaft
+    ijk_x = max(1, round((shaft_x2 - shaft_x1) / cell_size))
+    ijk_y = max(1, round((shaft_y2 - shaft_y1) / cell_size))
+    ijk_z = max(1, round((shaft_z2 - shaft_z1) / cell_size))
+    shaft_id = f"Extract_Shaft_{extract_number}"
+    lines.append(f"&MESH ID='{shaft_id}', IJK={ijk_x},{ijk_y},{ijk_z}, XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}/")
+
+    # Opening HOLE at corridor level (connects shaft to corridor)
+    hole_z1 = round(z, 2)
+    hole_z2 = round(z + wall_height, 2)
+    if dx > dy:
+        hole_xb = f"{shaft_x1},{shaft_x2},{round(shaft_y1 - 0.2, 2)},{round(shaft_y1 + 0.2, 2)},{hole_z1},{hole_z2}"
+    else:
+        hole_xb = f"{round(shaft_x1 - 0.2, 2)},{round(shaft_x1 + 0.2, 2)},{shaft_y1},{shaft_y2},{hole_z1},{hole_z2}"
+
+    ctrl_suffix = ""
+    if activation == "timed":
+        ctrl_suffix = f", DEVC_ID='Extract_Timer_{extract_number}'"
+    elif activation == "sprinkler":
+        ctrl_suffix = f", DEVC_ID='Extract_Sprinkler_{extract_number}'"
+
+    lines.append(f"&HOLE ID='Extract Opening {extract_number}', XB={hole_xb}{ctrl_suffix}/")
+
+    # Top VENT at shaft ceiling
+    if shaft_type == "natural":
+        lines.append(f"&VENT ID='Extract Top {extract_number}', SURF_ID='OPEN', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
+    else:
+        # Mechanical: need SURF with flow rate, then VENT referencing it
+        surf_id = f"Extract_{extract_number}"
+        lines.append(f"&SURF ID='{surf_id}', VOLUME_FLOW={flow_rate}, TAU_V=-10.0/")
+        lines.append(f"&VENT ID='Extract Top {extract_number}', SURF_ID='{surf_id}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
+
+    # Activation controls
+    if activation == "timed" and activation_time is not None:
+        t = float(activation_time)
+        lines.append(f"&DEVC ID='Extract_Timer_{extract_number}', QUANTITY='TIME', XYZ=0,0,0, SETPOINT={t}/")
+    elif activation == "sprinkler":
+        mid_x = round((shaft_x1 + shaft_x2) / 2, 2)
+        mid_y = round((shaft_y1 + shaft_y2) / 2, 2)
+        lines.append(f"&DEVC ID='Extract_Sprinkler_{extract_number}', PROP_ID='Extract_Link_{extract_number}', XYZ={mid_x},{mid_y},{round(z + wall_height - 0.1, 2)}/")
+        lines.append(f"&PROP ID='Extract_Link_{extract_number}', QUANTITY='LINK TEMPERATURE', RTI=50, ACTIVATION_TEMPERATURE=68.0/")
+
+    return lines
+
+
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z,
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
-                 aov_mode="always_open", aov_activation_time=None, stair_style="overlapping"):
+                 aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None):
     if door_openings is None:
         door_openings = {}
     if door_leakage_config is None:
@@ -508,6 +685,8 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         door_roles = {}
     if obstruction_transparency is None:
         obstruction_transparency = {}
+    if extract_config is None:
+        extract_config = {}
 
     # 1. Simulation header
     header_lines = sim_header(chid='model', sim_end_time=sim_end_time)
@@ -541,10 +720,21 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         control_lines = generate_door_controls(scenario_type, door_openings)
         fds_array = add_array_to_fds_array(control_lines, fds_array)
 
-    # 6. Door holes (with CTRL_ID when scenario_type is set)
+    # 6. Door holes (with CTRL_ID when scenario_type is set) — skips leakage doors
     door_scenario = scenario_type if scenario_type else "none"
     door_array = add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, door_height=2.1, scenario_type=door_scenario, door_roles=door_roles)
     fds_array = add_array_to_fds_array(door_array, fds_array)
+
+    # 6a. Leakage-only doors: generate VENT + HVAC LEAK lines
+    doors = [f for f in elements if "door" in f["comments"]]
+    for idx, door in enumerate(doors):
+        door_id = str(door.get("id", idx))
+        role = door_roles.get(door_id, "")
+        if role == "leakage":
+            config = door_leakage_config.get(door_id, {})
+            seal = config.get("sealType", "non-smoke-sealed")
+            leakage_lines = generate_door_leakage_vents(door, door_index=idx, z=z, door_height=2.1, cell_size=0.1, seal_type=seal, wall_thickness=wall_thickness)
+            fds_array = add_array_to_fds_array(leakage_lines, fds_array)
 
     # 7. Fire obstruction & surface
     fire_surface_array = fire_surface(hrr_kw=1000, fire_area=10, is_steady_state=False)
@@ -575,6 +765,14 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     elif aov_mode == "sprinkler":
         sprinkler_lines = create_aov_sprinkler_devc(elements, stair_enclosure_roof_z)
         fds_array = add_array_to_fds_array(sprinkler_lines, fds_array)
+
+    # 9d. Extract shafts
+    extracts = [f for f in elements if f["comments"] == "extract"]
+    for idx, extract in enumerate(extracts):
+        ext_id = str(extract.get("id", idx))
+        config = extract_config.get(ext_id, {})
+        shaft_lines = create_extract_shaft(extract, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, extract_number=idx + 1)
+        fds_array = add_array_to_fds_array(shaft_lines, fds_array)
 
     # 10. TAIL
     fds_array.append("&TAIL/")

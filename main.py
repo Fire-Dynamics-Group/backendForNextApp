@@ -73,6 +73,7 @@ class ElementsData(BaseModel):
     aov_mode: Optional[str] = "always_open"
     aov_activation_time: Optional[float] = None
     stair_style: Optional[str] = "overlapping"
+    extract_config: Optional[dict] = {}
 
 class ConvertedElement(BaseModel):
     id: int
@@ -125,6 +126,7 @@ async def read_elements(body: ElementsData):
     aov_mode = body.aov_mode
     aov_activation_time = body.aov_activation_time
     stair_style = body.stair_style
+    extract_config = body.extract_config
 
     output = testFunction(
                             elements,
@@ -148,6 +150,7 @@ async def read_elements(body: ElementsData):
                             aov_mode=aov_mode,
                             aov_activation_time=aov_activation_time,
                             stair_style=stair_style,
+                            extract_config=extract_config,
                             )
     print("output: ", output)
     return output
