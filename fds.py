@@ -624,9 +624,9 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
         shaft_y1 = round(min(y1, y2), 2)
         shaft_y2 = round(max(y1, y2), 2)
 
-    # Ground level (shaft goes from 0 to roof)
+    # Shaft goes from ground to stair roof level
     shaft_z1 = 0
-    shaft_z2 = round(stair_enclosure_roof_z + 2, 1)  # extend slightly above roof
+    shaft_z2 = round(stair_enclosure_roof_z, 1)
 
     # MESH for the shaft
     ijk_x = max(1, round((shaft_x2 - shaft_x1) / cell_size))
