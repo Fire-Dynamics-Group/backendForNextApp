@@ -603,6 +603,8 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     flow_rate = config.get("flowRate", 3.0)
     activation = config.get("activation", "always_open")
     activation_time = config.get("activationTime", None)
+    opening_height = config.get("openingHeight", wall_height)  # defaults to full wall height
+    opening_base = config.get("openingBase", 0.0)  # height above floor level
 
     dx = abs(x2 - x1)
     dy = abs(y2 - y1)
@@ -636,8 +638,8 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     lines.append(f"&MESH ID='{shaft_id}', IJK={ijk_x},{ijk_y},{ijk_z}, XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}/")
 
     # Opening HOLE at corridor level (connects shaft to corridor)
-    hole_z1 = round(z, 2)
-    hole_z2 = round(z + wall_height, 2)
+    hole_z1 = round(z + opening_base, 2)
+    hole_z2 = round(z + opening_base + opening_height, 2)
     if dx > dy:
         hole_xb = f"{shaft_x1},{shaft_x2},{round(shaft_y1 - 0.2, 2)},{round(shaft_y1 + 0.2, 2)},{hole_z1},{hole_z2}"
     else:

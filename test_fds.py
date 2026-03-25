@@ -521,6 +521,25 @@ class TestExtractShaft:
         assert len(prop_lines) == 1
         assert "Extract_Sprinkler_1" in devc_lines[0]
 
+    def test_custom_opening_dimensions(self):
+        """openingHeight and openingBase control the HOLE Z range."""
+        config = {"type": "natural", "openingHeight": 1.6, "openingBase": 0.4}
+        result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
+        hole_lines = [l for l in result if "&HOLE" in l]
+        assert len(hole_lines) == 1
+        # z=10, base=0.4, height=1.6 -> hole from 10.4 to 12.0
+        assert "10.4" in hole_lines[0]
+        assert "12.0" in hole_lines[0]
+
+    def test_default_opening_uses_full_wall_height(self):
+        """Without openingHeight/Base, HOLE spans full wall height."""
+        config = {"type": "natural"}
+        result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
+        hole_lines = [l for l in result if "&HOLE" in l]
+        # z=10, base=0, height=wall_height=3 -> hole from 10.0 to 13.0
+        assert "10.0" in hole_lines[0] or "10," in hole_lines[0]
+        assert "13.0" in hole_lines[0]
+
     def test_always_open_has_no_controls(self):
         config = {"type": "natural", "activation": "always_open"}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
