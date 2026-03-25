@@ -76,6 +76,13 @@ class ElementsData(BaseModel):
     extract_config: Optional[dict] = {}
     inlet_config: Optional[dict] = {}
     zone_config: Optional[dict] = {}
+    fire_hrr: Optional[float] = 1000.0
+    fire_dimension: Optional[float] = 1.4
+    fire_height_above_floor: Optional[float] = 0.5
+    fire_base: Optional[float] = 0.0
+    fire_type: Optional[str] = "growing"  # "growing" or "steady_state"
+    fire_growth_rate: Optional[str] = "medium"  # "slow", "medium", "fast", "ultra_fast", "custom"
+    fire_custom_alpha: Optional[float] = None
 
 class ConvertedElement(BaseModel):
     id: int
@@ -135,6 +142,13 @@ async def read_elements(body: ElementsData):
     inlet_config = body.inlet_config
     zone_config = body.zone_config
     is_sprinklered = body.is_sprinklered
+    fire_hrr = body.fire_hrr
+    fire_dimension = body.fire_dimension
+    fire_height_above_floor = body.fire_height_above_floor
+    fire_base = body.fire_base
+    fire_type = body.fire_type
+    fire_growth_rate = body.fire_growth_rate
+    fire_custom_alpha = body.fire_custom_alpha
 
     output = testFunction(
                             elements,
@@ -165,6 +179,13 @@ async def read_elements(body: ElementsData):
                             include_sensors=include_sensors,
                             corridor_sensor_heights=corridor_sensor_heights,
                             stair_sensor_heights=stair_sensor_heights,
+                            fire_hrr=fire_hrr,
+                            fire_dimension=fire_dimension,
+                            fire_height_above_floor=fire_height_above_floor,
+                            fire_base=fire_base,
+                            fire_type=fire_type,
+                            fire_growth_rate=fire_growth_rate,
+                            fire_custom_alpha=fire_custom_alpha,
                             )
     print("output: ", output)
     return output

@@ -510,6 +510,46 @@ def fire_surface(hrr_kw, fire_area, is_steady_state=False):
         "      TMP_FRONT=300.0/"]
     return array
 
+def fire_ramp(growth_rate_name="medium", custom_alpha=None, hrr_kw=1000.0, sim_end_time=300):
+    """Generate t-squared fire ramp lines.
+
+    Growth rate alpha values (kW/s^2):
+    - slow: 0.00293
+    - medium: 0.01172
+    - fast: 0.04689
+    - ultra_fast: 0.1876
+    """
+    alpha_map = {
+        "slow": 0.00293,
+        "medium": 0.01172,
+        "fast": 0.04689,
+        "ultra_fast": 0.1876,
+    }
+    alpha = custom_alpha if custom_alpha else alpha_map.get(growth_rate_name, 0.01172)
+
+    # Time to reach max HRR: Q = alpha * t^2, so t = sqrt(Q/alpha)
+    import math
+    t_max = math.sqrt(hrr_kw / alpha)
+
+    # Generate ramp points: t-squared growth from 0 to t_max
+    ramp_lines = []
+    # Start at t=0, F=0
+    ramp_lines.append(f"&RAMP ID='Fire_RAMP_Q', T=0.0, F=0.0/")
+
+    # Generate intermediate points every 10 seconds during growth
+    t = 10.0
+    while t < t_max:
+        f_val = round((alpha * t * t) / hrr_kw, 4)
+        ramp_lines.append(f"&RAMP ID='Fire_RAMP_Q', T={round(t, 1)}, F={f_val}/")
+        t += 10.0
+
+    # At t_max, F=1.0 (full power)
+    ramp_lines.append(f"&RAMP ID='Fire_RAMP_Q', T={round(t_max, 1)}, F=1.0/")
+    # Maintain full power until end
+    ramp_lines.append(f"&RAMP ID='Fire_RAMP_Q', T={round(float(sim_end_time), 1)}, F=1.0/")
+
+    return ramp_lines
+
 def fuel_reaction(Soot_Yield, Heat_of_Combustion):
     return [
         "&REAC ID='POLYURETHANE',",
@@ -523,17 +563,14 @@ def fuel_reaction(Soot_Yield, Heat_of_Combustion):
         f"      HEAT_OF_COMBUSTION = {Heat_of_Combustion}/",
     ]
 
-def find_fire_obstruction(elements, z):
+def find_fire_obstruction(elements, z, fire_dimension=1.4, fire_height_above_floor=0.5, fire_base=0.0):
     fires = [ f for f in elements if f["comments"] == "fire"]
     array = []
     for fire in fires:
         points = fire['points'][0]
         fire_x = points["x"]
         fire_y = points["y"]
-        fire_D = 2
-        fire_H = 0.2
-        fire_B = 0.1
-        array.append('/n'.join(Fire_Obstruction(fire_D, fire_H, fire_B, fire_x, fire_y, z)))
+        array.append('/n'.join(Fire_Obstruction(fire_dimension, fire_height_above_floor, fire_base, fire_x, fire_y, z)))
     return array
 
 def Fire_Obstruction(Fire_D, Fire_H, Fire_B, fire_x, fire_y, z):## Create a Function that generates the fire obstruction 
@@ -779,18 +816,21 @@ def generate_zone_sensors(elements, z, zone_config, sensor_heights=None, spacing
         zone_name = config.get("name", "Zone")
         zone_prefix = zone_name.lower().replace(" ", "_")
 
-        # Find the obstruction element
-        obs = None
-        for el in elements:
-            if str(el.get("id", "")) == str(el_id) and el["comments"] == "obstruction":
-                obs = el
-                break
-        if not obs:
-            continue
+        # Zone points can come from detected regions (in config) or from element lookup
+        pts = config.get("points", None)
+        if not pts:
+            # Fall back to finding obstruction element by ID
+            obs = None
+            for el in elements:
+                if str(el.get("id", "")) == str(el_id) and el["comments"] == "obstruction":
+                    obs = el
+                    break
+            if not obs:
+                continue
+            pts = obs["points"]
 
-        pts = obs["points"]
-        xs = [p["x"] for p in pts]
-        ys = [p["y"] for p in pts]
+        xs = [p["x"] if isinstance(p, dict) else p[0] for p in pts]
+        ys = [p["y"] if isinstance(p, dict) else p[1] for p in pts]
         xmin, xmax = min(xs), max(xs)
         ymin, ymax = min(ys), max(ys)
         delta_x = xmax - xmin
@@ -1082,7 +1122,9 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
                  aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None, inlet_config=None,
-                 zone_config=None, include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, is_sprinklered=True):
+                 zone_config=None, include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, is_sprinklered=True,
+                 fire_hrr=1000.0, fire_dimension=1.4, fire_height_above_floor=0.5, fire_base=0.0,
+                 fire_type="growing", fire_growth_rate="medium", fire_custom_alpha=None):
     if door_openings is None:
         door_openings = {}
     if door_leakage_config is None:
@@ -1155,9 +1197,14 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
             fds_array = add_array_to_fds_array(leakage_lines, fds_array)
 
     # 7. Fire obstruction & surface
-    fire_surface_array = fire_surface(hrr_kw=1000, fire_area=10, is_steady_state=False)
-    fds_array = add_array_to_fds_array(find_fire_obstruction(elements, z), fds_array)
+    fire_area = fire_dimension * fire_dimension
+    is_steady = (fire_type == "steady_state")
+    fire_surface_array = fire_surface(hrr_kw=fire_hrr, fire_area=fire_area, is_steady_state=is_steady)
     fds_array = add_array_to_fds_array(fire_surface_array, fds_array)
+    fds_array = add_array_to_fds_array(find_fire_obstruction(elements, z, fire_dimension, fire_height_above_floor, fire_base), fds_array)
+    if not is_steady:
+        ramp_lines = fire_ramp(growth_rate_name=fire_growth_rate, custom_alpha=fire_custom_alpha, hrr_kw=fire_hrr, sim_end_time=sim_end_time)
+        fds_array = add_array_to_fds_array(ramp_lines, fds_array)
 
     # 7a. Sprinklers
     if is_sprinklered:
