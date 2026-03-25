@@ -603,9 +603,13 @@ def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, 
     dx = abs(x2 - x1)
     dy = abs(y2 - y1)
 
-    # Offset slightly from mesh boundary (FDS requirement)
-    hole_z1 = round(z + opening_base - 0.001, 4)
-    hole_z2 = round(z + opening_base + opening_height, 2)
+    # Offset Z from mesh boundaries facing ambient (FDS requirement)
+    hole_z1 = round(z + opening_base, 4)
+    hole_z2 = round(z + opening_base + opening_height, 4)
+    if opening_base == 0:
+        hole_z1 = round(hole_z1 - 0.001, 4)  # offset from mesh ZMIN
+    if abs((opening_base + opening_height) - wall_height) < 0.01:
+        hole_z2 = round(hole_z2 + 0.001, 4)  # offset from mesh ZMAX
 
     # HOLE cuts through the wall at the inlet location
     if dx > dy:
@@ -670,9 +674,13 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     lines.append(f"&MESH ID='{shaft_id}', IJK={ijk_x},{ijk_y},{ijk_z}, XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}/")
 
     # Opening HOLE at corridor level (connects shaft to corridor)
-    # Offset Z1 slightly from mesh boundary (FDS requires HOLEs not at boundary)
-    hole_z1 = round(z + opening_base - 0.001, 4)
-    hole_z2 = round(z + opening_base + opening_height, 2)
+    # Offset Z from mesh boundaries facing ambient (FDS requirement)
+    hole_z1 = round(z + opening_base, 4)
+    hole_z2 = round(z + opening_base + opening_height, 4)
+    if opening_base == 0:
+        hole_z1 = round(hole_z1 - 0.001, 4)  # offset from mesh ZMIN
+    if abs((opening_base + opening_height) - wall_height) < 0.01:
+        hole_z2 = round(hole_z2 + 0.001, 4)  # offset from mesh ZMAX
     if dx > dy:
         hole_xb = f"{shaft_x1},{shaft_x2},{round(shaft_y1 - 0.2, 2)},{round(shaft_y1 + 0.2, 2)},{hole_z1},{hole_z2}"
     else:
