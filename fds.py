@@ -254,7 +254,7 @@ def add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, d
 
         deltaX = abs(points[1]["x"] - points[0]["x"])
         deltaY = abs(points[1]["y"] - points[0]["y"])
-        z1 = z
+        z1 = z - 0.001  # offset from mesh ZMIN boundary
         z2 = z + door_height
         x1 = min(points[0]["x"], points[0]["x"])
         x2 = max(points[1]["x"], points[1]["x"])
