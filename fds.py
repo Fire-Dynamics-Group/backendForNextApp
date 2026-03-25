@@ -622,6 +622,61 @@ def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, 
     return [f"&HOLE ID='Inlet Opening {inlet_number}', XB={hole_xb}/"]
 
 
+def generate_sprinkler_lines(elements, z, wall_height):
+    """Generate sprinkler DEVC + PROP lines.
+
+    Places 2 sprinklers at 1.375m diagonal from fire centre,
+    0.2m below ceiling. Matches BS 9251 residential sprinkler spec.
+    """
+    fires = [f for f in elements if f["comments"] == "fire"]
+    if not fires:
+        return []
+
+    fire = fires[0]
+    points = fire["points"]
+    if isinstance(points, list):
+        fire_x = points[0]["x"]
+        fire_y = points[0]["y"]
+    else:
+        fire_x = points["x"]
+        fire_y = points["y"]
+
+    sprk_z = round(z + wall_height - 0.2, 2)
+    offset = 1.375  # 2.75m / 2
+
+    # 4 candidate positions diagonal from fire
+    candidates = [
+        (round(fire_x + offset, 2), round(fire_y + offset, 2)),
+        (round(fire_x - offset, 2), round(fire_y - offset, 2)),
+        (round(fire_x + offset, 2), round(fire_y - offset, 2)),
+        (round(fire_x - offset, 2), round(fire_y + offset, 2)),
+    ]
+
+    # Use first 2 candidates (apartment polygon check could be added later)
+    sprinklers = candidates[:2]
+
+    lines = [
+        "&SPEC ID='WATER VAPOR'/",
+        "&PART ID='Water01',",
+        "      SPEC_ID='WATER VAPOR',",
+        "      DIAMETER=500.0,",
+        "      MONODISPERSE=.TRUE.,",
+        "      AGE=10.0,",
+        "      SAMPLING_FACTOR=1/",
+        "&PROP ID='Residential Link BS 9251',",
+        "      PART_ID='Water01',",
+        "      K_FACTOR=40.0,",
+        "      OPERATING_PRESSURE=0.5,",
+        "      PARTICLE_VELOCITY=5.0,",
+        "      SPRAY_ANGLE=60.0,75.0/",
+    ]
+
+    for i, (sx, sy) in enumerate(sprinklers):
+        lines.append(f"&DEVC ID='SPRK{i+1}', PROP_ID='Residential Link BS 9251', XYZ={sx},{sy},{sprk_z}, QUANTITY='TIME', SETPOINT=0.0/")
+
+    return lines
+
+
 def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, cell_size=0.2, extract_number=1):
     """Generate FDS lines for an extract shaft: MESH, opening HOLE, top VENT, and optional SURF.
 
@@ -759,28 +814,26 @@ def compute_corridor_centerline(obstruction_points, spacing=0.5, inset=0.4):
     return centre_points
 
 
-def generate_corridor_sensor_devcs(elements, z, sensor_heights, spacing=0.5):
-    """Auto-generate DEVC lines along corridor centerline.
+def generate_corridor_sensor_devcs(elements, z, sensor_heights):
+    """Generate DEVC lines from sensorTree elements placed by the frontend.
 
-    Uses the obstruction polygon to compute centerline, then places
-    temp/pressure/visibility/velocity devices at each point and height.
+    The frontend computes centerline positions and stores them as sensorTree
+    elements. This function reads those positions and generates FDS DEVC lines.
     """
     quantities = ["TEMPERATURE", "PRESSURE", "VISIBILITY", "VELOCITY"]
     q_short = {"TEMPERATURE": "temp", "PRESSURE": "pres", "VISIBILITY": "vis", "VELOCITY": "vel"}
 
     lines = []
 
-    # Find corridor obstruction polygon
-    obstructions = [el for el in elements if el.get("comments") == "obstruction"]
-    if not obstructions:
+    sensor_trees = [el for el in elements if el.get("comments") == "sensorTree"]
+    print(f"[SENSOR] Found {len(sensor_trees)} sensorTree elements")
+    if not sensor_trees:
         return lines
 
-    # Use first obstruction as the corridor polygon
-    corridor = obstructions[0]
-    centre_points = compute_corridor_centerline(corridor["points"], spacing=spacing)
-
-    for pt_idx, point in enumerate(centre_points, start=1):
-        x, y = point
+    for pt_idx, tree in enumerate(sensor_trees, start=1):
+        point = tree["points"][0]
+        x = round(point["x"], 2)
+        y = round(point["y"], 2)
         for height in sensor_heights:
             sensor_z = round(z + height, 2)
             for quantity in quantities:
@@ -795,7 +848,7 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
                  aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None, inlet_config=None,
-                 include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None):
+                 include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, is_sprinklered=True):
     if door_openings is None:
         door_openings = {}
     if door_leakage_config is None:
@@ -868,6 +921,11 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     fire_surface_array = fire_surface(hrr_kw=1000, fire_area=10, is_steady_state=False)
     fds_array = add_array_to_fds_array(find_fire_obstruction(elements, z), fds_array)
     fds_array = add_array_to_fds_array(fire_surface_array, fds_array)
+
+    # 7a. Sprinklers
+    if is_sprinklered:
+        sprinkler_lines = generate_sprinkler_lines(elements, z, wall_height)
+        fds_array = add_array_to_fds_array(sprinkler_lines, fds_array)
 
     # 8. Reaction chemistry
     reaction_array = fuel_reaction(0.07, 25000)
