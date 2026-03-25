@@ -586,6 +586,37 @@ def create_aov_sprinkler_devc(elements, stair_enclosure_roof_z):
     ]
 
 
+def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, inlet_number=1):
+    """Generate a HOLE for an inlet opening at fire floor level.
+
+    The inlet is a simple opening in the external wall that allows fresh air in.
+    """
+    points = inlet_element["points"]
+    x1 = points[0]["x"]
+    y1 = points[0]["y"]
+    x2 = points[1]["x"]
+    y2 = points[1]["y"]
+
+    opening_height = config.get("openingHeight", wall_height)
+    opening_base = config.get("openingBase", 0.0)
+
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+
+    hole_z1 = round(z + opening_base, 2)
+    hole_z2 = round(z + opening_base + opening_height, 2)
+
+    # HOLE cuts through the wall at the inlet location
+    if dx > dy:
+        # Horizontal inlet
+        hole_xb = f"{round(min(x1, x2), 2)},{round(max(x1, x2), 2)},{round(y1 - 0.2, 2)},{round(y1 + 0.2, 2)},{hole_z1},{hole_z2}"
+    else:
+        # Vertical inlet
+        hole_xb = f"{round(x1 - 0.2, 2)},{round(x1 + 0.2, 2)},{round(min(y1, y2), 2)},{round(max(y1, y2), 2)},{hole_z1},{hole_z2}"
+
+    return [f"&HOLE ID='Inlet Opening {inlet_number}', XB={hole_xb}/"]
+
+
 def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, cell_size=0.2, extract_number=1):
     """Generate FDS lines for an extract shaft: MESH, opening HOLE, top VENT, and optional SURF.
 
@@ -753,7 +784,7 @@ def generate_corridor_sensor_devcs(elements, z, sensor_heights, spacing=0.5):
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z,
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
-                 aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None,
+                 aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None, inlet_config=None,
                  include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None):
     if door_openings is None:
         door_openings = {}
@@ -765,6 +796,8 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         obstruction_transparency = {}
     if extract_config is None:
         extract_config = {}
+    if inlet_config is None:
+        inlet_config = {}
 
     # 1. Simulation header
     header_lines = sim_header(chid='model', sim_end_time=sim_end_time)
@@ -858,6 +891,14 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         config = extract_config.get(ext_id, {})
         shaft_lines = create_extract_shaft(extract, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, extract_number=idx + 1)
         fds_array = add_array_to_fds_array(shaft_lines, fds_array)
+
+    # 9e. Inlet openings
+    inlets = [f for f in elements if f["comments"] == "inlet"]
+    for idx, inlet in enumerate(inlets):
+        inlet_id = str(inlet.get("id", idx))
+        config = inlet_config.get(inlet_id, {})
+        inlet_lines = create_inlet_opening(inlet, config, z, wall_height, wall_thickness, inlet_number=idx + 1)
+        fds_array = add_array_to_fds_array(inlet_lines, fds_array)
 
     # 10. Corridor centerline sensors (auto-placed)
     if include_sensors:

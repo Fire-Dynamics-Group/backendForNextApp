@@ -2,3 +2,6 @@
 .vercel
 output-models
 .env
+__pycache__/
+*.pyc
+env/
