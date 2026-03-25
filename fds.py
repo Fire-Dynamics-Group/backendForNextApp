@@ -622,11 +622,58 @@ def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, 
     return [f"&HOLE ID='Inlet Opening {inlet_number}', XB={hole_xb}/"]
 
 
+def _point_in_polygon(px, py, polygon):
+    """Ray casting point-in-polygon test."""
+    n = len(polygon)
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _min_distance_to_polygon(px, py, polygon):
+    """Minimum distance from point to any edge of the polygon."""
+    min_dist = float('inf')
+    n = len(polygon)
+    for i in range(n):
+        x1, y1 = polygon[i]
+        x2, y2 = polygon[(i + 1) % n]
+        # Distance from point to line segment
+        dx, dy = x2 - x1, y2 - y1
+        seg_len_sq = dx * dx + dy * dy
+        if seg_len_sq == 0:
+            dist = ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+        else:
+            t = max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / seg_len_sq))
+            proj_x = x1 + t * dx
+            proj_y = y1 + t * dy
+            dist = ((px - proj_x) ** 2 + (py - proj_y) ** 2) ** 0.5
+        min_dist = min(min_dist, dist)
+    return min_dist
+
+
+def _find_enclosing_polygon(fire_x, fire_y, elements):
+    """Find the obstruction polygon that contains the fire point."""
+    obstructions = [f for f in elements if f["comments"] == "obstruction"]
+    for obs in obstructions:
+        pts = obs["points"]
+        polygon = [(p["x"], p["y"]) for p in pts]
+        if _point_in_polygon(fire_x, fire_y, polygon):
+            return polygon
+    return None
+
+
 def generate_sprinkler_lines(elements, z, wall_height):
     """Generate sprinkler DEVC + PROP lines.
 
     Places 2 sprinklers at 1.375m diagonal from fire centre,
-    0.2m below ceiling. Matches BS 9251 residential sprinkler spec.
+    0.2m below ceiling. Only places sprinklers inside the enclosing
+    obstruction polygon (apartment walls). Matches BS 9251 spec.
     """
     fires = [f for f in elements if f["comments"] == "fire"]
     if not fires:
@@ -652,8 +699,22 @@ def generate_sprinkler_lines(elements, z, wall_height):
         (round(fire_x - offset, 2), round(fire_y + offset, 2)),
     ]
 
-    # Use first 2 candidates (apartment polygon check could be added later)
-    sprinklers = candidates[:2]
+    # Find the enclosing polygon and filter candidates
+    # Sprinklers must be inside polygon AND at least 1m from any wall (BS 9251)
+    min_wall_clearance = 1.0
+    polygon = _find_enclosing_polygon(fire_x, fire_y, elements)
+    if polygon:
+        sprinklers = [c for c in candidates
+                      if _point_in_polygon(c[0], c[1], polygon)
+                      and _min_distance_to_polygon(c[0], c[1], polygon) >= min_wall_clearance]
+        sprinklers = sprinklers[:2]  # max 2
+        if len(sprinklers) < 2:
+            # Relax to just inside polygon
+            sprinklers = [c for c in candidates if _point_in_polygon(c[0], c[1], polygon)][:2]
+        if len(sprinklers) < 2:
+            sprinklers = candidates[:2]
+    else:
+        sprinklers = candidates[:2]
 
     lines = [
         "&SPEC ID='WATER VAPOR'/",
