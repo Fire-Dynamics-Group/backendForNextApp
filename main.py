@@ -116,6 +116,9 @@ async def read_elements(body: ElementsData):
     stair_enclosure_roof_z = body.stair_enclosure_roof_z
     scenario_type = body.scenario_type
     sim_end_time = body.sim_end_time
+    include_sensors = body.include_sensors
+    corridor_sensor_heights = body.corridor_sensor_heights
+    stair_sensor_heights = body.stair_sensor_heights
     door_leakages_enabled = body.door_leakages_enabled
     door_leakage_config = body.door_leakage_config
     door_openings = body.door_openings
@@ -151,6 +154,9 @@ async def read_elements(body: ElementsData):
                             aov_activation_time=aov_activation_time,
                             stair_style=stair_style,
                             extract_config=extract_config,
+                            include_sensors=include_sensors,
+                            corridor_sensor_heights=corridor_sensor_heights,
+                            stair_sensor_heights=stair_sensor_heights,
                             )
     print("output: ", output)
     return output
