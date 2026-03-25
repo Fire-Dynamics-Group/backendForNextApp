@@ -670,7 +670,8 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     lines.append(f"&MESH ID='{shaft_id}', IJK={ijk_x},{ijk_y},{ijk_z}, XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}/")
 
     # Opening HOLE at corridor level (connects shaft to corridor)
-    hole_z1 = round(z + opening_base, 2)
+    # Offset Z1 slightly from mesh boundary (FDS requires HOLEs not at boundary)
+    hole_z1 = round(z + opening_base - 0.001, 4)
     hole_z2 = round(z + opening_base + opening_height, 2)
     if dx > dy:
         hole_xb = f"{shaft_x1},{shaft_x2},{round(shaft_y1 - 0.2, 2)},{round(shaft_y1 + 0.2, 2)},{hole_z1},{hole_z2}"
