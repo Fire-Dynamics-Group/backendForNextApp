@@ -671,50 +671,61 @@ def _find_enclosing_polygon(fire_x, fire_y, elements):
 def generate_sprinkler_lines(elements, z, wall_height):
     """Generate sprinkler DEVC + PROP lines.
 
-    Places 2 sprinklers at 1.375m diagonal from fire centre,
-    0.2m below ceiling. Only places sprinklers inside the enclosing
-    obstruction polygon (apartment walls). Matches BS 9251 spec.
+    If manual sprinkler elements exist, uses those positions.
+    Otherwise auto-places 2 sprinklers at 1.375m diagonal from fire,
+    inside the enclosing polygon with 1m wall clearance (BS 9251).
     """
-    fires = [f for f in elements if f["comments"] == "fire"]
-    if not fires:
-        return []
-
-    fire = fires[0]
-    points = fire["points"]
-    if isinstance(points, list):
-        fire_x = points[0]["x"]
-        fire_y = points[0]["y"]
-    else:
-        fire_x = points["x"]
-        fire_y = points["y"]
-
     sprk_z = round(z + wall_height - 0.2, 2)
-    offset = 1.375  # 2.75m / 2
 
-    # 4 candidate positions diagonal from fire
-    candidates = [
-        (round(fire_x + offset, 2), round(fire_y + offset, 2)),
-        (round(fire_x - offset, 2), round(fire_y - offset, 2)),
-        (round(fire_x + offset, 2), round(fire_y - offset, 2)),
-        (round(fire_x - offset, 2), round(fire_y + offset, 2)),
-    ]
-
-    # Find the enclosing polygon and filter candidates
-    # Sprinklers must be inside polygon AND at least 1m from any wall (BS 9251)
-    min_wall_clearance = 1.0
-    polygon = _find_enclosing_polygon(fire_x, fire_y, elements)
-    if polygon:
-        sprinklers = [c for c in candidates
-                      if _point_in_polygon(c[0], c[1], polygon)
-                      and _min_distance_to_polygon(c[0], c[1], polygon) >= min_wall_clearance]
-        sprinklers = sprinklers[:2]  # max 2
-        if len(sprinklers) < 2:
-            # Relax to just inside polygon
-            sprinklers = [c for c in candidates if _point_in_polygon(c[0], c[1], polygon)][:2]
-        if len(sprinklers) < 2:
-            sprinklers = candidates[:2]
+    # Check for manually-placed sprinkler elements
+    manual_sprinklers = [f for f in elements if f["comments"] == "sprinkler"]
+    if manual_sprinklers:
+        sprinklers = []
+        for s in manual_sprinklers:
+            pts = s["points"]
+            if isinstance(pts, list):
+                sprinklers.append((round(pts[0]["x"], 2), round(pts[0]["y"], 2)))
+            else:
+                sprinklers.append((round(pts["x"], 2), round(pts["y"], 2)))
     else:
-        sprinklers = candidates[:2]
+        # Auto-place from fire location
+        fires = [f for f in elements if f["comments"] == "fire"]
+        if not fires:
+            return []
+
+        fire = fires[0]
+        points = fire["points"]
+        if isinstance(points, list):
+            fire_x = points[0]["x"]
+            fire_y = points[0]["y"]
+        else:
+            fire_x = points["x"]
+            fire_y = points["y"]
+
+        offset = 1.375  # 2.75m / 2
+
+        # 4 candidate positions diagonal from fire
+        candidates = [
+            (round(fire_x + offset, 2), round(fire_y + offset, 2)),
+            (round(fire_x - offset, 2), round(fire_y - offset, 2)),
+            (round(fire_x + offset, 2), round(fire_y - offset, 2)),
+            (round(fire_x - offset, 2), round(fire_y + offset, 2)),
+        ]
+
+        # Filter by enclosing polygon + 1m wall clearance (BS 9251)
+        min_wall_clearance = 1.0
+        polygon = _find_enclosing_polygon(fire_x, fire_y, elements)
+        if polygon:
+            sprinklers = [c for c in candidates
+                          if _point_in_polygon(c[0], c[1], polygon)
+                          and _min_distance_to_polygon(c[0], c[1], polygon) >= min_wall_clearance]
+            sprinklers = sprinklers[:2]
+            if len(sprinklers) < 2:
+                sprinklers = [c for c in candidates if _point_in_polygon(c[0], c[1], polygon)][:2]
+            if len(sprinklers) < 2:
+                sprinklers = candidates[:2]
+        else:
+            sprinklers = candidates[:2]
 
     lines = [
         "&SPEC ID='WATER VAPOR'/",
