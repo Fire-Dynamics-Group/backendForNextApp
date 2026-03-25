@@ -597,13 +597,14 @@ def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, 
     x2 = points[1]["x"]
     y2 = points[1]["y"]
 
-    opening_height = config.get("openingHeight", wall_height)
+    opening_height = config.get("openingHeight", 0.8)
     opening_base = config.get("openingBase", 0.0)
 
     dx = abs(x2 - x1)
     dy = abs(y2 - y1)
 
-    hole_z1 = round(z + opening_base, 2)
+    # Offset slightly from mesh boundary (FDS requirement)
+    hole_z1 = round(z + opening_base - 0.001, 4)
     hole_z2 = round(z + opening_base + opening_height, 2)
 
     # HOLE cuts through the wall at the inlet location
