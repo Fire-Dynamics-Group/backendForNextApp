@@ -1,3 +1,4 @@
 .space
 .vercel
 output-models
+.env

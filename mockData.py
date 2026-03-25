@@ -200,7 +200,51 @@ stairElements = [
             ],
             "comments": "landing",
             "id": 7
-        }
+        },
+    {
+        "type": "polyline",
+        "points": [
+            {"x": 450, "y": 840},
+            {"x": 650, "y": 840},
+            {"x": 650, "y": 880},
+            {"x": 450, "y": 880}
+        ],
+        "comments": "obstruction",
+        "id": 8
+    },
+    {
+        "type": "polyline",
+        "points": [
+            {"x": 480, "y": 850},
+            {"x": 520, "y": 850},
+            {"x": 520, "y": 870},
+            {"x": 480, "y": 870}
+        ],
+        "comments": "obstruction",
+        "id": 9
+    },
+    {
+        "type": "polyline",
+        "points": [
+            {"x": 540, "y": 890},
+            {"x": 580, "y": 890},
+            {"x": 580, "y": 920},
+            {"x": 540, "y": 920}
+        ],
+        "comments": "obstruction",
+        "id": 10
+    },
+    {
+        "type": "polyline",
+        "points": [
+            {"x": 600, "y": 950},
+            {"x": 640, "y": 950},
+            {"x": 640, "y": 980},
+            {"x": 600, "y": 980}
+        ],
+        "comments": "obstruction",
+        "id": 11
+    }
     ]
 
 stairElsTwo = [
