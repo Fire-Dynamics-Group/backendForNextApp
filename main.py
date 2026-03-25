@@ -75,6 +75,7 @@ class ElementsData(BaseModel):
     stair_style: Optional[str] = "overlapping"
     extract_config: Optional[dict] = {}
     inlet_config: Optional[dict] = {}
+    zone_config: Optional[dict] = {}
 
 class ConvertedElement(BaseModel):
     id: int
@@ -132,6 +133,7 @@ async def read_elements(body: ElementsData):
     stair_style = body.stair_style
     extract_config = body.extract_config
     inlet_config = body.inlet_config
+    zone_config = body.zone_config
     is_sprinklered = body.is_sprinklered
 
     output = testFunction(
@@ -158,6 +160,7 @@ async def read_elements(body: ElementsData):
                             stair_style=stair_style,
                             extract_config=extract_config,
                             inlet_config=inlet_config,
+                            zone_config=zone_config,
                             is_sprinklered=is_sprinklered,
                             include_sensors=include_sensors,
                             corridor_sensor_heights=corridor_sensor_heights,

@@ -140,13 +140,64 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     return line
 
 
-def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5, z2_override=None):
+def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5, z2_override=None, inlets=None):
     meshes = [ f for f in elements if f["comments"] == comments]
     z_top = z2_override if z2_override is not None else z + wall_height
+
+    # Determine pushback adjustments from inlets
+    pushbacks = []
+    if inlets:
+        for mesh in meshes:
+            for inlet in inlets:
+                pb = find_inlet_mesh_pushback(mesh["points"], inlet["points"])
+                pushbacks.append(pb)
+
     for idx, mesh in enumerate(meshes):
         points = mesh["points"]
+
+        # Apply pushback to a copy of the points
+        if pushbacks:
+            xs = [p["x"] for p in points]
+            ys = [p["y"] for p in points]
+            xmin, xmax = min(xs), max(xs)
+            ymin, ymax = min(ys), max(ys)
+
+            for pb in pushbacks:
+                face = pb["face"]
+                dist = pb["distance"]
+                if face == "xmin":
+                    xmin -= dist
+                elif face == "xmax":
+                    xmax += dist
+                elif face == "ymin":
+                    ymin -= dist
+                elif face == "ymax":
+                    ymax += dist
+
+            points = [{"x": xmin, "y": ymin}, {"x": xmax, "y": ymax}]
+
         line = create_fds_mesh_lines(points, cell_size, z, z_top, px_per_m, comments, idx, fds_array, is_stair=False)
         fds_array.append(line)
+
+        # Create OPEN vents on pushed-back faces
+        if pushbacks:
+            xs = [p["x"] for p in points]
+            ys = [p["y"] for p in points]
+            x1, x2 = round(min(xs), 1), round(max(xs), 1)
+            y1, y2 = round(min(ys), 1), round(max(ys), 1)
+
+            for pb_idx, pb in enumerate(pushbacks):
+                face = pb["face"]
+                if face == "xmin":
+                    vent_xb = f"{x1},{x1},{y1},{y2},{z},{z_top}"
+                elif face == "xmax":
+                    vent_xb = f"{x2},{x2},{y1},{y2},{z},{z_top}"
+                elif face == "ymin":
+                    vent_xb = f"{x1},{x2},{y1},{y1},{z},{z_top}"
+                elif face == "ymax":
+                    vent_xb = f"{x1},{x2},{y2},{y2},{z},{z_top}"
+                fds_array.append(f"&VENT ID='Inlet Mesh Vent {pb_idx + 1}', SURF_ID='OPEN', XB={vent_xb}/")
+
     return fds_array
 
 
@@ -586,10 +637,45 @@ def create_aov_sprinkler_devc(elements, stair_enclosure_roof_z):
     ]
 
 
+def find_inlet_mesh_pushback(mesh_points, inlet_points, pushback_distance=1.0):
+    """Determine which mesh face to push back for an inlet opening.
+
+    Compares the inlet midpoint to each mesh face and returns the closest face
+    and the pushback distance.
+
+    Args:
+        mesh_points: two corner points of the mesh rect [{"x","y"}, {"x","y"}]
+        inlet_points: two points of the inlet line [{"x","y"}, {"x","y"}]
+        pushback_distance: how far to push back the mesh face (default 1.0m)
+
+    Returns:
+        dict with "face" (xmin/xmax/ymin/ymax) and "distance"
+    """
+    xs = [p["x"] for p in mesh_points]
+    ys = [p["y"] for p in mesh_points]
+    xmin, xmax = min(xs), max(xs)
+    ymin, ymax = min(ys), max(ys)
+
+    inlet_mid_x = (inlet_points[0]["x"] + inlet_points[1]["x"]) / 2
+    inlet_mid_y = (inlet_points[0]["y"] + inlet_points[1]["y"]) / 2
+
+    # Distance from inlet midpoint to each face
+    distances = {
+        "xmin": abs(inlet_mid_x - xmin),
+        "xmax": abs(inlet_mid_x - xmax),
+        "ymin": abs(inlet_mid_y - ymin),
+        "ymax": abs(inlet_mid_y - ymax),
+    }
+
+    closest_face = min(distances, key=distances.get)
+    return {"face": closest_face, "distance": pushback_distance}
+
+
 def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, inlet_number=1):
     """Generate a HOLE for an inlet opening at fire floor level.
 
-    The inlet is a simple opening in the external wall that allows fresh air in.
+    The inlet opening is centered on the inlet line midpoint with configurable
+    width and height. Defaults match the original exe: 1.8m wide, 0.8m high.
     """
     points = inlet_element["points"]
     x1 = points[0]["x"]
@@ -597,11 +683,17 @@ def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, 
     x2 = points[1]["x"]
     y2 = points[1]["y"]
 
+    opening_width = config.get("openingWidth", 1.8)
     opening_height = config.get("openingHeight", 0.8)
     opening_base = config.get("openingBase", 0.0)
 
     dx = abs(x2 - x1)
     dy = abs(y2 - y1)
+
+    # Inlet midpoint
+    mid_x = (x1 + x2) / 2
+    mid_y = (y1 + y2) / 2
+    half_w = opening_width / 2
 
     # Offset Z from mesh boundaries facing ambient (FDS requirement)
     hole_z1 = round(z + opening_base, 4)
@@ -611,13 +703,13 @@ def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, 
     if abs((opening_base + opening_height) - wall_height) < 0.01:
         hole_z2 = round(hole_z2 + 0.001, 4)  # offset from mesh ZMAX
 
-    # HOLE cuts through the wall at the inlet location
+    # HOLE cuts through the wall, centered on inlet midpoint
     if dx > dy:
-        # Horizontal inlet
-        hole_xb = f"{round(min(x1, x2), 2)},{round(max(x1, x2), 2)},{round(y1 - 0.2, 2)},{round(y1 + 0.2, 2)},{hole_z1},{hole_z2}"
+        # Horizontal inlet: width along X, depth through wall in Y
+        hole_xb = f"{round(mid_x - half_w, 2)},{round(mid_x + half_w, 2)},{round(mid_y - 0.2, 2)},{round(mid_y + 0.2, 2)},{hole_z1},{hole_z2}"
     else:
-        # Vertical inlet
-        hole_xb = f"{round(x1 - 0.2, 2)},{round(x1 + 0.2, 2)},{round(min(y1, y2), 2)},{round(max(y1, y2), 2)},{hole_z1},{hole_z2}"
+        # Vertical inlet: width along Y, depth through wall in X
+        hole_xb = f"{round(mid_x - 0.2, 2)},{round(mid_x + 0.2, 2)},{round(mid_y - half_w, 2)},{round(mid_y + half_w, 2)},{hole_z1},{hole_z2}"
 
     return [f"&HOLE ID='Inlet Opening {inlet_number}', XB={hole_xb}/"]
 
@@ -666,6 +758,76 @@ def _find_enclosing_polygon(fire_x, fire_y, elements):
         if _point_in_polygon(fire_x, fire_y, polygon):
             return polygon
     return None
+
+
+def generate_zone_sensors(elements, z, zone_config, sensor_heights=None, spacing=0.5):
+    """Generate centerline sensors for each assigned zone.
+
+    For each zone, finds the obstruction polygon, computes centerline,
+    and places sensors along it with zone-specific naming.
+    """
+    if not zone_config:
+        return []
+    if sensor_heights is None:
+        sensor_heights = [2.0]
+
+    quantities = ['TEMPERATURE', 'VISIBILITY', 'VELOCITY', 'PRESSURE']
+    q_short = {'TEMPERATURE': 'temp', 'VISIBILITY': 'vis', 'VELOCITY': 'vel', 'PRESSURE': 'pres'}
+
+    lines = []
+    for el_id, config in zone_config.items():
+        zone_name = config.get("name", "Zone")
+        zone_prefix = zone_name.lower().replace(" ", "_")
+
+        # Find the obstruction element
+        obs = None
+        for el in elements:
+            if str(el.get("id", "")) == str(el_id) and el["comments"] == "obstruction":
+                obs = el
+                break
+        if not obs:
+            continue
+
+        pts = obs["points"]
+        xs = [p["x"] for p in pts]
+        ys = [p["y"] for p in pts]
+        xmin, xmax = min(xs), max(xs)
+        ymin, ymax = min(ys), max(ys)
+        delta_x = xmax - xmin
+        delta_y = ymax - ymin
+        inset = 0.3
+
+        centre_points = []
+        if delta_x > delta_y:
+            # Long in X — centerline at mid-Y
+            y_mid = round((ymin + ymax) / 2, 2)
+            x_start = round(xmin + inset, 2)
+            x_end = round(xmax - inset, 2)
+            num_points = max(1, int((x_end - x_start) / spacing) + 1)
+            for i in range(num_points):
+                x = round(x_start + i * spacing, 2)
+                if x <= x_end:
+                    centre_points.append((x, y_mid))
+        else:
+            # Long in Y — centerline at mid-X
+            x_mid = round((xmin + xmax) / 2, 2)
+            y_start = round(ymin + inset, 2)
+            y_end = round(ymax - inset, 2)
+            num_points = max(1, int((y_end - y_start) / spacing) + 1)
+            for i in range(num_points):
+                y = round(y_start + i * spacing, 2)
+                if y <= y_end:
+                    centre_points.append((x_mid, y))
+
+        for pt_idx, (x, y) in enumerate(centre_points, start=1):
+            for height in sensor_heights:
+                sensor_z = round(z + height, 2)
+                for quantity in quantities:
+                    prefix = q_short[quantity]
+                    devc_id = f"{zone_prefix}_{prefix}_{pt_idx}"
+                    lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
+
+    return lines
 
 
 def generate_sprinkler_lines(elements, z, wall_height):
@@ -920,7 +1082,7 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
                  aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None, inlet_config=None,
-                 include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, is_sprinklered=True):
+                 zone_config=None, include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, is_sprinklered=True):
     if door_openings is None:
         door_openings = {}
     if door_leakage_config is None:
@@ -933,6 +1095,8 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         extract_config = {}
     if inlet_config is None:
         inlet_config = {}
+    if zone_config is None:
+        zone_config = {}
 
     # 1. Simulation header
     header_lines = sim_header(chid='model', sim_end_time=sim_end_time)
@@ -954,8 +1118,9 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         for p in el["points"]:
             p["y"] = round(max_y - p["y"], 5)
 
-    # 3. Meshes
-    fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
+    # 3. Meshes (with inlet pushback if inlets present)
+    inlets = [f for f in elements if f["comments"] == "inlet"]
+    fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array, wall_height=wall_height, inlets=inlets if inlets else None)
 
     # 3a. Stair meshes (Lower 0.2m / Middle 0.1m / Upper 0.2m) + mesh vent at ZMAX
     fds_array = create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array)
@@ -1045,6 +1210,11 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         sensor_heights = corridor_sensor_heights if corridor_sensor_heights else [2.0]
         sensor_lines = generate_corridor_sensor_devcs(elements, z, sensor_heights)
         fds_array = add_array_to_fds_array(sensor_lines, fds_array)
+
+    # 10a. Zone-specific sensors
+    if include_sensors and zone_config:
+        zone_sensor_lines = generate_zone_sensors(elements, z, zone_config, sensor_heights=corridor_sensor_heights or [2.0])
+        fds_array = add_array_to_fds_array(zone_sensor_lines, fds_array)
 
     # 11. TAIL
     fds_array.append("&TAIL/")
