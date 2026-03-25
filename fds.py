@@ -653,14 +653,16 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
 
     lines.append(f"&HOLE ID='Extract Opening {extract_number}', XB={hole_xb}{ctrl_suffix}/")
 
-    # Top VENT at shaft ceiling
-    if shaft_type == "natural":
-        lines.append(f"&VENT ID='Extract Top {extract_number}', SURF_ID='OPEN', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
-    else:
-        # Mechanical: need SURF with flow rate, then VENT referencing it
+    # Top: HOLE through the roof slab + mesh vent (OPEN) at ZMAX
+    roof_z = round(stair_enclosure_roof_z, 2)
+    lines.append(f"&HOLE ID='Extract Roof Opening {extract_number}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{round(roof_z - 0.4, 2)},{round(roof_z + 0.4, 2)}/")
+    lines.append(f"&VENT ID='Mesh Vent: {shaft_id} [ZMAX]', SURF_ID='OPEN', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
+
+    # Mechanical extract: add SURF with flow rate at top
+    if shaft_type == "mechanical":
         surf_id = f"Extract_{extract_number}"
         lines.append(f"&SURF ID='{surf_id}', VOLUME_FLOW={flow_rate}, TAU_V=-10.0/")
-        lines.append(f"&VENT ID='Extract Top {extract_number}', SURF_ID='{surf_id}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
+        lines.append(f"&VENT ID='Extract Fan {extract_number}', SURF_ID='{surf_id}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
 
     # Activation controls
     if activation == "timed" and activation_time is not None:
@@ -675,10 +677,84 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     return lines
 
 
+def compute_corridor_centerline(obstruction_points, spacing=0.5, inset=0.4):
+    """Compute centerline points along the corridor obstruction polygon.
+
+    For a simple rectangular-ish corridor, finds the long axis and places
+    points at `spacing` intervals, inset from walls by `inset` metres.
+    Returns list of [x, y] points.
+    """
+    xs = [p["x"] for p in obstruction_points]
+    ys = [p["y"] for p in obstruction_points]
+
+    xmin, xmax = min(xs), max(xs)
+    ymin, ymax = min(ys), max(ys)
+
+    delta_x = xmax - xmin
+    delta_y = ymax - ymin
+
+    centre_points = []
+    if delta_x > delta_y:
+        # Long corridor along X — centerline at mid-Y
+        y_mid = round((ymin + ymax) / 2, 2)
+        x_start = round(xmin + inset, 2)
+        x_end = round(xmax - inset, 2)
+        num_points = max(1, int((x_end - x_start) / spacing) + 1)
+        for i in range(num_points):
+            x = round(x_start + i * spacing, 2)
+            if x <= x_end:
+                centre_points.append([x, y_mid])
+    else:
+        # Long corridor along Y — centerline at mid-X
+        x_mid = round((xmin + xmax) / 2, 2)
+        y_start = round(ymin + inset, 2)
+        y_end = round(ymax - inset, 2)
+        num_points = max(1, int((y_end - y_start) / spacing) + 1)
+        for i in range(num_points):
+            y = round(y_start + i * spacing, 2)
+            if y <= y_end:
+                centre_points.append([x_mid, y])
+
+    return centre_points
+
+
+def generate_corridor_sensor_devcs(elements, z, sensor_heights, spacing=0.5):
+    """Auto-generate DEVC lines along corridor centerline.
+
+    Uses the obstruction polygon to compute centerline, then places
+    temp/pressure/visibility/velocity devices at each point and height.
+    """
+    quantities = ["TEMPERATURE", "PRESSURE", "VISIBILITY", "VELOCITY"]
+    q_short = {"TEMPERATURE": "temp", "PRESSURE": "pres", "VISIBILITY": "vis", "VELOCITY": "vel"}
+
+    lines = []
+
+    # Find corridor obstruction polygon
+    obstructions = [el for el in elements if el.get("comments") == "obstruction"]
+    if not obstructions:
+        return lines
+
+    # Use first obstruction as the corridor polygon
+    corridor = obstructions[0]
+    centre_points = compute_corridor_centerline(corridor["points"], spacing=spacing)
+
+    for pt_idx, point in enumerate(centre_points, start=1):
+        x, y = point
+        for height in sensor_heights:
+            sensor_z = round(z + height, 2)
+            for quantity in quantities:
+                prefix = q_short[quantity]
+                devc_id = f"cc_{prefix}_{pt_idx}"
+                lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
+
+    return lines
+
+
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z,
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
-                 aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None):
+                 aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None,
+                 include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None):
     if door_openings is None:
         door_openings = {}
     if door_leakage_config is None:
@@ -776,7 +852,13 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         shaft_lines = create_extract_shaft(extract, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, extract_number=idx + 1)
         fds_array = add_array_to_fds_array(shaft_lines, fds_array)
 
-    # 10. TAIL
+    # 10. Corridor centerline sensors (auto-placed)
+    if include_sensors:
+        sensor_heights = corridor_sensor_heights if corridor_sensor_heights else [2.0]
+        sensor_lines = generate_corridor_sensor_devcs(elements, z, sensor_heights)
+        fds_array = add_array_to_fds_array(sensor_lines, fds_array)
+
+    # 11. TAIL
     fds_array.append("&TAIL/")
 
     final = array_to_str(fds_array)

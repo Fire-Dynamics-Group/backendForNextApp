@@ -472,12 +472,16 @@ class TestExtractShaft:
         assert len(mesh_lines) == 1
         assert "Extract_Shaft_1" in mesh_lines[0]
 
-    def test_natural_shaft_has_open_top_vent(self):
+    def test_natural_shaft_has_roof_hole_and_mesh_vent(self):
+        """Natural shaft: HOLE through roof + OPEN mesh vent at ZMAX."""
         config = {"type": "natural", "shaftWidth": 0.9, "shaftDepth": 0.9}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
-        vent_lines = [l for l in result if "&VENT" in l and "OPEN" in l]
-        assert len(vent_lines) == 1
-        assert "Extract Top 1" in vent_lines[0]
+        roof_holes = [l for l in result if "&HOLE" in l and "Roof" in l]
+        assert len(roof_holes) == 1
+        assert "Extract Roof Opening 1" in roof_holes[0]
+        mesh_vents = [l for l in result if "&VENT" in l and "ZMAX" in l]
+        assert len(mesh_vents) == 1
+        assert "SURF_ID='OPEN'" in mesh_vents[0]
 
     def test_natural_shaft_has_no_surf(self):
         config = {"type": "natural"}
@@ -485,22 +489,28 @@ class TestExtractShaft:
         surf_lines = [l for l in result if "&SURF" in l]
         assert len(surf_lines) == 0
 
-    def test_mechanical_shaft_has_surf_and_vent(self):
+    def test_mechanical_shaft_has_surf_and_fan_vent(self):
+        """Mechanical shaft: SURF with flow rate + fan vent + roof hole + mesh vent."""
         config = {"type": "mechanical", "flowRate": 6.0, "shaftWidth": 0.9, "shaftDepth": 0.9}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
         surf_lines = [l for l in result if "&SURF" in l]
         assert len(surf_lines) == 1
         assert "VOLUME_FLOW=6.0" in surf_lines[0]
-        vent_lines = [l for l in result if "&VENT" in l]
-        assert len(vent_lines) == 1
-        assert "Extract_1" in vent_lines[0]
+        fan_vents = [l for l in result if "&VENT" in l and "Fan" in l]
+        assert len(fan_vents) == 1
+        assert "Extract_1" in fan_vents[0]
+        # Should also have roof hole and mesh vent
+        roof_holes = [l for l in result if "&HOLE" in l and "Roof" in l]
+        assert len(roof_holes) == 1
+        mesh_vents = [l for l in result if "&VENT" in l and "ZMAX" in l]
+        assert len(mesh_vents) == 1
 
     def test_shaft_has_opening_hole(self):
+        """Fire floor opening HOLE connects shaft to corridor."""
         config = {"type": "natural", "shaftWidth": 0.9, "shaftDepth": 0.9}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
-        hole_lines = [l for l in result if "&HOLE" in l]
-        assert len(hole_lines) == 1
-        assert "Extract Opening 1" in hole_lines[0]
+        opening_holes = [l for l in result if "&HOLE" in l and "Extract Opening" in l]
+        assert len(opening_holes) == 1
 
     def test_timed_activation_generates_devc(self):
         config = {"type": "natural", "activation": "timed", "activationTime": 60}
@@ -508,9 +518,9 @@ class TestExtractShaft:
         devc_lines = [l for l in result if "&DEVC" in l]
         assert len(devc_lines) == 1
         assert "SETPOINT=60" in devc_lines[0]
-        # HOLE should reference the timer
-        hole_lines = [l for l in result if "&HOLE" in l]
-        assert "Extract_Timer_1" in hole_lines[0]
+        # Opening HOLE should reference the timer
+        opening_holes = [l for l in result if "&HOLE" in l and "Extract Opening" in l]
+        assert "Extract_Timer_1" in opening_holes[0]
 
     def test_sprinkler_activation_generates_devc_and_prop(self):
         config = {"type": "natural", "activation": "sprinkler"}
@@ -522,14 +532,14 @@ class TestExtractShaft:
         assert "Extract_Sprinkler_1" in devc_lines[0]
 
     def test_custom_opening_dimensions(self):
-        """openingHeight and openingBase control the HOLE Z range."""
+        """openingHeight and openingBase control the opening HOLE Z range."""
         config = {"type": "natural", "openingHeight": 1.6, "openingBase": 0.4}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
-        hole_lines = [l for l in result if "&HOLE" in l]
-        assert len(hole_lines) == 1
+        opening_holes = [l for l in result if "&HOLE" in l and "Extract Opening" in l]
+        assert len(opening_holes) == 1
         # z=10, base=0.4, height=1.6 -> hole from 10.4 to 12.0
-        assert "10.4" in hole_lines[0]
-        assert "12.0" in hole_lines[0]
+        assert "10.4" in opening_holes[0]
+        assert "12.0" in opening_holes[0]
 
     def test_default_opening_uses_full_wall_height(self):
         """Without openingHeight/Base, HOLE spans full wall height."""
@@ -567,4 +577,5 @@ class TestExtractShaft:
         )
         assert "Extract_Shaft_1" in result
         assert "Extract Opening 1" in result
-        assert "Extract Top 1" in result
+        assert "Extract Roof Opening 1" in result
+        assert "Mesh Vent: Extract_Shaft_1 [ZMAX]" in result
