@@ -779,6 +779,13 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     elements = makeElementsRelativeToOrigin(elements, origin)
     elements = convertElPointsToCoords(elements, px_per_m)
 
+    # Flip Y axis: canvas Y=0 is top, FDS Y=0 is bottom
+    all_ys = [p["y"] for el in elements for p in el["points"]]
+    max_y = max(all_ys) if all_ys else 0
+    for el in elements:
+        for p in el["points"]:
+            p["y"] = round(max_y - p["y"], 5)
+
     # 3. Meshes
     fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
 
