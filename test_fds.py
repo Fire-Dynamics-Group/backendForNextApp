@@ -1,6 +1,6 @@
 """Tests for fds.py - FDS generation with controls and header integration."""
 import pytest
-from fds import sim_header, testFunction, add_door_holes_to_fds, create_stair_roof, create_stair_aov, generate_door_leakage_vents, create_extract_shaft
+from fds import sim_header, testFunction, add_door_holes_to_fds, create_stair_roof, create_stair_aov, generate_door_leakage_vents, create_extract_shaft, find_inlet_mesh_pushback, create_mesh, create_inlet_opening
 from controls import Control_ID_Apartment, Control_ID_Stair
 
 
@@ -579,3 +579,195 @@ class TestExtractShaft:
         assert "Extract Opening 1" in result
         assert "Extract Roof Opening 1" in result
         assert "Mesh Vent: Extract_Shaft_1 [ZMAX]" in result
+
+
+class TestFindInletMeshPushback:
+    """find_inlet_mesh_pushback identifies which mesh face to push back for an inlet."""
+
+    def test_inlet_on_ymin_face_returns_ymin(self):
+        """Inlet sitting on the YMIN boundary of the mesh => push back YMIN."""
+        mesh_points = [{"x": 0, "y": 0}, {"x": 10, "y": 5}]
+        inlet_points = [{"x": 3, "y": 0}, {"x": 7, "y": 0}]
+        result = find_inlet_mesh_pushback(mesh_points, inlet_points)
+        assert result["face"] == "ymin"
+        assert result["distance"] == 1.0
+
+    def test_inlet_on_xmax_face_returns_xmax(self):
+        """Inlet sitting on the XMAX boundary of the mesh => push back XMAX."""
+        mesh_points = [{"x": 0, "y": 0}, {"x": 10, "y": 5}]
+        inlet_points = [{"x": 10, "y": 1}, {"x": 10, "y": 3}]
+        result = find_inlet_mesh_pushback(mesh_points, inlet_points)
+        assert result["face"] == "xmax"
+
+    def test_inlet_on_xmin_face_returns_xmin(self):
+        mesh_points = [{"x": 0, "y": 0}, {"x": 10, "y": 5}]
+        inlet_points = [{"x": 0, "y": 1}, {"x": 0, "y": 3}]
+        result = find_inlet_mesh_pushback(mesh_points, inlet_points)
+        assert result["face"] == "xmin"
+
+    def test_inlet_on_ymax_face_returns_ymax(self):
+        mesh_points = [{"x": 0, "y": 0}, {"x": 10, "y": 5}]
+        inlet_points = [{"x": 3, "y": 5}, {"x": 7, "y": 5}]
+        result = find_inlet_mesh_pushback(mesh_points, inlet_points)
+        assert result["face"] == "ymax"
+
+    def test_custom_pushback_distance(self):
+        mesh_points = [{"x": 0, "y": 0}, {"x": 10, "y": 5}]
+        inlet_points = [{"x": 3, "y": 0}, {"x": 7, "y": 0}]
+        result = find_inlet_mesh_pushback(mesh_points, inlet_points, pushback_distance=2.0)
+        assert result["distance"] == 2.0
+
+
+class TestMeshPushback:
+    """create_mesh pushes back the mesh face when inlets are present."""
+
+    def test_mesh_ymin_pushed_back_for_inlet(self):
+        """Inlet on YMIN face => mesh y1 reduced by pushback distance."""
+        elements = [
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 10, "y": 5}], "type": "rect"},
+        ]
+        inlets = [
+            {"comments": "inlet", "id": 2, "points": [{"x": 3, "y": 0}, {"x": 7, "y": 0}], "type": "polyline"},
+        ]
+        fds_array = []
+        result = create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array, wall_height=3, inlets=inlets)
+        mesh_line = result[0]
+        # Original YMIN was 0, should now be -1.0
+        assert ",-1.0," in mesh_line or ",-.1" in mesh_line or ",-1," in mesh_line
+
+    def test_mesh_without_inlets_unchanged(self):
+        """No inlets => mesh coordinates unchanged."""
+        elements = [
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 10, "y": 5}], "type": "rect"},
+        ]
+        fds_array_with = []
+        fds_array_without = []
+        create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array_with, wall_height=3, inlets=[])
+        create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array_without, wall_height=3)
+        assert fds_array_with[0] == fds_array_without[0]
+
+    def test_mesh_xmax_pushed_back_for_inlet(self):
+        """Inlet on XMAX face => mesh x2 increased by pushback distance."""
+        elements = [
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 10, "y": 5}], "type": "rect"},
+        ]
+        inlets = [
+            {"comments": "inlet", "id": 2, "points": [{"x": 10, "y": 1}, {"x": 10, "y": 3}], "type": "polyline"},
+        ]
+        fds_array = []
+        create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array, wall_height=3, inlets=inlets)
+        mesh_line = fds_array[0]
+        # Original XMAX was 10, should now be 11.0
+        assert ",11.0," in mesh_line
+
+    def test_pushback_creates_open_vent(self):
+        """When mesh is pushed back, an OPEN vent is created on the pushed-back face."""
+        elements = [
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 10, "y": 5}], "type": "rect"},
+        ]
+        inlets = [
+            {"comments": "inlet", "id": 2, "points": [{"x": 3, "y": 0}, {"x": 7, "y": 0}], "type": "polyline"},
+        ]
+        fds_array = []
+        create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array, wall_height=3, inlets=inlets)
+        # Should have MESH line + OPEN vent line
+        vent_lines = [l for l in fds_array if "SURF_ID='OPEN'" in l]
+        assert len(vent_lines) == 1
+        # OPEN vent should span the full pushed-back face at YMIN=-1.0
+        assert "-1.0,-1.0" in vent_lines[0]  # y1=y2=-1.0 (the pushed-back face)
+
+    def test_no_open_vent_without_inlets(self):
+        """No inlets => no OPEN vent created."""
+        elements = [
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 10, "y": 5}], "type": "rect"},
+        ]
+        fds_array = []
+        create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array, wall_height=3)
+        vent_lines = [l for l in fds_array if "SURF_ID='OPEN'" in l]
+        assert len(vent_lines) == 0
+
+
+class TestInletOpeningConfigurable:
+    """create_inlet_opening creates a HOLE centered on the inlet midpoint with configurable width/height."""
+
+    def test_default_width_and_height(self):
+        """Default opening is 1.8m wide x 0.8m high centered on inlet midpoint."""
+        inlet = {"comments": "inlet", "id": 1, "points": [{"x": 5, "y": 0}, {"x": 5, "y": 4}]}
+        config = {}
+        result = create_inlet_opening(inlet, config, z=10, wall_height=3, wall_thickness=0.2)
+        hole_line = result[0]
+        assert "&HOLE" in hole_line
+        # Vertical inlet: midpoint y=2.0, width=1.8 => y from 1.1 to 2.9
+        assert "1.1" in hole_line
+        assert "2.9" in hole_line
+        # Height: 0.8m from z=10 => z1~9.999 (offset), z2=10.8
+        assert "9.999" in hole_line
+        assert "10.8" in hole_line
+
+    def test_custom_width_and_height(self):
+        """Custom opening width/height from config."""
+        inlet = {"comments": "inlet", "id": 1, "points": [{"x": 5, "y": 0}, {"x": 5, "y": 4}]}
+        config = {"openingWidth": 2.0, "openingHeight": 1.2}
+        result = create_inlet_opening(inlet, config, z=10, wall_height=3, wall_thickness=0.2)
+        hole_line = result[0]
+        # Vertical inlet: midpoint y=2.0, width=2.0 => y from 1.0 to 3.0
+        assert "1.0" in hole_line
+        assert "3.0" in hole_line
+        # Height 1.2: z1~9.999, z2=11.2
+        assert "11.2" in hole_line
+
+    def test_horizontal_inlet_centered(self):
+        """Horizontal inlet: width applied along X, centered on midpoint."""
+        inlet = {"comments": "inlet", "id": 1, "points": [{"x": 2, "y": 5}, {"x": 8, "y": 5}]}
+        config = {}
+        result = create_inlet_opening(inlet, config, z=10, wall_height=3, wall_thickness=0.2)
+        hole_line = result[0]
+        # Horizontal inlet: midpoint x=5.0, width=1.8 => x from 4.1 to 5.9
+        assert "4.1" in hole_line
+        assert "5.9" in hole_line
+
+
+class TestInletIntegration:
+    """Integration tests: inlet mesh pushback + OPEN vent + configurable HOLE through testFunction."""
+
+    def _make_elements(self):
+        return [
+            {"comments": "obstruction", "id": 0, "points": [
+                {"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 100, "y": 50},
+                {"x": 0, "y": 50}, {"x": 0, "y": 0}
+            ], "type": "polyline"},
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 100, "y": 50}], "type": "rect"},
+            {"comments": "fire", "id": 3, "points": [{"x": 25, "y": 25}], "type": "point"},
+            {"comments": "inlet", "id": 4, "points": [{"x": 50, "y": 0}, {"x": 60, "y": 0}], "type": "polyline"},
+        ]
+
+    def test_inlet_produces_open_vent_in_output(self):
+        """testFunction output contains an OPEN vent when inlet is present."""
+        result = testFunction(
+            self._make_elements(), z=10, wall_height=3, wall_thickness=0.2,
+            stair_height=30, px_per_m=10, fire_floor=2, total_floors=7,
+            stair_enclosure_roof_z=40, scenario_type="MOE",
+            inlet_config={"4": {}},
+        )
+        assert "Inlet Mesh Vent" in result
+        assert "SURF_ID='OPEN'" in result
+
+    def test_inlet_produces_hole_in_output(self):
+        """testFunction output contains an Inlet Opening HOLE."""
+        result = testFunction(
+            self._make_elements(), z=10, wall_height=3, wall_thickness=0.2,
+            stair_height=30, px_per_m=10, fire_floor=2, total_floors=7,
+            stair_enclosure_roof_z=40, scenario_type="MOE",
+            inlet_config={"4": {}},
+        )
+        assert "Inlet Opening 1" in result
+
+    def test_no_inlet_no_open_vent(self):
+        """testFunction output has no inlet OPEN vent when no inlet elements."""
+        elements = [el for el in self._make_elements() if el["comments"] != "inlet"]
+        result = testFunction(
+            elements, z=10, wall_height=3, wall_thickness=0.2,
+            stair_height=30, px_per_m=10, fire_floor=2, total_floors=7,
+            stair_enclosure_roof_z=40, scenario_type="MOE",
+        )
+        assert "Inlet Mesh Vent" not in result
