@@ -1099,18 +1099,10 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     shaft_id = f"Extract_Shaft_{extract_number}"
     lines.append(f"&MESH ID='{shaft_id}', IJK={ijk_x},{ijk_y},{ijk_z}, XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}/")
 
-    # Opening HOLE at corridor level (connects shaft to corridor)
-    # Offset Z from mesh boundaries facing ambient (FDS requirement)
-    hole_z1 = round(z + opening_base, 4)
-    hole_z2 = round(z + opening_base + opening_height, 4)
-    if opening_base == 0:
-        hole_z1 = round(hole_z1 - 0.001, 4)  # offset from mesh ZMIN
-    if abs((opening_base + opening_height) - wall_height) < 0.01:
-        hole_z2 = round(hole_z2 + 0.001, 4)  # offset from mesh ZMAX
-    if dx > dy:
-        hole_xb = f"{shaft_x1},{shaft_x2},{round(shaft_y1 - 0.2, 2)},{round(shaft_y1 + 0.2, 2)},{hole_z1},{hole_z2}"
-    else:
-        hole_xb = f"{round(shaft_x1 - 0.2, 2)},{round(shaft_x1 + 0.2, 2)},{shaft_y1},{shaft_y2},{hole_z1},{hole_z2}"
+    # Opening VENT at corridor level (flat against wall, matching exe approach)
+    # The vent sits on the wall face — one dimension collapsed to a plane
+    vent_z1 = round(z + opening_base, 2)
+    vent_z2 = round(z + opening_base + opening_height, 2)
 
     ctrl_suffix = ""
     if activation == "timed":
@@ -1118,18 +1110,25 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     elif activation == "sprinkler":
         ctrl_suffix = f", DEVC_ID='Extract_Sprinkler_{extract_number}'"
 
-    lines.append(f"&HOLE ID='Extract Opening {extract_number}', XB={hole_xb}{ctrl_suffix}/")
+    if dx > dy:
+        # Horizontal opening: vent is flat on Y face
+        vent_xb = f"{shaft_x1},{shaft_x2},{shaft_y1},{shaft_y1},{vent_z1},{vent_z2}"
+    else:
+        # Vertical opening: vent is flat on X face
+        vent_xb = f"{shaft_x1},{shaft_x1},{shaft_y1},{shaft_y2},{vent_z1},{vent_z2}"
+
+    # Mechanical extract: define SURF before the VENT that references it
+    if shaft_type == "mechanical":
+        extract_surf_id = f"Extract_{extract_number}"
+        lines.append(f"&SURF ID='{extract_surf_id}', VOLUME_FLOW={flow_rate}, RGB=26,128,26/")
+        lines.append(f"&VENT ID='Extract Opening {extract_number}', SURF_ID='{extract_surf_id}', XB={vent_xb}{ctrl_suffix}/")
+    else:
+        lines.append(f"&VENT ID='Extract Opening {extract_number}', SURF_ID='OPEN', XB={vent_xb}{ctrl_suffix}/")
 
     # Top: HOLE through the roof slab + mesh vent (OPEN) at ZMAX
     roof_z = round(stair_enclosure_roof_z, 2)
     lines.append(f"&HOLE ID='Extract Roof Opening {extract_number}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{round(roof_z - 0.4, 2)},{round(roof_z + 0.4, 2)}/")
     lines.append(f"&VENT ID='Mesh Vent: {shaft_id} [ZMAX]', SURF_ID='OPEN', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
-
-    # Mechanical extract: add SURF with flow rate at top
-    if shaft_type == "mechanical":
-        surf_id = f"Extract_{extract_number}"
-        lines.append(f"&SURF ID='{surf_id}', VOLUME_FLOW={flow_rate}, TAU_V=-10.0/")
-        lines.append(f"&VENT ID='Extract Fan {extract_number}', SURF_ID='{surf_id}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
 
     # Activation controls
     if activation == "timed" and activation_time is not None:
