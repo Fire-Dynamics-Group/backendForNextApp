@@ -144,25 +144,36 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_heig
     meshes = [ f for f in elements if f["comments"] == comments]
     z_top = z2_override if z2_override is not None else z + wall_height
 
-    # Determine pushback adjustments from inlets
-    pushbacks = []
-    if inlets:
-        for mesh in meshes:
-            for inlet in inlets:
-                pb = find_inlet_mesh_pushback(mesh["points"], inlet["points"])
-                pushbacks.append(pb)
-
     for idx, mesh in enumerate(meshes):
         points = mesh["points"]
 
+        # Determine pushbacks only for inlets that touch THIS mesh
+        mesh_pushbacks = []
+        if inlets:
+            for inlet in inlets:
+                pb = find_inlet_mesh_pushback(points, inlet["points"])
+                # Only apply if the inlet is actually on this mesh's face
+                # (i.e. the inlet midpoint is within or very close to the mesh bounds)
+                inp = inlet["points"]
+                inlet_mid_x = (inp[0]["x"] + inp[1]["x"]) / 2
+                inlet_mid_y = (inp[0]["y"] + inp[1]["y"]) / 2
+                xs = [p["x"] for p in points]
+                ys = [p["y"] for p in points]
+                mx1, mx2 = min(xs), max(xs)
+                my1, my2 = min(ys), max(ys)
+                tolerance = 2.0  # metres tolerance for matching inlet to mesh
+                if (mx1 - tolerance <= inlet_mid_x <= mx2 + tolerance and
+                    my1 - tolerance <= inlet_mid_y <= my2 + tolerance):
+                    mesh_pushbacks.append(pb)
+
         # Apply pushback to a copy of the points
-        if pushbacks:
+        if mesh_pushbacks:
             xs = [p["x"] for p in points]
             ys = [p["y"] for p in points]
             xmin, xmax = min(xs), max(xs)
             ymin, ymax = min(ys), max(ys)
 
-            for pb in pushbacks:
+            for pb in mesh_pushbacks:
                 face = pb["face"]
                 dist = pb["distance"]
                 if face == "xmin":
@@ -180,13 +191,13 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_heig
         fds_array.append(line)
 
         # Create OPEN vents on pushed-back faces
-        if pushbacks:
+        if mesh_pushbacks:
             xs = [p["x"] for p in points]
             ys = [p["y"] for p in points]
             x1, x2 = round(min(xs), 1), round(max(xs), 1)
             y1, y2 = round(min(ys), 1), round(max(ys), 1)
 
-            for pb_idx, pb in enumerate(pushbacks):
+            for pb_idx, pb in enumerate(mesh_pushbacks):
                 face = pb["face"]
                 if face == "xmin":
                     vent_xb = f"{x1},{x1},{y1},{y2},{z},{z_top}"
@@ -677,8 +688,9 @@ def create_aov_sprinkler_devc(elements, stair_enclosure_roof_z):
 def find_inlet_mesh_pushback(mesh_points, inlet_points, pushback_distance=1.0):
     """Determine which mesh face to push back for an inlet opening.
 
-    Compares the inlet midpoint to each mesh face and returns the closest face
-    and the pushback distance.
+    Matches the exe logic: determines inlet orientation (which axis it spans),
+    then only considers mesh faces perpendicular to the inlet. Pushes back
+    the nearest perpendicular face by pushback_distance.
 
     Args:
         mesh_points: two corner points of the mesh rect [{"x","y"}, {"x","y"}]
@@ -696,13 +708,22 @@ def find_inlet_mesh_pushback(mesh_points, inlet_points, pushback_distance=1.0):
     inlet_mid_x = (inlet_points[0]["x"] + inlet_points[1]["x"]) / 2
     inlet_mid_y = (inlet_points[0]["y"] + inlet_points[1]["y"]) / 2
 
-    # Distance from inlet midpoint to each face
-    distances = {
-        "xmin": abs(inlet_mid_x - xmin),
-        "xmax": abs(inlet_mid_x - xmax),
-        "ymin": abs(inlet_mid_y - ymin),
-        "ymax": abs(inlet_mid_y - ymax),
-    }
+    # Determine inlet orientation: which axis does it span?
+    inlet_dx = abs(inlet_points[1]["x"] - inlet_points[0]["x"])
+    inlet_dy = abs(inlet_points[1]["y"] - inlet_points[0]["y"])
+
+    if inlet_dx > inlet_dy:
+        # Inlet spans X (horizontal) → push perpendicular Y faces
+        distances = {
+            "ymin": abs(inlet_mid_y - ymin),
+            "ymax": abs(inlet_mid_y - ymax),
+        }
+    else:
+        # Inlet spans Y (vertical) → push perpendicular X faces
+        distances = {
+            "xmin": abs(inlet_mid_x - xmin),
+            "xmax": abs(inlet_mid_x - xmax),
+        }
 
     closest_face = min(distances, key=distances.get)
     return {"face": closest_face, "distance": pushback_distance}
@@ -797,6 +818,116 @@ def _find_enclosing_polygon(fire_x, fire_y, elements):
     return None
 
 
+def generate_slice_lines(elements, z, wall_height, door_roles=None, zone_config=None, slice_z_height=2.0):
+    """Generate SLCF lines for FDS output.
+
+    Places slice planes through:
+    - Fire centre (X and Y)
+    - Zone centres (for zones with slices=True): corridor, lobby, fire_room, internal_corridor
+    - Door centres (perpendicular axis) for stair and apartment doors
+    - Extract/AOV midpoints (X and Y)
+    - Z slice at fire floor + slice_z_height
+
+    Args:
+        elements: List of element dicts with comments, points, id.
+        z: Fire floor Z height (m).
+        wall_height: Wall height (m).
+        door_roles: Dict mapping door id -> role (stair, apartment, lobby, leakage).
+        zone_config: Dict mapping zone id -> {type, name, slices, sensors, points}.
+        slice_z_height: Height above fire floor for Z slice (default 2.0m).
+
+    Returns:
+        List of SLCF FDS lines.
+    """
+    if door_roles is None:
+        door_roles = {}
+    if zone_config is None:
+        zone_config = {}
+
+    quantities = ['TEMPERATURE', 'VISIBILITY', 'VELOCITY', 'PRESSURE']
+    slices = {'X': set(), 'Y': set(), 'Z': set()}
+
+    # 1. Z slice at fire floor + height
+    slices['Z'].add(round(z + slice_z_height, 2))
+
+    # 2. Fire centre (X and Y slices)
+    fires = [f for f in elements if f["comments"] == "fire"]
+    for fire in fires:
+        pts = fire["points"]
+        fx = round(pts[0]["x"], 2)
+        fy = round(pts[0]["y"], 2)
+        slices['X'].add(fx)
+        slices['Y'].add(fy)
+
+    # 3. Zone centre slices (only for zones with slices=True)
+    for el_id, config in zone_config.items():
+        if not config.get("slices", False):
+            continue
+
+        pts = config.get("points", None)
+        if not pts:
+            continue
+
+        xs = [p["x"] if isinstance(p, dict) else p[0] for p in pts]
+        ys = [p["y"] if isinstance(p, dict) else p[1] for p in pts]
+        mid_x = round((min(xs) + max(xs)) / 2, 2)
+        mid_y = round((min(ys) + max(ys)) / 2, 2)
+        slices['X'].add(mid_x)
+        slices['Y'].add(mid_y)
+
+    # 4. Door centre slices (perpendicular to door orientation)
+    doors = [f for f in elements if "door" in f["comments"]]
+    for door in doors:
+        door_id = str(door.get("id", ""))
+        role = door_roles.get(door_id, "")
+        if role not in ("stair", "apartment", "lobby"):
+            continue
+
+        pts = door["points"]
+        if len(pts) < 2:
+            continue
+        x1, y1 = pts[0]["x"], pts[0]["y"]
+        x2, y2 = pts[1]["x"], pts[1]["y"]
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        mid_x = round((x1 + x2) / 2, 2)
+        mid_y = round((y1 + y2) / 2, 2)
+
+        if dy > dx:
+            # Door extends vertically -> slice perpendicular = PBX
+            slices['X'].add(mid_x)
+        else:
+            # Door extends horizontally -> slice perpendicular = PBY
+            slices['Y'].add(mid_y)
+
+    # 5. Extract/AOV midpoint slices (X and Y)
+    extracts = [f for f in elements if f["comments"] == "extract"]
+    for ext in extracts:
+        pts = ext["points"]
+        if len(pts) < 2:
+            continue
+        mid_x = round((pts[0]["x"] + pts[1]["x"]) / 2, 2)
+        mid_y = round((pts[0]["y"] + pts[1]["y"]) / 2, 2)
+        slices['X'].add(mid_x)
+        slices['Y'].add(mid_y)
+
+    # If nothing to slice, return empty
+    if not slices['X'] and not slices['Y'] and not slices['Z']:
+        return []
+
+    # Generate SLCF lines: 4 quantities per unique position
+    lines = []
+    axis_map = {'X': 'PBX', 'Y': 'PBY', 'Z': 'PBZ'}
+    for axis in ('X', 'Y', 'Z'):
+        for pos in sorted(slices[axis]):
+            pb = axis_map[axis]
+            for q in quantities:
+                vector_str = ", VECTOR=.TRUE." if q == "VELOCITY" else ""
+                lines.append(f"&SLCF QUANTITY='{q}'{vector_str}, {pb}={pos}/")
+
+    return lines
+
+
 def generate_zone_sensors(elements, z, zone_config, sensor_heights=None, spacing=0.5):
     """Generate centerline sensors for each assigned zone.
 
@@ -813,6 +944,10 @@ def generate_zone_sensors(elements, z, zone_config, sensor_heights=None, spacing
 
     lines = []
     for el_id, config in zone_config.items():
+        # Skip zones with sensors explicitly disabled
+        if not config.get("sensors", True):
+            continue
+
         zone_name = config.get("name", "Zone")
         zone_prefix = zone_name.lower().replace(" ", "_")
 
@@ -871,63 +1006,25 @@ def generate_zone_sensors(elements, z, zone_config, sensor_heights=None, spacing
 
 
 def generate_sprinkler_lines(elements, z, wall_height):
-    """Generate sprinkler DEVC + PROP lines.
+    """Generate sprinkler DEVC + PROP lines from sprinkler elements.
 
-    If manual sprinkler elements exist, uses those positions.
-    Otherwise auto-places 2 sprinklers at 1.375m diagonal from fire,
-    inside the enclosing polygon with 1m wall clearance (BS 9251).
+    Sprinkler positions are computed on the frontend and passed as
+    elements with comments='sprinkler'. The backend only converts
+    coordinates and writes FDS lines — no auto-placement here.
     """
     sprk_z = round(z + wall_height - 0.2, 2)
 
-    # Check for manually-placed sprinkler elements
-    manual_sprinklers = [f for f in elements if f["comments"] == "sprinkler"]
-    if manual_sprinklers:
-        sprinklers = []
-        for s in manual_sprinklers:
-            pts = s["points"]
-            if isinstance(pts, list):
-                sprinklers.append((round(pts[0]["x"], 2), round(pts[0]["y"], 2)))
-            else:
-                sprinklers.append((round(pts["x"], 2), round(pts["y"], 2)))
-    else:
-        # Auto-place from fire location
-        fires = [f for f in elements if f["comments"] == "fire"]
-        if not fires:
-            return []
+    sprinkler_elements = [f for f in elements if f["comments"] == "sprinkler"]
+    if not sprinkler_elements:
+        return []
 
-        fire = fires[0]
-        points = fire["points"]
-        if isinstance(points, list):
-            fire_x = points[0]["x"]
-            fire_y = points[0]["y"]
+    sprinklers = []
+    for s in sprinkler_elements:
+        pts = s["points"]
+        if isinstance(pts, list):
+            sprinklers.append((round(pts[0]["x"], 2), round(pts[0]["y"], 2)))
         else:
-            fire_x = points["x"]
-            fire_y = points["y"]
-
-        offset = 1.375  # 2.75m / 2
-
-        # 4 candidate positions diagonal from fire
-        candidates = [
-            (round(fire_x + offset, 2), round(fire_y + offset, 2)),
-            (round(fire_x - offset, 2), round(fire_y - offset, 2)),
-            (round(fire_x + offset, 2), round(fire_y - offset, 2)),
-            (round(fire_x - offset, 2), round(fire_y + offset, 2)),
-        ]
-
-        # Filter by enclosing polygon + 1m wall clearance (BS 9251)
-        min_wall_clearance = 1.0
-        polygon = _find_enclosing_polygon(fire_x, fire_y, elements)
-        if polygon:
-            sprinklers = [c for c in candidates
-                          if _point_in_polygon(c[0], c[1], polygon)
-                          and _min_distance_to_polygon(c[0], c[1], polygon) >= min_wall_clearance]
-            sprinklers = sprinklers[:2]
-            if len(sprinklers) < 2:
-                sprinklers = [c for c in candidates if _point_in_polygon(c[0], c[1], polygon)][:2]
-            if len(sprinklers) < 2:
-                sprinklers = candidates[:2]
-        else:
-            sprinklers = candidates[:2]
+            sprinklers.append((round(pts["x"], 2), round(pts["y"], 2)))
 
     lines = [
         "&SPEC ID='WATER VAPOR'/",
@@ -1118,13 +1215,61 @@ def generate_corridor_sensor_devcs(elements, z, sensor_heights):
     return lines
 
 
+def generate_fsa_sensor_devcs(elements, z, fsa_sensor_heights):
+    """Generate DEVC lines from fsaSensor elements placed by the frontend.
+
+    FSA sensors are placed at specific distances (2m, 4m, 15m) along the walking
+    route from apartment door to stair door. All 4 sensor types are generated.
+    """
+    quantities = ["TEMPERATURE", "PRESSURE", "VISIBILITY", "VELOCITY"]
+    q_short = {"TEMPERATURE": "temp", "PRESSURE": "pres", "VISIBILITY": "vis", "VELOCITY": "vel"}
+
+    lines = []
+
+    fsa_sensors = [el for el in elements if el.get("comments") == "fsaSensor"]
+    print(f"[FSA SENSOR] Found {len(fsa_sensors)} fsaSensor elements")
+    if not fsa_sensors:
+        return lines
+
+    for sensor in fsa_sensors:
+        point = sensor["points"][0]
+        x = round(point["x"], 2)
+        y = round(point["y"], 2)
+        fsa_distance = sensor.get("fsaDistance", "?")
+
+        for height in fsa_sensor_heights:
+            sensor_z = round(z + height, 2)
+            for quantity in quantities:
+                prefix = q_short[quantity]
+                devc_id = f"cc_FSA_{prefix}_{fsa_distance}m"
+                if len(fsa_sensor_heights) > 1:
+                    devc_id += f"_h{height}"
+                lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
+
+    return lines
+
+
+def generate_sensor_devcs_from_elements(elements, z, sensor_heights, fsa_sensor_heights=None):
+    """Generate all DEVC lines from frontend-placed sensor elements.
+
+    Combines sensorTree (corridor/zone centerline) and fsaSensor (FSA path)
+    elements. Positions are already in the correct coordinate space after
+    the element pipeline transforms them.
+    """
+    lines = generate_corridor_sensor_devcs(elements, z, sensor_heights)
+    fsa_heights = fsa_sensor_heights if fsa_sensor_heights else [1.5]
+    lines += generate_fsa_sensor_devcs(elements, z, fsa_heights)
+    return lines
+
+
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z,
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
                  aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None, inlet_config=None,
-                 zone_config=None, include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, is_sprinklered=True,
+                 zone_config=None, include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, fsa_sensor_heights=None, is_sprinklered=True,
                  fire_hrr=1000.0, fire_dimension=1.4, fire_height_above_floor=0.5, fire_base=0.0,
-                 fire_type="growing", fire_growth_rate="medium", fire_custom_alpha=None):
+                 fire_type="growing", fire_growth_rate="medium", fire_custom_alpha=None,
+                 slice_z_height=2.0):
     if door_openings is None:
         door_openings = {}
     if door_leakage_config is None:
@@ -1252,18 +1397,33 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         inlet_lines = create_inlet_opening(inlet, config, z, wall_height, wall_thickness, inlet_number=idx + 1)
         fds_array = add_array_to_fds_array(inlet_lines, fds_array)
 
-    # 10. Corridor centerline sensors (auto-placed)
-    if include_sensors:
+    # 10. Sensors — positions are computed on the frontend and sent as
+    #     sensorTree / fsaSensor elements.  The backend only converts their
+    #     pixel coordinates to metres and writes the DEVC lines.
+    #     Do NOT recompute positions here (coordinate-system divergence).
+    has_frontend_sensors = any(f["comments"] in ("sensorTree", "fsaSensor") for f in elements)
+    if include_sensors and has_frontend_sensors:
+        sensor_heights = corridor_sensor_heights if corridor_sensor_heights else [2.0]
+        sensor_lines = generate_sensor_devcs_from_elements(elements, z, sensor_heights, fsa_sensor_heights=fsa_sensor_heights)
+        fds_array = add_array_to_fds_array(sensor_lines, fds_array)
+    elif include_sensors:
+        # Fallback: no frontend sensors sent — use legacy backend computation
         sensor_heights = corridor_sensor_heights if corridor_sensor_heights else [2.0]
         sensor_lines = generate_corridor_sensor_devcs(elements, z, sensor_heights)
         fds_array = add_array_to_fds_array(sensor_lines, fds_array)
+        if zone_config:
+            zone_sensor_lines = generate_zone_sensors(elements, z, zone_config, sensor_heights=corridor_sensor_heights or [2.0])
+            fds_array = add_array_to_fds_array(zone_sensor_lines, fds_array)
+        fsa_heights = fsa_sensor_heights if fsa_sensor_heights else [1.5]
+        fsa_lines = generate_fsa_sensor_devcs(elements, z, fsa_heights)
+        fds_array = add_array_to_fds_array(fsa_lines, fds_array)
 
-    # 10a. Zone-specific sensors
-    if include_sensors and zone_config:
-        zone_sensor_lines = generate_zone_sensors(elements, z, zone_config, sensor_heights=corridor_sensor_heights or [2.0])
-        fds_array = add_array_to_fds_array(zone_sensor_lines, fds_array)
+    # 11. Slice planes (SLCF)
+    slice_lines = generate_slice_lines(elements, z, wall_height, door_roles=door_roles,
+                                        zone_config=zone_config, slice_z_height=slice_z_height)
+    fds_array = add_array_to_fds_array(slice_lines, fds_array)
 
-    # 11. TAIL
+    # 12. TAIL
     fds_array.append("&TAIL/")
 
     final = array_to_str(fds_array)

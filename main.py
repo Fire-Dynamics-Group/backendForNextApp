@@ -62,6 +62,7 @@ class ElementsData(BaseModel):
     include_sensors: Optional[bool] = True
     corridor_sensor_heights: Optional[List[float]] = [2.0]
     stair_sensor_heights: Optional[List[float]] = [0.5, 1.0, 1.5, 2.0]
+    fsa_sensor_heights: Optional[List[float]] = [1.5]
     is_sprinklered: Optional[bool] = True
     door_leakages_enabled: Optional[bool] = True
     door_leakage_config: Optional[dict] = {}
@@ -83,6 +84,7 @@ class ElementsData(BaseModel):
     fire_type: Optional[str] = "growing"  # "growing" or "steady_state"
     fire_growth_rate: Optional[str] = "medium"  # "slow", "medium", "fast", "ultra_fast", "custom"
     fire_custom_alpha: Optional[float] = None
+    slice_z_height: Optional[float] = 2.0
 
 class ConvertedElement(BaseModel):
     id: int
@@ -128,6 +130,7 @@ async def read_elements(body: ElementsData):
     include_sensors = body.include_sensors
     corridor_sensor_heights = body.corridor_sensor_heights
     stair_sensor_heights = body.stair_sensor_heights
+    fsa_sensor_heights = body.fsa_sensor_heights
     door_leakages_enabled = body.door_leakages_enabled
     door_leakage_config = body.door_leakage_config
     door_openings = body.door_openings
@@ -179,6 +182,7 @@ async def read_elements(body: ElementsData):
                             include_sensors=include_sensors,
                             corridor_sensor_heights=corridor_sensor_heights,
                             stair_sensor_heights=stair_sensor_heights,
+                            fsa_sensor_heights=fsa_sensor_heights,
                             fire_hrr=fire_hrr,
                             fire_dimension=fire_dimension,
                             fire_height_above_floor=fire_height_above_floor,
@@ -186,6 +190,7 @@ async def read_elements(body: ElementsData):
                             fire_type=fire_type,
                             fire_growth_rate=fire_growth_rate,
                             fire_custom_alpha=fire_custom_alpha,
+                            slice_z_height=body.slice_z_height,
                             )
     print("output: ", output)
     return output
