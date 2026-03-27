@@ -11,6 +11,7 @@ except ImportError as e:
     print(f"Warning: Optional modules not loaded: {e}")
 from routers.fee_proposal import router as fee_proposal_router
 from routers.efs import router as efs_router
+from routers.cfd_dashboard import router as cfd_dashboard_router
 
 app = FastAPI() # create instance
 
@@ -25,6 +26,7 @@ app.add_middleware(
 
 app.include_router(fee_proposal_router, prefix="/fee-proposals", tags=["Fee Proposals"])
 app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"])
+app.include_router(cfd_dashboard_router, prefix="/cfd-dashboard", tags=["CFD Dashboard"])
 
 try:
     from routers.projects import router as projects_router
