@@ -102,7 +102,20 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     delta_y1 = abs(landing_y1 - halflanding_y1)
     if delta_x1 > delta_y1:
         stair_direction = 'x'
-        delta_interlandings = max(landing_x1 - halflanding_x2, halflanding_x1 - landing_x2)
+        # Inner edges: the edges of each landing facing the gap between them
+        fl_min_x = min(landing_x1, landing_x2)
+        fl_max_x = max(landing_x1, landing_x2)
+        hl_min_x = min(halflanding_x1, halflanding_x2)
+        hl_max_x = max(halflanding_x1, halflanding_x2)
+        if fl_max_x < hl_min_x:
+            # FL is left, HL is right: FL inner = max, HL inner = min
+            landing_inner_x = fl_max_x
+            halflanding_inner_x = hl_min_x
+        else:
+            # HL is left, FL is right: HL inner = max, FL inner = min
+            landing_inner_x = fl_min_x
+            halflanding_inner_x = hl_max_x
+        delta_interlandings = abs(landing_inner_x - halflanding_inner_x)
         # Use the overlap of both landings' y ranges so steps fit within both
         common_y1 = max(landing_y1, halflanding_y1)
         common_y2 = min(landing_y2, halflanding_y2)
@@ -121,20 +134,29 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
             go_plus_x = landing_x1 - halflanding_x2 < halflanding_x1 - landing_x2
 
         if stair_style == "individual":
-            # Individual treads: each step is one tread wide, placed side by side
+            # Individual treads matching exe: both STEP1 and STEP2 use the same X range
+            # spanning the gap between the two landings. STEP2 Z is reversed.
+            # Direction determined by relative position, not landing_up_side.
             tread = math.ceil(100*(delta_interlandings / num_steps)) / 100
-            if go_plus_x:
-                # STEP1: bottom step at landing edge, top step at half landing edge
-                stair_x1_list = [landing_x2 + tread*x for x in range(num_steps)]
-                stair_x2_list = [landing_x2 + tread*(x+1) for x in range(num_steps)]
-                # STEP2: bottom step at half landing edge, top step at landing edge
-                stair2_x1_list = [halflanding_x1 - tread*(x+1) for x in range(num_steps)]
-                stair2_x2_list = [halflanding_x1 - tread*x for x in range(num_steps)]
+            # Steps fill the gap from the inner edge of one landing to the other
+            gap_start_x = min(halflanding_inner_x, landing_inner_x)
+
+            # STEP1: Z ascends with step_num. step 0 (low Z) near FL, step N (high Z) near HL.
+            # STEP2: Z reversed. step 0 (high Z) near FL, step N (low Z) near HL.
+            # Both flights: X runs from FL edge toward HL edge, so reversed Z
+            # gives STEP2 high Z at FL end and low Z at HL end.
+            if halflanding_inner_x < landing_inner_x:
+                # HL is left, FL is right: X decreases from FL toward HL
+                stair_x1_list = [landing_inner_x - tread*(x+1) for x in range(num_steps)]
+                stair_x2_list = [landing_inner_x - tread*x for x in range(num_steps)]
             else:
-                stair_x1_list = [landing_x1 - tread*(x+1) for x in range(num_steps)]
-                stair_x2_list = [landing_x1 - tread*x for x in range(num_steps)]
-                stair2_x1_list = [halflanding_x2 + tread*x for x in range(num_steps)]
-                stair2_x2_list = [halflanding_x2 + tread*(x+1) for x in range(num_steps)]
+                # HL is right, FL is left: X increases from FL toward HL
+                stair_x1_list = [landing_inner_x + tread*x for x in range(num_steps)]
+                stair_x2_list = [landing_inner_x + tread*(x+1) for x in range(num_steps)]
+            # STEP2: same X direction (FL toward HL) so reversed Z gives
+            # high Z at FL end, low Z at HL end
+            stair2_x1_list = list(stair_x1_list)
+            stair2_x2_list = list(stair_x2_list)
         else:
             # Overlapping style: top step (step 7) overlaps the destination landing,
             # bottom step (step 0) just protrudes from the source landing.
@@ -159,7 +181,18 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         stair_2_y1_list = stair_y_mid_list
     else:
         stair_direction = 'y'
-        delta_interlandings = max(landing_y1 - halflanding_y2, halflanding_y1 - landing_y2)
+        # Inner edges: the edges of each landing facing the gap
+        fl_min_y = min(landing_y1, landing_y2)
+        fl_max_y = max(landing_y1, landing_y2)
+        hl_min_y = min(halflanding_y1, halflanding_y2)
+        hl_max_y = max(halflanding_y1, halflanding_y2)
+        if fl_max_y < hl_min_y:
+            landing_inner_y = fl_max_y
+            halflanding_inner_y = hl_min_y
+        else:
+            landing_inner_y = fl_min_y
+            halflanding_inner_y = hl_max_y
+        delta_interlandings = abs(landing_inner_y - halflanding_inner_y)
         # Use the overlap of both landings' x ranges so steps fit within both
         common_x1 = max(landing_x1, halflanding_x1)
         common_x2 = min(landing_x2, halflanding_x2)
@@ -244,39 +277,69 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         array.append(output)
 
         if idx < len(z_halflanding):
-            height_per_step = (z_landing[idx+1] - z_current) / (num_steps - 1)
-            for step_num in range(num_steps):
-                current_step_z1 = round(z_current + ((step_num - 1) * height_per_step), 3)
-                current_step_z2 = round(z_current + (step_num * height_per_step), 3)
-                # Clamp: bottom step z2 <= source landing z, top step z2 <= dest landing z
-                if step_num == 0:
-                    current_step_z2 = min(current_step_z2, round(z_current, 3))
-                if step_num == num_steps - 1:
-                    current_step_z2 = min(current_step_z2, round(z_landing[idx+1], 3))
-                if stair_direction == 'x':
-                    s2_x1 = round(stair2_x1_list[step_num], 3)
-                    s2_x2 = round(stair2_x2_list[step_num], 3)
-                    s2_y1 = round(stair_2_y1_list[step_num], 3)
-                    s2_y2 = round(stair1_y2_list[step_num], 3)
-                    # Extend bottom step into source (half) landing
+            z_dest = z_landing[idx+1]
+            height_per_step = (z_dest - z_current) / (num_steps - 1)
+
+            if stair_style == "individual":
+                # Exe reverses Z for STEP2: step 0 (spatially near half landing)
+                # gets the highest Z, step N-1 (near next floor landing) gets lowest.
+                # Pre-compute reversed Z pairs.
+                step2_z_pairs = []
+                for sn in range(num_steps):
+                    sz1 = round(z_current + ((sn - 1) * height_per_step), 3)
+                    sz2 = round(z_current + (sn * height_per_step), 3)
+                    if sn == 0:
+                        sz2 = min(sz2, round(z_current, 3))
+                    if sn == num_steps - 1:
+                        sz2 = min(sz2, round(z_dest, 3))
+                    step2_z_pairs.append((sz1, sz2))
+                step2_z_pairs.reverse()
+
+                for step_num in range(num_steps):
+                    sz1, sz2 = step2_z_pairs[step_num]
+                    if stair_direction == 'x':
+                        s2_x1 = round(stair2_x1_list[step_num], 3)
+                        s2_x2 = round(stair2_x2_list[step_num], 3)
+                        s2_y1 = round(stair_2_y1_list[step_num], 3)
+                        s2_y2 = round(stair1_y2_list[step_num], 3)
+                    else:
+                        s2_x1 = round(stair_2_x1_list[step_num], 3)
+                        s2_x2 = round(stair_x2_list[step_num], 3)
+                        s2_y1 = round(stair2_y1_list[step_num], 3)
+                        s2_y2 = round(stair2_y2_list[step_num], 3)
+                    current_step_line = f"&OBST ID='STEP2', XB = {s2_x1}, {s2_x2}, {s2_y1}, {s2_y2},{sz1}, {sz2}, SURF_ID = 'Plasterboard'/"
+                    array.append(current_step_line)
+            else:
+                # Overlapping style: Z ascends as step_num increases (same as STEP1)
+                for step_num in range(num_steps):
+                    current_step_z1 = round(z_current + ((step_num - 1) * height_per_step), 3)
+                    current_step_z2 = round(z_current + (step_num * height_per_step), 3)
                     if step_num == 0:
-                        if go_plus_x:
-                            s2_x2 = round(halflanding_x2, 3)
-                        else:
-                            s2_x1 = round(halflanding_x1, 3)
-                else:
-                    s2_x1 = round(stair_2_x1_list[step_num], 3)
-                    s2_x2 = round(stair_x2_list[step_num], 3)
-                    s2_y1 = round(stair2_y1_list[step_num], 3)
-                    s2_y2 = round(stair2_y2_list[step_num], 3)
-                    # Extend bottom step into source (half) landing
-                    if step_num == 0:
-                        if go_plus_y:
-                            s2_y1 = round(halflanding_y1, 3)
-                        else:
-                            s2_y2 = round(halflanding_y2, 3)
-                current_step_line = f"&OBST ID='STEP2', XB = {s2_x1}, {s2_x2}, {s2_y1}, {s2_y2},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
-                array.append(current_step_line)
+                        current_step_z2 = min(current_step_z2, round(z_current, 3))
+                    if step_num == num_steps - 1:
+                        current_step_z2 = min(current_step_z2, round(z_dest, 3))
+                    if stair_direction == 'x':
+                        s2_x1 = round(stair2_x1_list[step_num], 3)
+                        s2_x2 = round(stair2_x2_list[step_num], 3)
+                        s2_y1 = round(stair_2_y1_list[step_num], 3)
+                        s2_y2 = round(stair1_y2_list[step_num], 3)
+                        if step_num == 0:
+                            if go_plus_x:
+                                s2_x2 = round(halflanding_x2, 3)
+                            else:
+                                s2_x1 = round(halflanding_x1, 3)
+                    else:
+                        s2_x1 = round(stair_2_x1_list[step_num], 3)
+                        s2_x2 = round(stair_x2_list[step_num], 3)
+                        s2_y1 = round(stair2_y1_list[step_num], 3)
+                        s2_y2 = round(stair2_y2_list[step_num], 3)
+                        if step_num == 0:
+                            if go_plus_y:
+                                s2_y1 = round(halflanding_y1, 3)
+                            else:
+                                s2_y2 = round(halflanding_y2, 3)
+                    current_step_line = f"&OBST ID='STEP2', XB = {s2_x1}, {s2_x2}, {s2_y1}, {s2_y2},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
+                    array.append(current_step_line)
     # also half landing
     # 
     # assume 8 steps between 
