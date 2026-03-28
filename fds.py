@@ -1219,16 +1219,26 @@ def generate_corridor_sensor_devcs(elements, z, sensor_heights):
     if not sensor_trees:
         return lines
 
-    for pt_idx, tree in enumerate(sensor_trees, start=1):
-        point = tree["points"][0]
-        x = round(point["x"], 2)
-        y = round(point["y"], 2)
-        for height in sensor_heights:
-            sensor_z = round(z + height, 2)
-            for quantity in quantities:
-                prefix = q_short[quantity]
-                devc_id = f"corridor_{prefix}_{pt_idx}"
-                lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
+    # Group sensors by zone name to reset numbering per zone
+    zone_groups = {}
+    for tree in sensor_trees:
+        zone_name = tree.get("zoneName", "corridor")
+        zone_key = zone_name.lower().replace(" ", "_")
+        if zone_key not in zone_groups:
+            zone_groups[zone_key] = []
+        zone_groups[zone_key].append(tree)
+
+    for zone_key, trees in zone_groups.items():
+        for pt_idx, tree in enumerate(trees, start=1):
+            point = tree["points"][0]
+            x = round(point["x"], 2)
+            y = round(point["y"], 2)
+            for height in sensor_heights:
+                sensor_z = round(z + height, 2)
+                for quantity in quantities:
+                    prefix = q_short[quantity]
+                    devc_id = f"{zone_key}_{prefix}_{pt_idx}"
+                    lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
 
     return lines
 
