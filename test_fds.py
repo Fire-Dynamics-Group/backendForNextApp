@@ -1,6 +1,6 @@
 """Tests for fds.py - FDS generation with controls and header integration."""
 import pytest
-from fds import sim_header, testFunction, add_door_holes_to_fds, create_stair_roof, create_stair_aov, generate_door_leakage_vents, create_extract_shaft, find_inlet_mesh_pushback, create_mesh, create_inlet_opening
+from fds import sim_header, testFunction, add_door_holes_to_fds, create_stair_roof, create_stair_aov, generate_door_leakage_vents, create_extract_shaft, find_inlet_mesh_pushback, create_mesh, create_inlet_opening, generate_zone_sensors
 from controls import Control_ID_Apartment, Control_ID_Stair
 
 
@@ -496,21 +496,21 @@ class TestExtractShaft:
         surf_lines = [l for l in result if "&SURF" in l]
         assert len(surf_lines) == 1
         assert "VOLUME_FLOW=6.0" in surf_lines[0]
-        fan_vents = [l for l in result if "&VENT" in l and "Fan" in l]
+        fan_vents = [l for l in result if "&VENT" in l and "Extract Opening" in l]
         assert len(fan_vents) == 1
-        assert "Extract_1" in fan_vents[0]
+        assert "SURF_ID='Extract_1'" in fan_vents[0]
         # Should also have roof hole and mesh vent
         roof_holes = [l for l in result if "&HOLE" in l and "Roof" in l]
         assert len(roof_holes) == 1
         mesh_vents = [l for l in result if "&VENT" in l and "ZMAX" in l]
         assert len(mesh_vents) == 1
 
-    def test_shaft_has_opening_hole(self):
-        """Fire floor opening HOLE connects shaft to corridor."""
+    def test_shaft_has_opening_vent(self):
+        """Fire floor opening VENT connects shaft to corridor."""
         config = {"type": "natural", "shaftWidth": 0.9, "shaftDepth": 0.9}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
-        opening_holes = [l for l in result if "&HOLE" in l and "Extract Opening" in l]
-        assert len(opening_holes) == 1
+        opening_vents = [l for l in result if "&VENT" in l and "Extract Opening" in l]
+        assert len(opening_vents) == 1
 
     def test_timed_activation_generates_devc(self):
         config = {"type": "natural", "activation": "timed", "activationTime": 60}
@@ -518,9 +518,9 @@ class TestExtractShaft:
         devc_lines = [l for l in result if "&DEVC" in l]
         assert len(devc_lines) == 1
         assert "SETPOINT=60" in devc_lines[0]
-        # Opening HOLE should reference the timer
-        opening_holes = [l for l in result if "&HOLE" in l and "Extract Opening" in l]
-        assert "Extract_Timer_1" in opening_holes[0]
+        # Opening VENT should reference the timer
+        opening_vents = [l for l in result if "&VENT" in l and "Extract Opening" in l]
+        assert "Extract_Timer_1" in opening_vents[0]
 
     def test_sprinkler_activation_generates_devc_and_prop(self):
         config = {"type": "natural", "activation": "sprinkler"}
@@ -532,23 +532,23 @@ class TestExtractShaft:
         assert "Extract_Sprinkler_1" in devc_lines[0]
 
     def test_custom_opening_dimensions(self):
-        """openingHeight and openingBase control the opening HOLE Z range."""
+        """openingHeight and openingBase control the opening VENT Z range."""
         config = {"type": "natural", "openingHeight": 1.6, "openingBase": 0.4}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
-        opening_holes = [l for l in result if "&HOLE" in l and "Extract Opening" in l]
-        assert len(opening_holes) == 1
-        # z=10, base=0.4, height=1.6 -> hole from 10.4 to 12.0
-        assert "10.4" in opening_holes[0]
-        assert "12.0" in opening_holes[0]
+        opening_vents = [l for l in result if "&VENT" in l and "Extract Opening" in l]
+        assert len(opening_vents) == 1
+        # z=10, base=0.4, height=1.6 -> vent from 10.4 to 12.0
+        assert "10.4" in opening_vents[0]
+        assert "12.0" in opening_vents[0]
 
     def test_default_opening_uses_full_wall_height(self):
-        """Without openingHeight/Base, HOLE spans full wall height."""
+        """Without openingHeight/Base, VENT spans full wall height."""
         config = {"type": "natural"}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
-        hole_lines = [l for l in result if "&HOLE" in l]
-        # z=10, base=0, height=wall_height=3 -> hole from 10.0 to 13.0
-        assert "10.0" in hole_lines[0] or "10," in hole_lines[0]
-        assert "13.0" in hole_lines[0]
+        opening_vents = [l for l in result if "&VENT" in l and "Extract Opening" in l]
+        # z=10, base=0, height=wall_height=3 -> vent from 10.0 to 13.0
+        assert "10.0" in opening_vents[0] or "10," in opening_vents[0]
+        assert "13.0" in opening_vents[0]
 
     def test_always_open_has_no_controls(self):
         config = {"type": "natural", "activation": "always_open"}
@@ -557,6 +557,30 @@ class TestExtractShaft:
         assert len(devc_lines) == 0
         hole_lines = [l for l in result if "&HOLE" in l]
         assert "DEVC_ID" not in hole_lines[0]
+
+    def test_mechanical_with_tau_v_includes_tau_v_in_surf(self):
+        """Mechanical extract with tauV config produces TAU_V on the SURF line."""
+        config = {"type": "mechanical", "flowRate": 6.0, "tauV": -10}
+        result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
+        surf_lines = [l for l in result if "&SURF" in l]
+        assert len(surf_lines) == 1
+        assert "TAU_V=-10" in surf_lines[0]
+        assert "VOLUME_FLOW=6.0" in surf_lines[0]
+
+    def test_mechanical_without_tau_v_excludes_tau_v_from_surf(self):
+        """Mechanical extract without tauV config omits TAU_V from SURF line."""
+        config = {"type": "mechanical", "flowRate": 6.0}
+        result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
+        surf_lines = [l for l in result if "&SURF" in l]
+        assert len(surf_lines) == 1
+        assert "TAU_V" not in surf_lines[0]
+
+    def test_natural_extract_ignores_tau_v(self):
+        """Natural extract produces no SURF line at all, regardless of tauV."""
+        config = {"type": "natural", "tauV": -10}
+        result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
+        surf_lines = [l for l in result if "&SURF" in l]
+        assert len(surf_lines) == 0
 
     def test_integration_extract_in_testfunction(self):
         """Full integration: extract element in testFunction produces shaft lines."""
@@ -771,3 +795,131 @@ class TestInletIntegration:
             stair_enclosure_roof_z=40, scenario_type="MOE",
         )
         assert "Inlet Mesh Vent" not in result
+
+
+class TestMechanicalInlet:
+    """Mechanical supply fan inlets: SURF with negative VOLUME_FLOW + VENT referencing it."""
+
+    def test_mechanical_inlet_creates_supply_surf_and_vent(self):
+        """Mechanical inlet config produces a SURF with negative VOLUME_FLOW and a VENT referencing it."""
+        elements = [
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 10, "y": 5}], "type": "rect"},
+        ]
+        inlets = [
+            {"comments": "inlet", "id": 4, "points": [{"x": 3, "y": 0}, {"x": 7, "y": 0}], "type": "polyline"},
+        ]
+        inlet_config = {"4": {"type": "mechanical", "flowRate": 2.5}}
+        fds_array = []
+        create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array, wall_height=3, inlets=inlets, inlet_config=inlet_config)
+        joined = "\n".join(fds_array)
+        # Should have a SURF with negative VOLUME_FLOW
+        assert "VOLUME_FLOW=-2.5" in joined
+        assert "&SURF ID='Supply_1'" in joined
+        # Should have a VENT referencing that SURF (not OPEN)
+        vent_lines = [l for l in fds_array if "&VENT" in l and "Supply_1" in l]
+        assert len(vent_lines) == 1
+
+    def test_mechanical_inlet_supply_has_tau_v(self):
+        """When tauV is set, the SURF line includes TAU_V."""
+        elements = [
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 10, "y": 5}], "type": "rect"},
+        ]
+        inlets = [
+            {"comments": "inlet", "id": 4, "points": [{"x": 3, "y": 0}, {"x": 7, "y": 0}], "type": "polyline"},
+        ]
+        inlet_config = {"4": {"type": "mechanical", "flowRate": 3.0, "tauV": -15}}
+        fds_array = []
+        create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array, wall_height=3, inlets=inlets, inlet_config=inlet_config)
+        surf_lines = [l for l in fds_array if "&SURF" in l and "Supply" in l]
+        assert len(surf_lines) == 1
+        assert "TAU_V=-15" in surf_lines[0]
+
+    def test_natural_inlet_still_creates_open_vent(self):
+        """Regression: natural inlet (default) still creates OPEN vent, not a SURF."""
+        elements = [
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 10, "y": 5}], "type": "rect"},
+        ]
+        inlets = [
+            {"comments": "inlet", "id": 4, "points": [{"x": 3, "y": 0}, {"x": 7, "y": 0}], "type": "polyline"},
+        ]
+        inlet_config = {"4": {"type": "natural"}}
+        fds_array = []
+        create_mesh("mesh", elements, cell_size=0.1, px_per_m=1, z=10, fds_array=fds_array, wall_height=3, inlets=inlets, inlet_config=inlet_config)
+        vent_lines = [l for l in fds_array if "&VENT" in l]
+        assert len(vent_lines) == 1
+        assert "SURF_ID='OPEN'" in vent_lines[0]
+        # No SURF line for supply fan
+        surf_lines = [l for l in fds_array if "&SURF" in l and "Supply" in l]
+        assert len(surf_lines) == 0
+
+
+class TestZoneSensorNaming:
+    """Zone sensors use zone name as prefix: corridor_1_temp_1, lobby_1_vis_2, etc."""
+
+    def _make_zone_config(self, name, zone_type, points):
+        return {
+            "zone_0": {
+                "type": zone_type,
+                "name": name,
+                "sensors": True,
+                "points": points,
+            }
+        }
+
+    def _rect_points(self, x1, y1, x2, y2):
+        return [{"x": x1, "y": y1}, {"x": x2, "y": y1}, {"x": x2, "y": y2}, {"x": x1, "y": y2}]
+
+    def test_corridor_zone_uses_corridor_prefix(self):
+        zc = self._make_zone_config("Corridor 1", "corridor", self._rect_points(0, 0, 10, 1.5))
+        lines = generate_zone_sensors([], z=10, zone_config=zc)
+        assert len(lines) > 0
+        assert all("corridor_1_" in l for l in lines)
+
+    def test_lobby_zone_uses_lobby_prefix(self):
+        zc = self._make_zone_config("Lobby 1", "lobby", self._rect_points(0, 0, 6, 1.5))
+        lines = generate_zone_sensors([], z=10, zone_config=zc)
+        assert len(lines) > 0
+        assert all("lobby_1_" in l for l in lines)
+
+    def test_zone_prefix_is_lowercase_with_underscores(self):
+        zc = self._make_zone_config("Fire Room 2", "fire_room", self._rect_points(0, 0, 5, 3))
+        lines = generate_zone_sensors([], z=10, zone_config=zc)
+        assert len(lines) > 0
+        assert all("fire_room_2_" in l for l in lines)
+        # No spaces or uppercase in IDs
+        for l in lines:
+            devc_id = l.split("ID='")[1].split("'")[0]
+            assert " " not in devc_id
+
+    def test_numbering_resets_per_zone(self):
+        zc = {
+            "z1": {"type": "corridor", "name": "Corridor 1", "sensors": True,
+                   "points": self._rect_points(0, 0, 5, 1.5)},
+            "z2": {"type": "lobby", "name": "Lobby 1", "sensors": True,
+                   "points": self._rect_points(10, 0, 16, 1.5)},
+        }
+        lines = generate_zone_sensors([], z=10, zone_config=zc)
+        corridor_temps = [l for l in lines if "corridor_1_temp_" in l]
+        lobby_temps = [l for l in lines if "lobby_1_temp_" in l]
+        assert len(corridor_temps) > 0
+        assert len(lobby_temps) > 0
+        # Both start at _1
+        assert any("corridor_1_temp_1'" in l for l in corridor_temps)
+        assert any("lobby_1_temp_1'" in l for l in lobby_temps)
+
+    def test_sensors_disabled_produces_no_lines(self):
+        zc = {"z1": {"type": "corridor", "name": "Corridor 1", "sensors": False,
+                      "points": self._rect_points(0, 0, 5, 1.5)}}
+        lines = generate_zone_sensors([], z=10, zone_config=zc)
+        assert len(lines) == 0
+
+    def test_each_point_gets_temp_vis_vel_pres(self):
+        zc = self._make_zone_config("Lobby 1", "lobby", self._rect_points(0, 0, 2, 1.5))
+        lines = generate_zone_sensors([], z=10, zone_config=zc)
+        # Should have at least 1 point, with 4 quantities each
+        assert len(lines) >= 4
+        quantities = [l.split("QUANTITY='")[1].split("'")[0] for l in lines]
+        assert "TEMPERATURE" in quantities
+        assert "VISIBILITY" in quantities
+        assert "VELOCITY" in quantities
+        assert "PRESSURE" in quantities

@@ -140,7 +140,7 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     return line
 
 
-def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5, z2_override=None, inlets=None):
+def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5, z2_override=None, inlets=None, inlet_config=None):
     meshes = [ f for f in elements if f["comments"] == comments]
     z_top = z2_override if z2_override is not None else z + wall_height
 
@@ -164,6 +164,10 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_heig
                 tolerance = 2.0  # metres tolerance for matching inlet to mesh
                 if (mx1 - tolerance <= inlet_mid_x <= mx2 + tolerance and
                     my1 - tolerance <= inlet_mid_y <= my2 + tolerance):
+                    # Attach per-inlet config so we know if it's mechanical
+                    inlet_id = str(inlet.get("id", ""))
+                    pb["inlet_config"] = inlet_config.get(inlet_id, {}) if inlet_config else {}
+                    pb["inlet_number"] = len(mesh_pushbacks) + 1
                     mesh_pushbacks.append(pb)
 
         # Apply pushback to a copy of the points
@@ -207,7 +211,20 @@ def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_heig
                     vent_xb = f"{x1},{x2},{y1},{y1},{z},{z_top}"
                 elif face == "ymax":
                     vent_xb = f"{x1},{x2},{y2},{y2},{z},{z_top}"
-                fds_array.append(f"&VENT ID='Inlet Mesh Vent {pb_idx + 1}', SURF_ID='OPEN', XB={vent_xb}/")
+
+                icfg = pb.get("inlet_config", {})
+                inlet_type = icfg.get("type", "natural")
+                inlet_num = pb.get("inlet_number", pb_idx + 1)
+
+                if inlet_type == "mechanical":
+                    flow_rate = icfg.get("flowRate", 3.0)
+                    tau_v = icfg.get("tauV", None)
+                    tau_v_str = f", TAU_V={tau_v}" if tau_v is not None else ""
+                    supply_surf_id = f"Supply_{inlet_num}"
+                    fds_array.append(f"&SURF ID='{supply_surf_id}', VOLUME_FLOW=-{flow_rate}{tau_v_str}, RGB=26,204,26/")
+                    fds_array.append(f"&VENT ID='Supply Vent {inlet_num}', SURF_ID='{supply_surf_id}', XB={vent_xb}/")
+                else:
+                    fds_array.append(f"&VENT ID='Inlet Mesh Vent {pb_idx + 1}', SURF_ID='OPEN', XB={vent_xb}/")
 
     return fds_array
 
@@ -1067,6 +1084,7 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     activation_time = config.get("activationTime", None)
     opening_height = config.get("openingHeight", wall_height)  # defaults to full wall height
     opening_base = config.get("openingBase", 0.0)  # height above floor level
+    tau_v = config.get("tauV", None)
 
     dx = abs(x2 - x1)
     dy = abs(y2 - y1)
@@ -1120,7 +1138,8 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     # Mechanical extract: define SURF before the VENT that references it
     if shaft_type == "mechanical":
         extract_surf_id = f"Extract_{extract_number}"
-        lines.append(f"&SURF ID='{extract_surf_id}', VOLUME_FLOW={flow_rate}, RGB=26,128,26/")
+        tau_v_str = f", TAU_V={tau_v}" if tau_v is not None else ""
+        lines.append(f"&SURF ID='{extract_surf_id}', VOLUME_FLOW={flow_rate}{tau_v_str}, RGB=26,128,26/")
         lines.append(f"&VENT ID='Extract Opening {extract_number}', SURF_ID='{extract_surf_id}', XB={vent_xb}{ctrl_suffix}/")
     else:
         lines.append(f"&VENT ID='Extract Opening {extract_number}', SURF_ID='OPEN', XB={vent_xb}{ctrl_suffix}/")
@@ -1208,7 +1227,7 @@ def generate_corridor_sensor_devcs(elements, z, sensor_heights):
             sensor_z = round(z + height, 2)
             for quantity in quantities:
                 prefix = q_short[quantity]
-                devc_id = f"cc_{prefix}_{pt_idx}"
+                devc_id = f"corridor_{prefix}_{pt_idx}"
                 lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
 
     return lines
@@ -1240,7 +1259,7 @@ def generate_fsa_sensor_devcs(elements, z, fsa_sensor_heights):
             sensor_z = round(z + height, 2)
             for quantity in quantities:
                 prefix = q_short[quantity]
-                devc_id = f"cc_FSA_{prefix}_{fsa_distance}m"
+                devc_id = f"corridor_FSA_{prefix}_{fsa_distance}m"
                 if len(fsa_sensor_heights) > 1:
                     devc_id += f"_h{height}"
                 lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
@@ -1306,7 +1325,7 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
 
     # 3. Meshes (with inlet pushback if inlets present)
     inlets = [f for f in elements if f["comments"] == "inlet"]
-    fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array, wall_height=wall_height, inlets=inlets if inlets else None)
+    fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array, wall_height=wall_height, inlets=inlets if inlets else None, inlet_config=inlet_config)
 
     # 3a. Stair meshes (Lower 0.2m / Middle 0.1m / Upper 0.2m) + mesh vent at ZMAX
     fds_array = create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array)
