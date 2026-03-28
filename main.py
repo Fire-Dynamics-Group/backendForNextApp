@@ -45,7 +45,9 @@ class Element(BaseModel):
     comments: str
     id: int
     points: List[Point]
-    type: str 
+    type: str
+    zoneName: Optional[str] = None
+    fsaDistance: Optional[float] = None
 
 class ElementsData(BaseModel):
     elementList: List[Element]
@@ -116,7 +118,11 @@ async def read_users():
 async def read_elements(body: ElementsData):
     # LATER: should each obstruction and mesh -> send in cell_size and z1 & z2 
     print("body: ",body)
-    elements = body.elementList
+    elements = [el.model_dump() for el in body.elementList]
+    sensor_els = [e for e in elements if e.get("comments") == "sensorTree"]
+    print(f"[FDS] sensorTree count: {len(sensor_els)}")
+    for s in sensor_els[:3]:
+        print(f"[FDS]   zoneName={s.get('zoneName')} keys={list(s.keys())}")
     z = body.z
     wall_height = body.wall_height 
     wall_thickness = body.wall_thickness # left as 0.2 for now

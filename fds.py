@@ -1216,6 +1216,8 @@ def generate_corridor_sensor_devcs(elements, z, sensor_heights):
 
     sensor_trees = [el for el in elements if el.get("comments") == "sensorTree"]
     print(f"[SENSOR] Found {len(sensor_trees)} sensorTree elements")
+    for i, st in enumerate(sensor_trees[:5]):
+        print(f"[SENSOR]   {i}: zoneName={st.get('zoneName', 'MISSING')} keys={list(st.keys())}")
     if not sensor_trees:
         return lines
 
