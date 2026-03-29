@@ -1273,13 +1273,14 @@ def generate_fsa_sensor_devcs(elements, z, fsa_sensor_heights):
         point = sensor["points"][0]
         x = round(point["x"], 2)
         y = round(point["y"], 2)
-        fsa_distance = sensor.get("fsaDistance", "?")
+        raw_dist = sensor.get("fsaDistance", "?")
+        fsa_distance = int(raw_dist) if isinstance(raw_dist, (int, float)) and raw_dist == int(raw_dist) else raw_dist
 
         for height in fsa_sensor_heights:
             sensor_z = round(z + height, 2)
             for quantity in quantities:
                 prefix = q_short[quantity]
-                devc_id = f"corridor_FSA_{prefix}_{fsa_distance}m"
+                devc_id = f"FSA_{fsa_distance}m_{prefix}"
                 if len(fsa_sensor_heights) > 1:
                     devc_id += f"_h{height}"
                 lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
