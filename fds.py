@@ -510,12 +510,18 @@ def makeElementsRelativeToOrigin(elements, origin):
                 'x': _get_attr(point, 'x') - origin[0],
                 'y': _get_attr(point, 'y') - origin[1],
             })
-        new_elements.append({
+        new_el = {
             'comments': _get_attr(element, 'comments'),
             'id': _get_attr(element, 'id'),
             'points': new_points,
             'type': _get_attr(element, 'type')
-        })
+        }
+        # Preserve extra fields (zoneName, fsaDistance, etc.)
+        for key in ('zoneName', 'fsaDistance'):
+            val = element.get(key) if isinstance(element, dict) else getattr(element, key, None)
+            if val is not None:
+                new_el[key] = val
+        new_elements.append(new_el)
     return new_elements
 
 def convertElPointsToCoords(elements, px_per_m):
@@ -1224,7 +1230,9 @@ def generate_corridor_sensor_devcs(elements, z, sensor_heights):
     # Group sensors by zone name to reset numbering per zone
     zone_groups = {}
     for tree in sensor_trees:
-        zone_name = tree.get("zoneName", "corridor")
+        raw_zone = tree.get("zoneName")
+        zone_name = raw_zone if raw_zone else "corridor"
+        print(f"[SENSOR-GROUP] raw={raw_zone} resolved={zone_name}")
         zone_key = zone_name.lower().replace(" ", "_")
         if zone_key not in zone_groups:
             zone_groups[zone_key] = []
