@@ -586,13 +586,10 @@ def fire_ramp(growth_rate_name="medium", custom_alpha=None, hrr_kw=1000.0, sim_e
 
 def fuel_reaction(Soot_Yield, Heat_of_Combustion):
     return [
+        "&SPEC ID='REAC_FUEL', FORMULA='C6.3H7.1O2.1N1.0'/",
         "&REAC ID='POLYURETHANE',",
         "      FYI='NFPA Babrauskas',",
         "      FUEL = 'REAC_FUEL',",
-        "      C=6.3,",
-        "      H=7.1,",
-        "      O=2.1,",
-        "      N=1.0,",
         f"      SOOT_YIELD = {Soot_Yield},",
         f"      HEAT_OF_COMBUSTION = {Heat_of_Combustion}/",
     ]

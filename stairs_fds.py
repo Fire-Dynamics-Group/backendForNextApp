@@ -1,5 +1,11 @@
 import math
 
+
+def _xb(x1, x2, y1, y2, z1, z2):
+    """Return XB string with each coordinate pair sorted min,max."""
+    return f"{min(x1,x2)}, {max(x1,x2)}, {min(y1,y2)}, {max(y1,y2)},{min(z1,z2)}, {max(z1,z2)}"
+
+
 # TODO: add upper landings and stairs
 def convert_points_to_dict(points):
     try:
@@ -230,7 +236,7 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
     # steps should be halfway of landing expanse i.e. to middle of the landing to the outerside
     step_array = []
     for idx, z_current in enumerate(z_landing):
-        output = f"&OBST ID='LANDING', XB = {round(landing_x1, 3)}, {round(landing_x2, 3)}, {round(landing_y1, 3)}, {round(landing_y2, 3)},{round(z_current - 0.2, 3)}, {round(z_current, 3)}, SURF_ID = 'Plasterboard'/"
+        output = f"&OBST ID='LANDING', XB = {_xb(round(landing_x1, 3), round(landing_x2, 3), round(landing_y1, 3), round(landing_y2, 3), round(z_current - 0.2, 3), round(z_current, 3))}, SURF_ID = 'Plasterboard'/"
         array.append(output)
 
 
@@ -270,10 +276,10 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                             s1_y1 = round(landing_y1, 3)
                         else:
                             s1_y2 = round(landing_y2, 3)
-                current_step_line = f"&OBST ID='STEP1', XB = {s1_x1}, {s1_x2}, {s1_y1}, {s1_y2},{current_step_z1}, {current_step_z2}, SURF_ID = 'Plasterboard'/"
+                current_step_line = f"&OBST ID='STEP1', XB = {_xb(s1_x1, s1_x2, s1_y1, s1_y2, current_step_z1, current_step_z2)}, SURF_ID = 'Plasterboard'/"
                 array.append(current_step_line)
     for idx, z_current in enumerate(z_halflanding):
-        output = f"&OBST ID='HALFLANDING', XB = {round(halflanding_x1, 3)}, {round(halflanding_x2, 3)}, {round(halflanding_y1, 3)}, {round(halflanding_y2, 3)},{round(z_current - 0.2, 3)}, {round(z_current, 3)}, SURF_ID = 'Plasterboard'/"
+        output = f"&OBST ID='HALFLANDING', XB = {_xb(round(halflanding_x1, 3), round(halflanding_x2, 3), round(halflanding_y1, 3), round(halflanding_y2, 3), round(z_current - 0.2, 3), round(z_current, 3))}, SURF_ID = 'Plasterboard'/"
         array.append(output)
 
         if idx < len(z_halflanding):
@@ -307,7 +313,7 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                         s2_x2 = round(stair_x2_list[step_num], 3)
                         s2_y1 = round(stair2_y1_list[step_num], 3)
                         s2_y2 = round(stair2_y2_list[step_num], 3)
-                    current_step_line = f"&OBST ID='STEP2', XB = {s2_x1}, {s2_x2}, {s2_y1}, {s2_y2},{sz1}, {sz2}, SURF_ID = 'Plasterboard'/"
+                    current_step_line = f"&OBST ID='STEP2', XB = {_xb(s2_x1, s2_x2, s2_y1, s2_y2, sz1, sz2)}, SURF_ID = 'Plasterboard'/"
                     array.append(current_step_line)
             else:
                 # Overlapping style: Z ascends as step_num increases (same as STEP1)
@@ -338,7 +344,7 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                                 s2_y1 = round(halflanding_y1, 3)
                             else:
                                 s2_y2 = round(halflanding_y2, 3)
-                    current_step_line = f"&OBST ID='STEP2', XB = {s2_x1}, {s2_x2}, {s2_y1}, {s2_y2},{round(current_step_z1, 3)}, {round(current_step_z2, 3)}, SURF_ID = 'Plasterboard'/"
+                    current_step_line = f"&OBST ID='STEP2', XB = {_xb(s2_x1, s2_x2, s2_y1, s2_y2, round(current_step_z1, 3), round(current_step_z2, 3))}, SURF_ID = 'Plasterboard'/"
                     array.append(current_step_line)
     # also half landing
     # 
