@@ -1014,11 +1014,12 @@ def generate_zone_sensors(elements, z, zone_config, sensor_heights=None, spacing
                 if y <= y_end:
                     centre_points.append((x_mid, y))
 
-        for pt_idx, (x, y) in enumerate(centre_points, start=1):
-            for height in sensor_heights:
-                sensor_z = round(z + height, 2)
-                for quantity in quantities:
-                    prefix = q_short[quantity]
+        # Group by quantity (outer) then point (inner) to match EXE ordering
+        for quantity in quantities:
+            prefix = q_short[quantity]
+            for pt_idx, (x, y) in enumerate(centre_points, start=1):
+                for height in sensor_heights:
+                    sensor_z = round(z + height, 2)
                     devc_id = f"{zone_prefix}_{prefix}_{pt_idx}"
                     lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
 
@@ -1235,15 +1236,17 @@ def generate_corridor_sensor_devcs(elements, z, sensor_heights):
             zone_groups[zone_key] = []
         zone_groups[zone_key].append(tree)
 
-    for zone_key, trees in zone_groups.items():
-        for pt_idx, tree in enumerate(trees, start=1):
-            point = tree["points"][0]
-            x = round(point["x"], 2)
-            y = round(point["y"], 2)
-            for height in sensor_heights:
-                sensor_z = round(z + height, 2)
-                for quantity in quantities:
-                    prefix = q_short[quantity]
+    # Group by quantity (outer) then zone/point (inner) to match EXE ordering
+    # This makes spreadsheet analysis easier — all TEMPERATURE together, etc.
+    for quantity in quantities:
+        prefix = q_short[quantity]
+        for zone_key, trees in zone_groups.items():
+            for pt_idx, tree in enumerate(trees, start=1):
+                point = tree["points"][0]
+                x = round(point["x"], 2)
+                y = round(point["y"], 2)
+                for height in sensor_heights:
+                    sensor_z = round(z + height, 2)
                     devc_id = f"{zone_key}_{prefix}_{pt_idx}"
                     lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
 
@@ -1266,17 +1269,18 @@ def generate_fsa_sensor_devcs(elements, z, fsa_sensor_heights):
     if not fsa_sensors:
         return lines
 
-    for sensor in fsa_sensors:
-        point = sensor["points"][0]
-        x = round(point["x"], 2)
-        y = round(point["y"], 2)
-        raw_dist = sensor.get("fsaDistance", "?")
-        fsa_distance = int(raw_dist) if isinstance(raw_dist, (int, float)) and raw_dist == int(raw_dist) else raw_dist
+    # Group by quantity (outer) then sensor/height (inner) to match EXE ordering
+    for quantity in quantities:
+        prefix = q_short[quantity]
+        for sensor in fsa_sensors:
+            point = sensor["points"][0]
+            x = round(point["x"], 2)
+            y = round(point["y"], 2)
+            raw_dist = sensor.get("fsaDistance", "?")
+            fsa_distance = int(raw_dist) if isinstance(raw_dist, (int, float)) and raw_dist == int(raw_dist) else raw_dist
 
-        for height in fsa_sensor_heights:
-            sensor_z = round(z + height, 2)
-            for quantity in quantities:
-                prefix = q_short[quantity]
+            for height in fsa_sensor_heights:
+                sensor_z = round(z + height, 2)
                 devc_id = f"FSA_{fsa_distance}m_{prefix}"
                 if len(fsa_sensor_heights) > 1:
                     devc_id += f"_h{height}"
