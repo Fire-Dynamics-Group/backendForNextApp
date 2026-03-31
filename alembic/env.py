@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from database import Base  # noqa: E402
 from models.db_models import Project, Floor, Element  # noqa: E402, F401
+from models.cfd_models import CfdSimulation, CfdRunnerState  # noqa: E402, F401
 
 config = context.config
 
