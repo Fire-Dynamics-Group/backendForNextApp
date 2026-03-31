@@ -19,6 +19,7 @@ class CfdSimulation(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
     error_msg = Column(Text, nullable=True)
+    machine_name = Column(Text, nullable=True)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
@@ -28,6 +29,7 @@ class CfdRunnerState(Base):
     id = Column(Integer, primary_key=True, default=1)
     status = Column(Text, nullable=False, default="offline")
     pending_files = Column(JSONB, nullable=True)
+    machine_name = Column(Text, nullable=True)
     last_heartbeat = Column(DateTime(timezone=True), nullable=False)
 
     __table_args__ = (
