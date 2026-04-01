@@ -375,12 +375,16 @@ def generate_door_leakage_vents(door, door_index, z, door_height=2.1, cell_size=
     y_delta = abs(y2 - y1)
 
     # Fixed areas matching Crown Wharf reference
+    # Accept both frontend format (single_smoke_sealed) and backend format (smoke-sealed)
     if seal_type == "lift":
         area = 0.06
         prefix = "lift"
-    elif seal_type == "double-smoke-sealed":
+    elif seal_type in ("double-smoke-sealed", "double_smoke_sealed"):
         area = 0.03
         prefix = "smoke_sealed_double"
+    elif seal_type in ("smoke-sealed", "single_smoke_sealed"):
+        area = 0.01
+        prefix = "smoke_sealed_single"
     else:
         area = 0.01
         prefix = "smoke_sealed_single" if seal_type == "smoke-sealed" else "nonsmoke_sealed"
@@ -1103,9 +1107,9 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
         lines.append(f"&VENT ID='Extract_{extract_number}', SURF_ID='{extract_surf_id}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}{devc_suffix}/")
 
         if dx > dy:
-            hole_xb = f"{shaft_x1},{shaft_x2},{round(y1 - 0.2, 2)},{round(y1 + wall_thickness + 0.2, 2)},{z},{ceiling_z}"
+            hole_xb = f"{shaft_x1},{shaft_x2},{round(y1 - 0.2, 2)},{round(y1 + wall_thickness + 0.2, 2)},{vent_z1},{vent_z2}"
         else:
-            hole_xb = f"{round(x1 - 0.2, 2)},{round(x1 + wall_thickness + 0.2, 2)},{shaft_y1},{shaft_y2},{z},{ceiling_z}"
+            hole_xb = f"{round(x1 - 0.2, 2)},{round(x1 + wall_thickness + 0.2, 2)},{shaft_y1},{shaft_y2},{vent_z1},{vent_z2}"
         lines.append(f"&HOLE ID='Extract Wall Hole {extract_number}', XB={hole_xb}/")
 
         if dx > dy:
@@ -1116,11 +1120,6 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
             wall_x1 = round(x1, 2)
             wall_x2 = round(x1 + wall_thickness, 2)
             wall_y1, wall_y2 = shaft_y1, shaft_y2
-
-        if vent_z1 > z:
-            lines.append(f"&OBST ID='Shaft Wall {extract_number}', XB={wall_x1},{wall_x2},{wall_y1},{wall_y2},{z},{vent_z1}, SURF_ID='Plasterboard'/")
-        if vent_z2 < ceiling_z:
-            lines.append(f"&OBST ID='Shaft Wall {extract_number}', XB={wall_x1},{wall_x2},{wall_y1},{wall_y2},{vent_z2},{ceiling_z}, SURF_ID='Plasterboard'/")
 
         ctrl_id = f"Extract_CTRL_{extract_number}"
         if activation != "always_open":
@@ -1380,7 +1379,7 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         role = door_roles.get(door_id, "")
         if role == "leakage":
             config = door_leakage_config.get(door_id, {})
-            seal = config.get("sealType", "non-smoke-sealed")
+            seal = config.get("sealType", None) or config.get("doorType", "non-smoke-sealed")
             leakage_lines = generate_door_leakage_vents(door, door_index=idx, z=z, door_height=2.1, cell_size=0.1, seal_type=seal, wall_thickness=wall_thickness)
             fds_array = add_array_to_fds_array(leakage_lines, fds_array)
 

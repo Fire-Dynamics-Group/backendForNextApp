@@ -315,6 +315,20 @@ class TestLeakageDoors:
         hvac_lines = [l for l in result if "&HVAC" in l]
         assert "AREA=0.01" in hvac_lines[0]
 
+    def test_frontend_format_single_smoke_sealed(self):
+        """Frontend sends single_smoke_sealed (underscores): fixed area 0.01."""
+        door = self.elements[0]
+        result = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="single_smoke_sealed")
+        hvac_lines = [l for l in result if "&HVAC" in l]
+        assert "AREA=0.01" in hvac_lines[0]
+
+    def test_frontend_format_double_smoke_sealed(self):
+        """Frontend sends double_smoke_sealed (underscores): fixed area 0.03."""
+        door = self.elements[0]
+        result = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="double_smoke_sealed")
+        hvac_lines = [l for l in result if "&HVAC" in l]
+        assert "AREA=0.03" in hvac_lines[0]
+
     def test_fixed_area_double_smoke_sealed(self):
         """Double smoke sealed door: fixed area 0.03."""
         door = self.elements[0]
