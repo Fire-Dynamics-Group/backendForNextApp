@@ -951,10 +951,11 @@ def generate_sprinkler_lines(elements, z, wall_height):
     return lines
 
 
-def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, cell_size=0.2, extract_number=1):
-    """Generate FDS lines for an extract shaft: MESH, opening HOLE, top VENT, and optional SURF.
+def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, cell_size=0.1, extract_number=1):
+    """Generate FDS lines for an extract shaft.
 
-    Returns a list of FDS lines.
+    Mechanical: Crown Wharf pattern — fan SURF at ZMAX, damper OBSTs at corridor wall.
+    Natural: OPEN vent at corridor level + OPEN at ZMAX.
     """
     points = extract_element["points"]
     x1 = points[0]["x"]
@@ -968,8 +969,9 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     flow_rate = config.get("flowRate", 3.0)
     activation = config.get("activation", "always_open")
     activation_time = config.get("activationTime", None)
-    opening_height = config.get("openingHeight", wall_height)  # defaults to full wall height
-    opening_base = config.get("openingBase", 0.0)  # height above floor level
+    opening_height = config.get("openingHeight", 1.3)  # Crown Wharf default: 1.3m
+    opening_base = config.get("openingBase", 0.9)  # Crown Wharf default: 0.9m above floor
+    tau_v = config.get("tauV", None)
 
     dx = abs(x2 - x1)
     dy = abs(y2 - y1)
@@ -977,17 +979,18 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     lines = []
 
     # Determine shaft position extending perpendicular from the opening
-    # Opening is on the wall; shaft extends outward by shaft_depth
+    # For mechanical: offset by wall_thickness so shaft abuts corridor mesh (Crown Wharf pattern)
+    wt_offset = wall_thickness if shaft_type == "mechanical" else 0
     if dx > dy:
         # Horizontal opening: shaft extends in Y
         shaft_x1 = round(min(x1, x2), 2)
         shaft_x2 = round(max(x1, x2), 2)
-        shaft_y1 = round(y1, 2)
-        shaft_y2 = round(y1 + shaft_depth, 2)
+        shaft_y1 = round(y1 + wt_offset, 2)
+        shaft_y2 = round(y1 + wt_offset + shaft_depth, 2)
     else:
         # Vertical opening: shaft extends in X
-        shaft_x1 = round(x1, 2)
-        shaft_x2 = round(x1 + shaft_depth, 2)
+        shaft_x1 = round(x1 + wt_offset, 2)
+        shaft_x2 = round(x1 + wt_offset + shaft_depth, 2)
         shaft_y1 = round(min(y1, y2), 2)
         shaft_y2 = round(max(y1, y2), 2)
 
@@ -1002,47 +1005,93 @@ def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosur
     shaft_id = f"Extract_Shaft_{extract_number}"
     lines.append(f"&MESH ID='{shaft_id}', IJK={ijk_x},{ijk_y},{ijk_z}, XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}/")
 
-    # Opening HOLE at corridor level (connects shaft to corridor)
-    # Offset Z from mesh boundaries facing ambient (FDS requirement)
-    hole_z1 = round(z + opening_base, 4)
-    hole_z2 = round(z + opening_base + opening_height, 4)
-    if opening_base == 0:
-        hole_z1 = round(hole_z1 - 0.001, 4)  # offset from mesh ZMIN
-    if abs((opening_base + opening_height) - wall_height) < 0.01:
-        hole_z2 = round(hole_z2 + 0.001, 4)  # offset from mesh ZMAX
-    if dx > dy:
-        hole_xb = f"{shaft_x1},{shaft_x2},{round(shaft_y1 - 0.2, 2)},{round(shaft_y1 + 0.2, 2)},{hole_z1},{hole_z2}"
-    else:
-        hole_xb = f"{round(shaft_x1 - 0.2, 2)},{round(shaft_x1 + 0.2, 2)},{shaft_y1},{shaft_y2},{hole_z1},{hole_z2}"
+    vent_z1 = round(z + opening_base, 2)
+    vent_z2 = round(z + opening_base + opening_height, 2)
+    ceiling_z = round(z + wall_height, 2)
 
-    ctrl_suffix = ""
-    if activation == "timed":
-        ctrl_suffix = f", DEVC_ID='Extract_Timer_{extract_number}'"
-    elif activation == "sprinkler":
-        ctrl_suffix = f", DEVC_ID='Extract_Sprinkler_{extract_number}'"
-
-    lines.append(f"&HOLE ID='Extract Opening {extract_number}', XB={hole_xb}{ctrl_suffix}/")
-
-    # Top: HOLE through the roof slab + mesh vent (OPEN) at ZMAX
-    roof_z = round(stair_enclosure_roof_z, 2)
-    lines.append(f"&HOLE ID='Extract Roof Opening {extract_number}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{round(roof_z - 0.4, 2)},{round(roof_z + 0.4, 2)}/")
-    lines.append(f"&VENT ID='Mesh Vent: {shaft_id} [ZMAX]', SURF_ID='OPEN', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
-
-    # Mechanical extract: add SURF with flow rate at top
     if shaft_type == "mechanical":
-        surf_id = f"Extract_{extract_number}"
-        lines.append(f"&SURF ID='{surf_id}', VOLUME_FLOW={flow_rate}, TAU_V=-10.0/")
-        lines.append(f"&VENT ID='Extract Fan {extract_number}', SURF_ID='{surf_id}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
+        # --- MECHANICAL: Crown Wharf pattern ---
+        # Fan SURF at ZMAX, damper OBSTs at corridor wall, CTRL/DEVC controls
 
-    # Activation controls
-    if activation == "timed" and activation_time is not None:
-        t = float(activation_time)
-        lines.append(f"&DEVC ID='Extract_Timer_{extract_number}', QUANTITY='TIME', XYZ=0,0,0, SETPOINT={t}/")
-    elif activation == "sprinkler":
-        mid_x = round((shaft_x1 + shaft_x2) / 2, 2)
-        mid_y = round((shaft_y1 + shaft_y2) / 2, 2)
-        lines.append(f"&DEVC ID='Extract_Sprinkler_{extract_number}', PROP_ID='Extract_Link_{extract_number}', XYZ={mid_x},{mid_y},{round(z + wall_height - 0.1, 2)}/")
-        lines.append(f"&PROP ID='Extract_Link_{extract_number}', QUANTITY='LINK TEMPERATURE', RTI=50, ACTIVATION_TEMPERATURE=68.0/")
+        extract_surf_id = f"Extract_{extract_number}"
+        tau_v_str = f", TAU_V={tau_v}" if tau_v is not None else ""
+        lines.append(f"&SURF ID='{extract_surf_id}', VOLUME_FLOW={flow_rate}{tau_v_str}, HEAT_TRANSFER_COEFFICIENT=0.0, RGB=26,128,26/")
+
+        # Fan VENT at ZMAX
+        devc_suffix = ""
+        if activation == "timed":
+            devc_suffix = f", DEVC_ID='Extract_Timer_{extract_number}'"
+        elif activation == "sprinkler":
+            devc_suffix = f", DEVC_ID='Extract_Sprinkler_{extract_number}'"
+        lines.append(f"&VENT ID='Extract_{extract_number}', SURF_ID='{extract_surf_id}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}{devc_suffix}/")
+
+        # HOLE to remove existing corridor wall at extract location
+        if dx > dy:
+            hole_xb = f"{shaft_x1},{shaft_x2},{round(y1 - 0.2, 2)},{round(y1 + wall_thickness + 0.2, 2)},{z},{ceiling_z}"
+        else:
+            hole_xb = f"{round(x1 - 0.2, 2)},{round(x1 + wall_thickness + 0.2, 2)},{shaft_y1},{shaft_y2},{z},{ceiling_z}"
+        lines.append(f"&HOLE ID='Extract Wall Hole {extract_number}', XB={hole_xb}/")
+
+        # Wall OBSTs at interface: below opening, above opening, damper
+        if dx > dy:
+            wall_x1, wall_x2 = shaft_x1, shaft_x2
+            wall_y1 = round(y1, 2)
+            wall_y2 = round(y1 + wall_thickness, 2)
+        else:
+            wall_x1 = round(x1, 2)
+            wall_x2 = round(x1 + wall_thickness, 2)
+            wall_y1, wall_y2 = shaft_y1, shaft_y2
+
+        if vent_z1 > z:
+            lines.append(f"&OBST ID='Shaft Wall {extract_number}', XB={wall_x1},{wall_x2},{wall_y1},{wall_y2},{z},{vent_z1}, SURF_ID='Plasterboard'/")
+        if vent_z2 < ceiling_z:
+            lines.append(f"&OBST ID='Shaft Wall {extract_number}', XB={wall_x1},{wall_x2},{wall_y1},{wall_y2},{vent_z2},{ceiling_z}, SURF_ID='Plasterboard'/")
+
+        # Damper OBST (only for timed/sprinkler — always_open leaves the gap open)
+        ctrl_id = f"Extract_CTRL_{extract_number}"
+        if activation != "always_open":
+            lines.append(f"&OBST ID='Shaft Damper {extract_number}', XB={wall_x1},{wall_x2},{wall_y1},{wall_y2},{vent_z1},{vent_z2}, SURF_ID='Plasterboard', CTRL_ID='{ctrl_id}'/")
+
+        # Controls
+        if activation == "timed" and activation_time is not None:
+            devc_id = f"Extract_Timer_{extract_number}"
+            lines.append(f"&CTRL ID='{ctrl_id}', FUNCTION_TYPE='ALL', LATCH=.FALSE., INITIAL_STATE=.TRUE., INPUT_ID='{devc_id}'/")
+            lines.append(f"&DEVC ID='{devc_id}', QUANTITY='TIME', XYZ=0,0,0, SETPOINT={float(activation_time)}/")
+        elif activation == "sprinkler":
+            devc_id = f"Extract_Sprinkler_{extract_number}"
+            mid_x = round((shaft_x1 + shaft_x2) / 2, 2)
+            mid_y = round((shaft_y1 + shaft_y2) / 2, 2)
+            lines.append(f"&CTRL ID='{ctrl_id}', FUNCTION_TYPE='ALL', LATCH=.FALSE., INITIAL_STATE=.TRUE., INPUT_ID='{devc_id}'/")
+            lines.append(f"&DEVC ID='{devc_id}', PROP_ID='Extract_Link_{extract_number}', XYZ={mid_x},{mid_y},{round(z + wall_height - 0.1, 2)}/")
+            lines.append(f"&PROP ID='Extract_Link_{extract_number}', QUANTITY='LINK TEMPERATURE', RTI=50, ACTIVATION_TEMPERATURE=68.0/")
+
+    else:
+        # --- NATURAL: unchanged ---
+        ctrl_suffix = ""
+        if activation == "timed":
+            ctrl_suffix = f", DEVC_ID='Extract_Timer_{extract_number}'"
+        elif activation == "sprinkler":
+            ctrl_suffix = f", DEVC_ID='Extract_Sprinkler_{extract_number}'"
+
+        if dx > dy:
+            vent_xb = f"{shaft_x1},{shaft_x2},{shaft_y1},{shaft_y1},{vent_z1},{vent_z2}"
+        else:
+            vent_xb = f"{shaft_x1},{shaft_x1},{shaft_y1},{shaft_y2},{vent_z1},{vent_z2}"
+
+        lines.append(f"&VENT ID='Extract Opening {extract_number}', SURF_ID='OPEN', XB={vent_xb}{ctrl_suffix}/")
+
+        roof_z = round(stair_enclosure_roof_z, 2)
+        lines.append(f"&HOLE ID='Extract Roof Opening {extract_number}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{round(roof_z - 0.4, 2)},{round(roof_z + 0.4, 2)}/")
+        lines.append(f"&VENT ID='Mesh Vent: {shaft_id} [ZMAX]', SURF_ID='OPEN', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
+
+        if activation == "timed" and activation_time is not None:
+            t = float(activation_time)
+            lines.append(f"&DEVC ID='Extract_Timer_{extract_number}', QUANTITY='TIME', XYZ=0,0,0, SETPOINT={t}/")
+        elif activation == "sprinkler":
+            mid_x = round((shaft_x1 + shaft_x2) / 2, 2)
+            mid_y = round((shaft_y1 + shaft_y2) / 2, 2)
+            lines.append(f"&DEVC ID='Extract_Sprinkler_{extract_number}', PROP_ID='Extract_Link_{extract_number}', XYZ={mid_x},{mid_y},{round(z + wall_height - 0.1, 2)}/")
+            lines.append(f"&PROP ID='Extract_Link_{extract_number}', QUANTITY='LINK TEMPERATURE', RTI=50, ACTIVATION_TEMPERATURE=68.0/")
 
     return lines
 
