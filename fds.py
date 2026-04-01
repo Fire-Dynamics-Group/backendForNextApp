@@ -673,7 +673,7 @@ def fire_ramp(growth_rate_name="medium", custom_alpha=None, hrr_kw=1000.0, sim_e
 
 def fuel_reaction(Soot_Yield, Heat_of_Combustion):
     return [
-        "&SPEC ID='REAC_FUEL', FORMULA='C6.3H7.1O2.1N1.0'/",
+        "&SPEC ID='REAC_FUEL', FORMULA='C6.3H7.1O2.1N1.0', SPECIFIC_HEAT=1.0/",
         "&REAC ID='POLYURETHANE',",
         "      FYI='NFPA Babrauskas',",
         "      FUEL = 'REAC_FUEL',",
@@ -1509,13 +1509,24 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     door_array = add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, door_height=2.1, scenario_type=door_scenario, door_roles=door_roles)
     fds_array = add_array_to_fds_array(door_array, fds_array)
 
-    # 6a. Leakage-only doors: generate VENT + HVAC LEAK lines
+    # 6a. Door leakage: generate VENT + HVAC LEAK lines
+    # Leakage-only doors always get leakage. Other doors (stair, apartment, lobby)
+    # get leakage when doorLeakageConfig[id].enabled is true.
     doors = [f for f in elements if "door" in f["comments"]]
+    print(f"[LEAKAGE] {len(doors)} door elements, door_roles keys={list(door_roles.keys())}, leakage_config keys={list(door_leakage_config.keys())}")
+    with open("C:/Users/IanShaw/Downloads/leakage_debug.txt", "w") as _dbg:
+        _dbg.write(f"doors={len(doors)} roles={door_roles} config={door_leakage_config}\n")
     for idx, door in enumerate(doors):
         door_id = str(door.get("id", idx))
         role = door_roles.get(door_id, "")
-        if role == "leakage":
-            config = door_leakage_config.get(door_id, {})
+        config = door_leakage_config.get(door_id, {})
+        # Leakage-only doors always leak. Other doors leak if config exists and enabled != false
+        # (frontend checkbox defaults to checked — enabled is absent, not True)
+        should_leak = (role == "leakage") or (bool(config) and config.get("enabled") is not False)
+        print(f"[LEAKAGE] door idx={idx} id={door_id} role='{role}' config={config} should_leak={should_leak}")
+        with open("C:/Users/IanShaw/Downloads/leakage_debug.txt", "a") as _dbg:
+            _dbg.write(f"idx={idx} id={door_id} role='{role}' config={config} should_leak={should_leak}\n")
+        if should_leak:
             seal = config.get("sealType", None) or config.get("doorType", "non-smoke-sealed")
             leakage_lines = generate_door_leakage_vents(door, door_index=idx, z=z, door_height=2.1, cell_size=0.1, seal_type=seal, wall_thickness=wall_thickness)
             fds_array = add_array_to_fds_array(leakage_lines, fds_array)
