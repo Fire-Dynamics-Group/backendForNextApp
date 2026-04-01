@@ -284,32 +284,59 @@ class TestLeakageDoors:
         assert len(result) == 1
         assert "Apartment Door Hole" in result[0]
 
-    # --- LEAK_ENTHALPY ---
-
-    def test_hvac_always_has_leak_enthalpy(self):
-        """All HVAC lines should include LEAK_ENTHALPY=.TRUE."""
+    def test_single_bottom_vent_only(self):
+        """Crown Wharf pattern: only one bottom vent, no top/left/right."""
         door = self.elements[0]
-        result = generate_door_leakage_vents(
-            door, door_index=0, z=10, seal_type="non-smoke-sealed"
-        )
-        hvac_lines = [l for l in result if "&HVAC" in l]
-        for line in hvac_lines:
-            assert "LEAK_ENTHALPY=.TRUE." in line
+        result = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="non-smoke-sealed")
+        vent_lines = [l for l in result if "&VENT" in l]
+        assert len(vent_lines) == 1
+        assert "bottom vent" in vent_lines[0].lower()
 
-    # --- Naming convention ---
+    def test_hvac_leaks_to_ambient(self):
+        """All leakages go to AMBIENT, not a second vent."""
+        door = self.elements[0]
+        result = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="non-smoke-sealed")
+        hvac_lines = [l for l in result if "&HVAC" in l]
+        assert len(hvac_lines) == 1
+        assert "VENT2_ID='AMBIENT'" in hvac_lines[0]
+        assert "LEAK_ENTHALPY=.TRUE." in hvac_lines[0]
+
+    def test_fixed_area_single_smoke_sealed(self):
+        """Smoke sealed single door: fixed area 0.01."""
+        door = self.elements[0]
+        result = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="smoke-sealed")
+        hvac_lines = [l for l in result if "&HVAC" in l]
+        assert "AREA=0.01" in hvac_lines[0]
+
+    def test_fixed_area_non_smoke_sealed(self):
+        """Non-smoke sealed door: fixed area 0.01."""
+        door = self.elements[0]
+        result = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="non-smoke-sealed")
+        hvac_lines = [l for l in result if "&HVAC" in l]
+        assert "AREA=0.01" in hvac_lines[0]
+
+    def test_fixed_area_double_smoke_sealed(self):
+        """Double smoke sealed door: fixed area 0.03."""
+        door = self.elements[0]
+        result = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="double-smoke-sealed")
+        hvac_lines = [l for l in result if "&HVAC" in l]
+        assert "AREA=0.03" in hvac_lines[0]
+
+    def test_fixed_area_lift(self):
+        """Lift door: fixed area 0.06."""
+        door = self.elements[0]
+        result = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="lift")
+        hvac_lines = [l for l in result if "&HVAC" in l]
+        assert "AREA=0.06" in hvac_lines[0]
 
     def test_prefix_from_seal_type(self):
-        """Seal type determines prefix: smoke_sealed or nonsmoke_sealed."""
+        """Seal type determines prefix in naming."""
         door = self.elements[0]
-        result_smoke = generate_door_leakage_vents(
-            door, door_index=0, z=10, seal_type="smoke-sealed"
-        )
-        result_nonsmoke = generate_door_leakage_vents(
-            door, door_index=0, z=10, seal_type="non-smoke-sealed"
-        )
+        result_smoke = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="smoke-sealed")
+        result_nonsmoke = generate_door_leakage_vents(door, door_index=0, z=10, seal_type="non-smoke-sealed")
         hvac_smoke = [l for l in result_smoke if "&HVAC" in l][0]
         hvac_nonsmoke = [l for l in result_nonsmoke if "&HVAC" in l][0]
-        assert "smoke_sealed" in hvac_smoke
+        assert "smoke_sealed_single" in hvac_smoke
         assert "nonsmoke_sealed" in hvac_nonsmoke
 
     # --- Integration tests ---

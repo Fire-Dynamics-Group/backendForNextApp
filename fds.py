@@ -360,11 +360,9 @@ def add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, d
 def generate_door_leakage_vents(door, door_index, z, door_height=2.1, cell_size=0.1, seal_type="non-smoke-sealed", wall_thickness=0.2):
     """Generate &VENT + &HVAC LEAK lines for a leakage-only door.
 
-    Follows the original Python exe logic from door_leakages.py:
-    - 4 pairs of vents (top, bottom, left, right) on each face of the wall
-    - Vent 1 on one face, Vent 2 on the opposite face (offset by wall_thickness)
-    - Connected by HVAC LEAK lines
-    - Gap sizes depend on seal type
+    Crown Wharf pattern: single bottom vent on one face, leaking to AMBIENT.
+    Fixed areas: single smoke sealed 0.01, double smoke sealed 0.03, lift 0.06.
+    Non-smoke-sealed doors also use 0.01 (same as single smoke sealed).
     """
     points = door["points"]
     x1 = points[0]["x"]
@@ -372,72 +370,36 @@ def generate_door_leakage_vents(door, door_index, z, door_height=2.1, cell_size=
     y1 = points[0]["y"]
     y2 = points[1]["y"]
     z1 = z
-    z2 = z + door_height
 
     x_delta = abs(x2 - x1)
     y_delta = abs(y2 - y1)
-    door_width = round(max(x_delta, y_delta), 5)
 
-    if seal_type == "smoke-sealed":
-        bottom_gap = 0.003
-        other_gaps = 0.00035
-        prefix = "smoke_sealed"
+    # Fixed areas matching Crown Wharf reference
+    if seal_type == "lift":
+        area = 0.06
+        prefix = "lift"
+    elif seal_type == "double-smoke-sealed":
+        area = 0.03
+        prefix = "smoke_sealed_double"
     else:
-        bottom_gap = 0.01
-        other_gaps = 0.004
-        prefix = "nonsmoke_sealed"
+        area = 0.01
+        prefix = "smoke_sealed_single" if seal_type == "smoke-sealed" else "nonsmoke_sealed"
 
     door_name = f"{prefix}_door{door_index}"
-    is_smoke_sealed = seal_type == "smoke-sealed"
-    wt = wall_thickness
 
-    # Determine vent positions based on door orientation
-    # Vent 1 sits on the door line face, Vent 2 is offset by wall_thickness to the other face
+    # Single bottom vent on one face of the wall
     if x_delta > y_delta:
-        # Door extends in X — wall is thin in Y, vents on Y faces
-        # Wall extends negative Y: from y1-wt to y1. Vent 1 at y1, Vent 2 at y1 - wt
-        y1_v2 = round(y1 - wt, 5)
-        top_coords_1 = f"{x1},{x2},{y1},{y1},{round(z1 + door_height - cell_size, 5)},{z2}"
-        top_coords_2 = f"{x1},{x2},{y1_v2},{y1_v2},{round(z1 + door_height - cell_size, 5)},{z2}"
-        bottom_coords_1 = f"{x1},{x2},{y1},{y1},{z1},{round(z1 + cell_size, 5)}"
-        bottom_coords_2 = f"{x1},{x2},{y1_v2},{y1_v2},{z1},{round(z1 + cell_size, 5)}"
-        left_coords_1 = f"{x1},{round(x1 + cell_size, 5)},{y1},{y1},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
-        left_coords_2 = f"{x1},{round(x1 + cell_size, 5)},{y1_v2},{y1_v2},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
-        right_coords_1 = f"{round(x2 - cell_size, 5)},{x2},{y1},{y1},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
-        right_coords_2 = f"{round(x2 - cell_size, 5)},{x2},{y1_v2},{y1_v2},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+        # Door extends in X — vent on Y face
+        bottom_coords = f"{x1},{x2},{y1},{y1},{z1},{round(z1 + cell_size, 5)}"
     else:
-        # Door extends in Y — wall is thin in X, vents on X faces
-        # Vent 1 at x1, Vent 2 at x1 + wt (opposite face)
-        x1_v2 = round(x1 + wt, 5)
-        top_coords_1 = f"{x1},{x1},{y1},{y2},{round(z1 + door_height - cell_size, 5)},{z2}"
-        top_coords_2 = f"{x1_v2},{x1_v2},{y1},{y2},{round(z1 + door_height - cell_size, 5)},{z2}"
-        bottom_coords_1 = f"{x1},{x1},{y1},{y2},{z1},{round(z1 + cell_size, 5)}"
-        bottom_coords_2 = f"{x1_v2},{x1_v2},{y1},{y2},{z1},{round(z1 + cell_size, 5)}"
-        left_coords_1 = f"{x1},{x1},{y1},{round(y1 + cell_size, 5)},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
-        left_coords_2 = f"{x1_v2},{x1_v2},{y1},{round(y1 + cell_size, 5)},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
-        right_coords_1 = f"{x1},{x1},{round(y2 - cell_size, 5)},{y2},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
-        right_coords_2 = f"{x1_v2},{x1_v2},{round(y2 - cell_size, 5)},{y2},{round(z1 + cell_size, 5)},{round(z1 + door_height - cell_size, 5)}"
+        # Door extends in Y — vent on X face
+        bottom_coords = f"{x1},{x1},{y1},{y2},{z1},{round(z1 + cell_size, 5)}"
+
+    vent_id = f"Door_{door_name}bottom vent 1"
 
     lines = []
-    sides = [
-        ("Top", top_coords_1, top_coords_2, round(door_width * other_gaps, 6)),
-        ("Bottom", bottom_coords_1, bottom_coords_2, round(door_width * bottom_gap, 6)),
-        ("Left", left_coords_1, left_coords_2, round(door_height * other_gaps, 6)),
-        ("Right", right_coords_1, right_coords_2, round(door_height * other_gaps, 6)),
-    ]
-
-    for side_name, coords_1, coords_2, area in sides:
-        vent1_id = f"Door_{door_name}_{side_name.lower()} vent 1"
-        vent2_id = f"Door_{door_name}_{side_name.lower()} vent 2"
-
-        lines.append(f"&VENT ID='{vent1_id}', SURF_ID='INERT', XB={coords_1}, RGB=200,200,200 / {door_name}, {side_name} Vent 1")
-
-        if not is_smoke_sealed:
-            lines.append(f"&VENT ID='{vent2_id}', SURF_ID='INERT', XB={coords_2}, RGB=200,200,200 / {door_name}, {side_name} Vent 2")
-
-        hvac_vent2 = "AMBIENT" if is_smoke_sealed else f"Door_{door_name}_{side_name.lower()} vent 2"
-        lines.append(f"&HVAC ID='Door_{door_name}_{side_name.lower()} leak', TYPE_ID='LEAK', VENT_ID='{vent1_id}', VENT2_ID='{hvac_vent2}', AREA={area}, LEAK_ENTHALPY=.TRUE. / {door_name} {side_name.lower()} leak")
-        lines.append("")
+    lines.append(f"&VENT ID='{vent_id}', SURF_ID='INERT', XB={bottom_coords}, RGB=200,200,200/")
+    lines.append(f"&HVAC ID='{door_name}bottom leak', TYPE_ID='LEAK', VENT_ID='{vent_id}', VENT2_ID='AMBIENT', AREA={area}, LEAK_ENTHALPY=.TRUE./")
 
     return lines
 
