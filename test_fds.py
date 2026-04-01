@@ -698,3 +698,233 @@ class TestExtractShaft:
         assert "Extract Opening 1" in result
         assert "Extract Roof Opening 1" in result
         assert "Mesh Vent: Extract_Shaft_1 [ZMAX]" in result
+
+
+class TestFDSOutputValidation:
+    """Full FDS output validation checklist — catches regressions across all features.
+
+    Uses a realistic element set resembling North Finchley: corridor, stair, doors with
+    various roles, mechanical extract, natural extract, inlet, fire.
+    """
+
+    def setup_method(self):
+        # Realistic element set
+        self.elements = [
+            # Corridor obstruction
+            {"comments": "obstruction", "id": 0, "points": [
+                {"x": 0, "y": 0}, {"x": 130, "y": 0}, {"x": 130, "y": 50},
+                {"x": 0, "y": 50}, {"x": 0, "y": 0}
+            ], "type": "polyline"},
+            # Main corridor mesh
+            {"comments": "mesh", "id": 1, "points": [{"x": 0, "y": 0}, {"x": 130, "y": 50}], "type": "rect"},
+            # Stair mesh
+            {"comments": "stair_mesh", "id": 2, "points": [{"x": 10, "y": 50}, {"x": 60, "y": 80}], "type": "rect"},
+            # Fire
+            {"comments": "fire", "id": 3, "points": [{"x": 80, "y": 25}], "type": "point"},
+            # Stair door (controlled, opens at t=0 for FSA)
+            {"comments": "door", "id": 10, "points": [{"x": 30, "y": 50}, {"x": 40, "y": 50}], "type": "polyline"},
+            # Apartment door (controlled, opens at t=60)
+            {"comments": "door", "id": 11, "points": [{"x": 70, "y": 0}, {"x": 80, "y": 0}], "type": "polyline"},
+            # Leakage door (smoke sealed)
+            {"comments": "door", "id": 12, "points": [{"x": 100, "y": 0}, {"x": 100, "y": 10}], "type": "polyline"},
+            # Leakage door (lift)
+            {"comments": "door", "id": 13, "points": [{"x": 0, "y": 20}, {"x": 0, "y": 30}], "type": "polyline"},
+            # Always open door
+            {"comments": "door", "id": 14, "points": [{"x": 50, "y": 50}, {"x": 60, "y": 50}], "type": "polyline"},
+            # Mechanical extract
+            {"comments": "extract", "id": 20, "points": [{"x": 120, "y": 0}, {"x": 120, "y": 10}], "type": "polyline"},
+            # Natural extract
+            {"comments": "extract", "id": 21, "points": [{"x": 0, "y": 40}, {"x": 0, "y": 50}], "type": "polyline"},
+            # Inlet
+            {"comments": "inlet", "id": 30, "points": [{"x": 130, "y": 20}, {"x": 130, "y": 35}], "type": "polyline"},
+        ]
+        self.door_roles = {
+            "10": "stair", "11": "apartment", "12": "leakage",
+            "13": "leakage", "14": "always_open"
+        }
+        self.door_leakage_config = {
+            "12": {"doorType": "single_smoke_sealed"},
+            "13": {"doorType": "lift"},
+        }
+        self.extract_config = {
+            "20": {"type": "mechanical", "flowRate": 5.0, "tauV": -10, "shaftDepth": 0.9,
+                   "openingHeight": 1.3, "openingBase": 0.9, "activation": "always_open"},
+            "21": {"type": "natural", "shaftDepth": 0.9, "activation": "always_open"},
+        }
+        self.inlet_config = {
+            "30": {"openingHeight": 2.0, "openingBase": 0.0},
+        }
+        self.result = testFunction(
+            self.elements, z=3.1, wall_height=2.4, wall_thickness=0.2,
+            stair_height=12.2, px_per_m=10, fire_floor=1, total_floors=4,
+            stair_enclosure_roof_z=12.2, scenario_type="FSA", sim_end_time=300,
+            door_roles=self.door_roles,
+            door_leakage_config=self.door_leakage_config,
+            door_openings={"stair_open": 0, "apartment_open": 60},
+            door_leakages_enabled=True,
+            extract_config=self.extract_config,
+            inlet_config=self.inlet_config,
+            fire_hrr=2500, fire_dimension=2.0, fire_type="steady_state",
+        )
+        self.lines = self.result.split("\n")
+
+    # --- 1. DOORS ---
+
+    def test_stair_door_has_controlled_hole(self):
+        holes = [l for l in self.lines if "&HOLE" in l and "Stair Door" in l]
+        assert len(holes) >= 1
+        assert any("CTRL_ID" in h for h in holes)
+
+    def test_apartment_door_has_controlled_hole(self):
+        holes = [l for l in self.lines if "&HOLE" in l and "Apartment Door" in l]
+        assert len(holes) >= 1
+        assert any("CTRL_ID" in h for h in holes)
+
+    def test_always_open_door_has_hole_no_ctrl(self):
+        holes = [l for l in self.lines if "&HOLE" in l and "Always Open" in l]
+        assert len(holes) >= 1
+        assert all("CTRL_ID" not in h for h in holes)
+
+    def test_leakage_door_has_no_hole(self):
+        """Leakage doors should NOT produce a HOLE."""
+        holes = [l for l in self.lines if "&HOLE" in l and "Leakage" in l]
+        assert len(holes) == 0
+
+    def test_leakage_vents_bottom_only_to_ambient(self):
+        """All leakage: single bottom vent, VENT2_ID='AMBIENT', fixed area."""
+        hvac_lines = [l for l in self.lines if "&HVAC" in l and "LEAK" in l]
+        assert len(hvac_lines) >= 2  # at least the two leakage doors
+        for h in hvac_lines:
+            assert "VENT2_ID='AMBIENT'" in h
+            assert "LEAK_ENTHALPY=.TRUE." in h
+        # No top/left/right vents
+        top_vents = [l for l in self.lines if "top vent" in l.lower()]
+        left_vents = [l for l in self.lines if "left vent" in l.lower()]
+        right_vents = [l for l in self.lines if "right vent" in l.lower()]
+        assert len(top_vents) == 0
+        assert len(left_vents) == 0
+        assert len(right_vents) == 0
+
+    def test_lift_door_area_006(self):
+        hvac_lines = [l for l in self.lines if "&HVAC" in l and "lift" in l.lower()]
+        assert len(hvac_lines) >= 1
+        assert "AREA=0.06" in hvac_lines[0]
+
+    def test_smoke_sealed_door_area_001(self):
+        hvac_lines = [l for l in self.lines if "&HVAC" in l and "smoke_sealed" in l.lower()]
+        assert len(hvac_lines) >= 1
+        assert "AREA=0.01" in hvac_lines[0]
+
+    # --- 2. MECHANICAL EXTRACT ---
+
+    def test_mech_extract_surf_at_zmax(self):
+        surf_lines = [l for l in self.lines if "&SURF" in l and "Extract_1" in l]
+        assert len(surf_lines) == 1
+        assert "HEAT_TRANSFER_COEFFICIENT=0.0" in surf_lines[0]
+        assert "VOLUME_FLOW=5.0" in surf_lines[0]
+        assert "TAU_V=-10" in surf_lines[0]
+
+    def test_mech_extract_fan_vent_at_zmax(self):
+        vents = [l for l in self.lines if "&VENT" in l and "Extract_1" in l]
+        assert len(vents) == 1
+        assert "SURF_ID='Extract_1'" in vents[0]
+        # Should be at ZMAX (z values equal)
+        xb = vents[0].split("XB=")[1].split("/")[0]
+        vals = [float(v) for v in xb.split(",")]
+        assert vals[4] == vals[5]  # zmin == zmax = face
+
+    def test_mech_extract_no_corridor_vent(self):
+        corridor_vents = [l for l in self.lines if "Extract Opening" in l and "Extract_1" in l]
+        assert len(corridor_vents) == 0
+
+    def test_mech_extract_no_roof_hole(self):
+        roof_holes = [l for l in self.lines if "&HOLE" in l and "Extract Roof" in l]
+        # Only natural shaft should have a roof hole
+        for h in roof_holes:
+            assert "Extract_Shaft_1" not in h  # mechanical shaft shouldn't have one
+
+    def test_mech_extract_wall_hole_exists(self):
+        wall_holes = [l for l in self.lines if "&HOLE" in l and "Extract Wall Hole" in l]
+        assert len(wall_holes) >= 1
+
+    def test_mech_extract_always_open_no_damper(self):
+        dampers = [l for l in self.lines if "Shaft Damper" in l]
+        assert len(dampers) == 0  # always_open = no damper
+
+    def test_mech_extract_opening_not_full_wall(self):
+        """Opening should use configured dimensions, not default to full wall height."""
+        wall_holes = [l for l in self.lines if "&HOLE" in l and "Extract Wall Hole" in l]
+        assert len(wall_holes) >= 1
+        # The hole should NOT span full wall height (3.1 to 5.5)
+        for h in wall_holes:
+            xb = h.split("XB=")[1].split("/")[0]
+            vals = [float(v) for v in xb.split(",")]
+            z_range = vals[5] - vals[4]
+            assert z_range < 2.4, f"Opening z_range {z_range} looks like full wall height"
+
+    # --- 3. NATURAL EXTRACT ---
+
+    def test_natural_extract_has_open_vent(self):
+        opening_vents = [l for l in self.lines if "Extract Opening 2" in l]
+        assert len(opening_vents) == 1
+        assert "SURF_ID='OPEN'" in opening_vents[0]
+
+    def test_natural_extract_has_roof_hole(self):
+        roof_holes = [l for l in self.lines if "Extract Roof Opening 2" in l]
+        assert len(roof_holes) == 1
+
+    def test_natural_extract_no_surf(self):
+        surf_lines = [l for l in self.lines if "&SURF" in l and "Extract_2" in l]
+        assert len(surf_lines) == 0
+
+    # --- 4. MESHES ---
+
+    def test_meshes_exist(self):
+        mesh_lines = [l for l in self.lines if l.strip().startswith("&MESH")]
+        assert len(mesh_lines) >= 2  # at least corridor + stair
+
+    def test_no_overlapping_mesh_boundaries(self):
+        """Adjacent meshes should abut, not overlap."""
+        mesh_lines = [l for l in self.lines if l.strip().startswith("&MESH")]
+        meshes = []
+        for line in mesh_lines:
+            xb_match = line.split("XB=")
+            if len(xb_match) < 2:
+                continue
+            vals = [float(v) for v in xb_match[1].split("/")[0].split(",")]
+            meshes.append(vals)
+        # Check no two meshes fully contain each other in XY
+        for i, a in enumerate(meshes):
+            for j, b in enumerate(meshes):
+                if i >= j:
+                    continue
+                x_contains = a[0] <= b[0] and a[1] >= b[1]
+                y_contains = a[2] <= b[2] and a[3] >= b[3]
+                z_same = abs(a[4] - b[4]) < 0.01 and abs(a[5] - b[5]) < 0.01
+                assert not (x_contains and y_contains and z_same), f"Mesh {i} contains mesh {j}"
+
+    # --- 5. FIRE ---
+
+    def test_fire_obst_exists(self):
+        fire_obsts = [l for l in self.lines if "&OBST" in l and "Fire" in l]
+        assert len(fire_obsts) >= 1
+
+    def test_fire_surf_exists(self):
+        fire_surfs = [l for l in self.lines if "&SURF" in l and "Fire" in l]
+        assert len(fire_surfs) == 1
+        # HRRPUA may be on next line (multiline SURF)
+        assert "HRRPUA" in self.result
+
+    # --- 6. GENERAL ---
+
+    def test_head_time_comb_present(self):
+        assert any("&HEAD" in l for l in self.lines)
+        assert any("&TIME" in l for l in self.lines)
+        assert any("&COMB" in l for l in self.lines)
+
+    def test_plasterboard_surf_defined(self):
+        assert any("Plasterboard" in l and "&SURF" in l for l in self.lines)
+
+    def test_reac_spec_present(self):
+        assert any("&REAC" in l for l in self.lines)
+        assert any("&SPEC" in l for l in self.lines)
