@@ -234,6 +234,127 @@ def snap_to_grid(val, grid=0.2):
     return round(round(val / grid) * grid, 1)
 
 
+def align_meshes(elements, cell_size=0.1):
+    """Port of EXE's prep_mesh_data — snap mesh boundaries so abutting faces align exactly.
+
+    Ensures no gaps between adjacent meshes and that boundaries fall on cell-size multiples.
+    Stair meshes are processed first and use 0.2m cell size; regular meshes use cell_size (0.1m).
+    Uses an increasing wiggle tolerance (starting 0.22m) until all meshes touch at least one other.
+    """
+    mesh_els = [el for el in elements if "mesh" in el["comments"].lower()]
+    if len(mesh_els) < 2:
+        return elements
+
+    stair_meshes = [el for el in mesh_els if "stair" in el["comments"].lower()]
+    other_meshes = [el for el in mesh_els if "stair" not in el["comments"].lower()]
+    ordered = stair_meshes + other_meshes
+
+    def get_bounds(el):
+        xs = [p["x"] for p in el["points"]]
+        ys = [p["y"] for p in el["points"]]
+        return {"xmin": min(xs), "xmax": max(xs), "ymin": min(ys), "ymax": max(ys)}
+
+    def set_bounds(el, bounds):
+        el["points"] = [
+            {"x": bounds["xmin"], "y": bounds["ymin"]},
+            {"x": bounds["xmax"], "y": bounds["ymax"]}
+        ]
+
+    def get_cell_size(el):
+        return 0.2 if "stair" in el["comments"].lower() else cell_size
+
+    wiggle = 0.22
+    max_iterations = 20
+
+    for iteration in range(max_iterations):
+        bounds = {id(el): get_bounds(el) for el in ordered}
+        coarse_locked = {}
+
+        for i, mesh_a in enumerate(ordered):
+            ba = bounds[id(mesh_a)]
+            cs_a = get_cell_size(mesh_a)
+
+            for j, mesh_b in enumerate(ordered):
+                if i >= j:
+                    continue
+                bb = bounds[id(mesh_b)]
+                cs_b = get_cell_size(mesh_b)
+                final_cs = max(cs_a, cs_b)
+
+                def snap_side(ba_key, bb_key):
+                    nonlocal final_cs
+                    lock_a = coarse_locked.get((id(mesh_a), ba_key))
+                    lock_b = coarse_locked.get((id(mesh_b), bb_key))
+                    effective_cs = max(final_cs, lock_a or 0, lock_b or 0)
+                    if lock_a and not lock_b:
+                        snapped = ba[ba_key]
+                    elif lock_b and not lock_a:
+                        snapped = bb[bb_key]
+                    else:
+                        avg = (ba[ba_key] + bb[bb_key]) / 2
+                        snapped = round(round(avg / effective_cs) * effective_cs, 2)
+                    ba[ba_key] = snapped
+                    bb[bb_key] = snapped
+                    if effective_cs > cell_size:
+                        coarse_locked[(id(mesh_a), ba_key)] = effective_cs
+                        coarse_locked[(id(mesh_b), bb_key)] = effective_cs
+
+                x_overlap = ba["xmin"] < bb["xmax"] and ba["xmax"] > bb["xmin"]
+                if x_overlap:
+                    if abs(ba["ymax"] - bb["ymin"]) <= wiggle:
+                        snap_side("ymax", "ymin")
+                    if abs(ba["ymin"] - bb["ymax"]) <= wiggle:
+                        snap_side("ymin", "ymax")
+
+                y_overlap = ba["ymin"] < bb["ymax"] and ba["ymax"] > bb["ymin"]
+                if y_overlap:
+                    if abs(ba["xmax"] - bb["xmin"]) <= wiggle:
+                        snap_side("xmax", "xmin")
+                    if abs(ba["xmin"] - bb["xmax"]) <= wiggle:
+                        snap_side("xmin", "xmax")
+
+        for el in ordered:
+            set_bounds(el, bounds[id(el)])
+
+        all_touch = True
+        for i, mesh_a in enumerate(ordered):
+            ba = get_bounds(mesh_a)
+            touches_any = False
+            for j, mesh_b in enumerate(ordered):
+                if i == j:
+                    continue
+                bb = get_bounds(mesh_b)
+                eps = 0.001
+                x_over = ba["xmin"] < bb["xmax"] - eps and ba["xmax"] > bb["xmin"] + eps
+                y_over = ba["ymin"] < bb["ymax"] - eps and ba["ymax"] > bb["ymin"] + eps
+                shares_x = abs(ba["xmax"] - bb["xmin"]) < eps or abs(ba["xmin"] - bb["xmax"]) < eps
+                shares_y = abs(ba["ymax"] - bb["ymin"]) < eps or abs(ba["ymin"] - bb["ymax"]) < eps
+                if (shares_x and y_over) or (shares_y and x_over):
+                    touches_any = True
+                    break
+            if not touches_any:
+                all_touch = False
+                break
+
+        if all_touch:
+            break
+        wiggle += 0.05
+
+    return elements
+
+
+def _snap_shaft_to_meshes(val, mesh_boundaries, threshold=0.5):
+    """Snap a shaft boundary to the nearest mesh boundary if within threshold."""
+    best = val
+    best_dist = threshold + 1
+    for b in mesh_boundaries:
+        d = abs(val - b)
+        if d < best_dist and d <= threshold:
+            best_dist = d
+            best = b
+    return best
+
+
 def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array):
     """Create up to 3 stair meshes: Lower (0.2m), Middle/fire floor (0.1m), Upper (0.2m).
 
@@ -267,7 +388,7 @@ def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enc
         # Middle mesh: z to z+wall_height (fire floor — fine 0.1m mesh)
         mid_z1 = snap_to_grid(z)
         mid_z2 = snap_to_grid(z + wall_height)
-        upper_z_top = snap_to_grid(stair_enclosure_roof_z + 0.4)
+        upper_z_top = snap_to_grid(stair_enclosure_roof_z + 3.0)
         has_upper = (upper_z_top - mid_z2) > 2
 
         if not has_upper:
@@ -634,15 +755,28 @@ def create_stair_aov(elements, stair_enclosure_roof_z, aov_mode="always_open", c
     x2 = round(cx + 0.5, 2)
     y1 = round(cy - 0.5, 2)
     y2 = round(cy + 0.5, 2)
-    z1 = round(stair_enclosure_roof_z - 0.4, 2)
-    z2 = round(stair_enclosure_roof_z + 0.4, 2)
 
     ctrl_suffix = ""
     if aov_mode in ("timed", "sprinkler"):
         ctrl_id = f'{Control_ID_Extract}1'
         ctrl_suffix = f", CTRL_ID='{ctrl_id}'"
 
-    return [f"&HOLE ID='AOV', XB = {x1}, {x2}, {y1}, {y2}, {z1}, {z2}{ctrl_suffix}/"]
+    # Shaft OBST: 1.4m x 1.4m solid block above roof
+    shaft_x1 = round(cx - 0.7, 2)
+    shaft_x2 = round(cx + 0.7, 2)
+    shaft_y1 = round(cy - 0.7, 2)
+    shaft_y2 = round(cy + 0.7, 2)
+    shaft_z1 = round(stair_enclosure_roof_z, 2)
+    shaft_z2 = round(stair_enclosure_roof_z + 2.0, 2)
+
+    # AOV HOLE: 1.0m x 1.0m through roof and shaft, extending 1m above shaft
+    hole_z1 = round(stair_enclosure_roof_z - cell_size, 2)
+    hole_z2 = round(stair_enclosure_roof_z + 3.0, 2)
+
+    return [
+        f"&OBST ID='AOV Shaft', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}, SURF_ID='Plasterboard'/",
+        f"&HOLE ID='AOV', XB={x1},{x2},{y1},{y2},{hole_z1},{hole_z2}{ctrl_suffix}/",
+    ]
 
 
 def create_aov_sprinkler_devc(elements, stair_enclosure_roof_z):
@@ -1346,6 +1480,9 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     for el in elements:
         for p in el["points"]:
             p["y"] = round(max_y - p["y"], 5)
+
+    # 2a. Align meshes — snap abutting boundaries so no gaps (EXE prep_mesh_data pattern)
+    elements = align_meshes(elements, cell_size)
 
     # 3. Meshes (with inlet pushback if inlets present)
     inlets = [f for f in elements if f["comments"] == "inlet"]

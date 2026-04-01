@@ -193,7 +193,7 @@ class TestStairRoof:
 
 class TestStairAOV:
     def test_aov_generated(self):
-        """Verify create_stair_aov produces a HOLE line at roughly the right location."""
+        """Verify create_stair_aov produces a shaft OBST and AOV HOLE."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 1.0, "y": 1.0}, {"x": 3.0, "y": 1.0},
@@ -206,36 +206,41 @@ class TestStairAOV:
         ]
         roof_z = 21.0
         result = create_stair_aov(elements, roof_z)
-        assert len(result) == 1
-        assert "&HOLE ID='AOV'" in result[0]
-        # Default mode is always_open — no CTRL_ID
+        assert len(result) == 2
+        assert "&OBST ID='AOV Shaft'" in result[0]
+        assert "&HOLE ID='AOV'" in result[1]
+        # Default mode is always_open — no CTRL_ID on either line
         assert "CTRL_ID" not in result[0]
-        # Z range: roof_z - 0.4 to roof_z + 0.4
-        assert "20.6" in result[0]
-        assert "21.4" in result[0]
+        assert "CTRL_ID" not in result[1]
 
     def test_aov_timed_has_ctrl_id(self):
-        """When mode is timed, AOV should have CTRL_ID."""
+        """When mode is timed, AOV HOLE should have CTRL_ID but shaft OBST should not."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 1.0, "y": 1.0}, {"x": 3.0, "y": 3.0}
             ], "type": "polyline"},
         ]
         result = create_stair_aov(elements, 21.0, aov_mode="timed")
-        assert "CTRL_ID='Extract Vent1'" in result[0]
+        hole_line = [l for l in result if "&HOLE" in l][0]
+        obst_line = [l for l in result if "&OBST" in l][0]
+        assert "CTRL_ID='Extract Vent1'" in hole_line
+        assert "CTRL_ID" not in obst_line
 
     def test_aov_sprinkler_has_ctrl_id(self):
-        """When mode is sprinkler, AOV should have CTRL_ID."""
+        """When mode is sprinkler, AOV HOLE should have CTRL_ID but shaft OBST should not."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 1.0, "y": 1.0}, {"x": 3.0, "y": 3.0}
             ], "type": "polyline"},
         ]
         result = create_stair_aov(elements, 21.0, aov_mode="sprinkler")
-        assert "CTRL_ID='Extract Vent1'" in result[0]
+        hole_line = [l for l in result if "&HOLE" in l][0]
+        obst_line = [l for l in result if "&OBST" in l][0]
+        assert "CTRL_ID='Extract Vent1'" in hole_line
+        assert "CTRL_ID" not in obst_line
 
     def test_aov_1m_square(self):
-        """Verify the AOV hole is 1m x 1m."""
+        """Verify the AOV HOLE is 1m x 1m and the shaft OBST is 1.4m x 1.4m."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 2.0, "y": 2.0}, {"x": 4.0, "y": 2.0},
@@ -244,13 +249,46 @@ class TestStairAOV:
         ]
         roof_z = 10.0
         result = create_stair_aov(elements, roof_z, cell_size=0.2)
-        line = result[0]
-        # Parse the XB values from the line
-        xb_part = line.split("XB = ")[1].rstrip("/").rstrip()
+        # Check HOLE is 1m x 1m
+        hole_line = [l for l in result if "&HOLE" in l][0]
+        xb_part = hole_line.split("XB=")[1].split("/")[0].split(",CTRL_ID")[0].split(", CTRL_ID")[0]
         vals = [float(v.strip()) for v in xb_part.split(",")]
         x1, x2, y1, y2, z1, z2 = vals
         assert abs((x2 - x1) - 1.0) < 0.01
         assert abs((y2 - y1) - 1.0) < 0.01
+        # Check shaft OBST is 1.4m x 1.4m
+        obst_line = [l for l in result if "&OBST" in l][0]
+        xb_part = obst_line.split("XB=")[1].split(",")[0:6]
+        # Re-parse: split on ", SURF_ID" first to isolate XB
+        xb_str = obst_line.split("XB=")[1].split(", SURF_ID")[0]
+        vals = [float(v.strip()) for v in xb_str.split(",")]
+        sx1, sx2, sy1, sy2, sz1, sz2 = vals
+        assert abs((sx2 - sx1) - 1.4) < 0.01
+        assert abs((sy2 - sy1) - 1.4) < 0.01
+
+    def test_aov_shaft_z_range(self):
+        """Verify shaft OBST z from roof_z to roof_z+2.0, HOLE z from roof_z-cell_size to roof_z+3.0."""
+        elements = [
+            {"comments": "landing", "id": 0, "points": [
+                {"x": 2.0, "y": 2.0}, {"x": 4.0, "y": 2.0},
+                {"x": 4.0, "y": 4.0}, {"x": 2.0, "y": 4.0}, {"x": 2.0, "y": 2.0}
+            ], "type": "polyline"},
+        ]
+        roof_z = 21.0
+        cell_size = 0.2
+        result = create_stair_aov(elements, roof_z, cell_size=cell_size)
+        # Shaft OBST z range: 21.0 to 23.0
+        obst_line = [l for l in result if "&OBST" in l][0]
+        xb_str = obst_line.split("XB=")[1].split(", SURF_ID")[0]
+        vals = [float(v.strip()) for v in xb_str.split(",")]
+        assert vals[4] == 21.0  # shaft z1 = roof_z
+        assert vals[5] == 23.0  # shaft z2 = roof_z + 2.0
+        # HOLE z range: 20.8 to 24.0
+        hole_line = [l for l in result if "&HOLE" in l][0]
+        xb_part = hole_line.split("XB=")[1].split("/")[0].split(",CTRL_ID")[0].split(", CTRL_ID")[0]
+        hvals = [float(v.strip()) for v in xb_part.split(",")]
+        assert hvals[4] == 20.8  # hole z1 = roof_z - cell_size
+        assert hvals[5] == 24.0  # hole z2 = roof_z + 3.0
 
     def test_aov_empty_when_no_landings(self):
         """Return empty list when there are no landing elements."""
@@ -554,16 +592,15 @@ class TestExtractShaft:
         mesh_lines = [l for l in result if "&MESH" in l]
         assert "5.2,6.1" in mesh_lines[0]
 
-    def test_mechanical_has_wall_hole_and_damper_obsts(self):
-        """Mechanical shaft: HOLE removes existing corridor wall, 3-piece wall OBSTs replace it."""
+    def test_mechanical_has_wall_hole_and_damper(self):
+        """Mechanical shaft: HOLE at opening zone, damper OBST for timed activation."""
         config = {"type": "mechanical", "flowRate": 6.0, "activation": "timed", "activationTime": 45, "openingHeight": 1.5, "openingBase": 0.5}
         result = create_extract_shaft(self.extract, config, z=10, wall_height=3, stair_enclosure_roof_z=40, wall_thickness=0.2)
         wall_holes = [l for l in result if "&HOLE" in l and "Extract Wall Hole" in l]
         assert len(wall_holes) == 1
-        below_obsts = [l for l in result if "&OBST" in l and "Shaft Wall" in l and "10,10.5" in l]
-        assert len(below_obsts) == 1
-        above_obsts = [l for l in result if "&OBST" in l and "Shaft Wall" in l and "12.0,13" in l]
-        assert len(above_obsts) == 1
+        # HOLE spans only the opening zone, existing corridor wall stays above/below
+        assert "10.5" in wall_holes[0]  # opening base z
+        assert "12.0" in wall_holes[0]  # opening top z
         damper_obsts = [l for l in result if "&OBST" in l and "Shaft Damper" in l]
         assert len(damper_obsts) == 1
         assert "CTRL_ID='Extract_CTRL_1'" in damper_obsts[0]
