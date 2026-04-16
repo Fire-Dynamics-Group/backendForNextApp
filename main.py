@@ -15,11 +15,15 @@ from routers.fee_proposal import router as fee_proposal_router
 from routers.efs import router as efs_router
 from routers.cfd_dashboard import router as cfd_dashboard_router
 
+_MCP_IMPORT_ERROR = None
 try:
     from routers.mcp_server import build_mcp_asgi_app, mcp_lifespan
     _MCP_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: MCP server not loaded: {e}")
+    print("MCP: loaded OK")
+except Exception as e:  # noqa: BLE001 — want all import-time failures, not just ImportError
+    import traceback
+    _MCP_IMPORT_ERROR = f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+    print(f"MCP: import FAILED -> {_MCP_IMPORT_ERROR}")
     _MCP_AVAILABLE = False
 
 
@@ -36,6 +40,11 @@ app = FastAPI(lifespan=_lifespan) # create instance
 
 if _MCP_AVAILABLE:
     app.mount("/mcp", build_mcp_asgi_app())
+
+
+@app.get("/mcp-status")
+def mcp_status():
+    return {"available": _MCP_AVAILABLE, "import_error": _MCP_IMPORT_ERROR}
 
 app.add_middleware(
     CORSMiddleware,
