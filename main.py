@@ -1,3 +1,5 @@
+import contextlib
+
 from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Dict, Any
@@ -13,7 +15,27 @@ from routers.fee_proposal import router as fee_proposal_router
 from routers.efs import router as efs_router
 from routers.cfd_dashboard import router as cfd_dashboard_router
 
-app = FastAPI() # create instance
+try:
+    from routers.mcp_server import build_mcp_asgi_app, mcp_lifespan
+    _MCP_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: MCP server not loaded: {e}")
+    _MCP_AVAILABLE = False
+
+
+@contextlib.asynccontextmanager
+async def _lifespan(app: FastAPI):
+    if _MCP_AVAILABLE:
+        async with mcp_lifespan(app):
+            yield
+    else:
+        yield
+
+
+app = FastAPI(lifespan=_lifespan) # create instance
+
+if _MCP_AVAILABLE:
+    app.mount("/mcp", build_mcp_asgi_app())
 
 app.add_middleware(
     CORSMiddleware,
@@ -118,7 +140,15 @@ async def read_users():
 @app.post("/fds")
 # async def read_elements(elements: List[Element]):
 async def read_elements(body: ElementsData):
-    # LATER: should each obstruction and mesh -> send in cell_size and z1 & z2 
+    import traceback
+    try:
+        return _read_elements_impl(body)
+    except Exception as e:
+        traceback.print_exc()
+        raise
+
+def _read_elements_impl(body: ElementsData):
+    # LATER: should each obstruction and mesh -> send in cell_size and z1 & z2
     print("body: ",body)
     elements = [el.model_dump() for el in body.elementList]
     sensor_els = [e for e in elements if e.get("comments") == "sensorTree"]

@@ -12,3 +12,5 @@ alembic
 boto3
 python-dotenv
 python-multipart
+mcp>=1.20
+httpx
