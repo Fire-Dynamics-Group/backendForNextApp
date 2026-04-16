@@ -260,11 +260,11 @@ def build_mcp_asgi_app() -> ASGIApp:
     """
     Return an ASGI app that serves the MCP streamable-HTTP endpoint at /
     (so mounting it at /mcp on the parent app gives you POST /mcp).
-    Bearer-token protected.
     """
     inner = mcp.streamable_http_app()
     app = Starlette(routes=[Mount("/", app=inner)])
-    app.add_middleware(BearerTokenMiddleware)
+    if MCP_BEARER_TOKEN:
+        app.add_middleware(BearerTokenMiddleware)
     return app
 
 
