@@ -355,6 +355,94 @@ def _snap_shaft_to_meshes(val, mesh_boundaries, threshold=0.5):
     return best
 
 
+def trim_meshes_around_shafts(elements, extract_config, wall_thickness, cell_size=0.1):
+    """Trim corridor mesh elements so they abut extract shafts instead of overlapping.
+
+    FDS requires meshes to be either fully embedded or abutting — partial overlap
+    causes solver errors. The shaft runs full height and needs its own exclusive
+    mesh region. This trims any corridor mesh boundary that extends into the shaft
+    footprint, snapping it to the shaft boundary on the cell grid.
+    """
+    extracts = [f for f in elements if f["comments"] == "extract"]
+    meshes = [f for f in elements if f["comments"] == "mesh"]
+    if not extracts or not meshes:
+        return elements
+
+    for extract in extracts:
+        ext_id = str(extract.get("id", 0))
+        config = extract_config.get(ext_id, {})
+        shaft_type = config.get("type", "natural")
+        shaft_depth = config.get("shaftDepth", 0.9)
+        wt_offset = wall_thickness if shaft_type == "mechanical" else 0
+
+        pts = extract["points"]
+        ex1, ey1 = pts[0]["x"], pts[0]["y"]
+        ex2, ey2 = pts[1]["x"], pts[1]["y"]
+        edx = abs(ex2 - ex1)
+        edy = abs(ey2 - ey1)
+
+        if edx > edy:
+            sx1 = round(min(ex1, ex2), 2)
+            sx2 = round(max(ex1, ex2), 2)
+            sy1 = round(ey1 + wt_offset, 2)
+            sy2 = round(ey1 + wt_offset + shaft_depth, 2)
+        else:
+            sx1 = round(ex1 + wt_offset, 2)
+            sx2 = round(ex1 + wt_offset + shaft_depth, 2)
+            sy1 = round(min(ey1, ey2), 2)
+            sy2 = round(max(ey1, ey2), 2)
+
+        # Trim any corridor mesh that partially overlaps the shaft footprint
+        for mesh in meshes:
+            mp = mesh["points"]
+            mx1 = min(p["x"] for p in mp)
+            mx2 = max(p["x"] for p in mp)
+            my1 = min(p["y"] for p in mp)
+            my2 = max(p["y"] for p in mp)
+
+            # Check X/Y overlap
+            x_overlap = mx1 < sx2 and mx2 > sx1
+            y_overlap = my1 < sy2 and my2 > sy1
+            if not (x_overlap and y_overlap):
+                continue
+
+            # Don't trim if shaft is fully inside this mesh (would need splitting)
+            if sx1 >= mx1 and sx2 <= mx2 and sy1 >= my1 and sy2 <= my2:
+                continue
+
+            # Trim the mesh boundary that extends into the shaft
+            # Find which side of the mesh to trim (the one that partially enters the shaft)
+            trimmed = False
+            if mx2 > sx1 and mx1 < sx1:
+                # Mesh extends past shaft's left edge — trim mesh xmax to shaft xmin
+                new_x = round(round(sx1 / cell_size) * cell_size, 2)
+                for p in mp:
+                    if abs(p["x"] - mx2) < 0.01:
+                        p["x"] = new_x
+                trimmed = True
+            elif mx1 < sx2 and mx2 > sx2:
+                # Mesh extends past shaft's right edge — trim mesh xmin to shaft xmax
+                new_x = round(round(sx2 / cell_size) * cell_size, 2)
+                for p in mp:
+                    if abs(p["x"] - mx1) < 0.01:
+                        p["x"] = new_x
+                trimmed = True
+
+            if not trimmed:
+                if my2 > sy1 and my1 < sy1:
+                    new_y = round(round(sy1 / cell_size) * cell_size, 2)
+                    for p in mp:
+                        if abs(p["y"] - my2) < 0.01:
+                            p["y"] = new_y
+                elif my1 < sy2 and my2 > sy2:
+                    new_y = round(round(sy2 / cell_size) * cell_size, 2)
+                    for p in mp:
+                        if abs(p["y"] - my1) < 0.01:
+                            p["y"] = new_y
+
+    return elements
+
+
 def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array):
     """Create up to 3 stair meshes: Lower (0.2m), Middle/fire floor (0.1m), Upper (0.2m).
 
@@ -376,36 +464,55 @@ def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enc
         dx = round(x2 - x1, 3)
         dy = round(y2 - y1, 3)
 
-        # Lower mesh: 0 to z (below fire floor)
-        lower_z1 = snap_to_grid(0)
-        lower_z2 = snap_to_grid(z)
+        import math
+        # Ensure X/Y spans are multiples of coarse_cell so fine (0.1m) and
+        # coarse (0.2m) stair meshes share a clean 2:1 cell ratio on Z interfaces.
+        # Expand outward (away from corridor) to keep abutting boundaries intact.
+        ijk_x_coarse = math.ceil(dx / coarse_cell)
+        ijk_y_coarse = math.ceil(dy / coarse_cell)
+        x1 = round(x2 - ijk_x_coarse * coarse_cell, 1)
+        y1 = round(y2 - ijk_y_coarse * coarse_cell, 1)
+        dx = round(x2 - x1, 3)
+        dy = round(y2 - y1, 3)
+        ijk_x = ijk_x_coarse * 2
+        ijk_y = ijk_y_coarse * 2
+
+        # Middle mesh boundaries match fire floor exactly (snap to fine grid)
+        mid_z1 = snap_to_grid(z, cell_size)
+        mid_z2 = snap_to_grid(z + wall_height, cell_size)
+
+        # Lower mesh: 0 to fire floor Z (coarse 0.2m)
+        # Lower Z2 must match mid_z1 exactly; expand lower Z1 downward to fit coarse cells
+        lower_z2 = mid_z1
+        ijk_z_lower = math.ceil(lower_z2 / coarse_cell)
+        lower_z1 = round(lower_z2 - ijk_z_lower * coarse_cell, 1)
         if lower_z2 > lower_z1:
-            dz = round(lower_z2 - lower_z1, 3)
             fds_array.append(
-                f"&MESH ID='Stair Mesh_Lower{idx}', IJK={round(dx/coarse_cell)},{round(dy/coarse_cell)},{round(dz/coarse_cell)}, XB={x1},{x2},{y1},{y2},{lower_z1},{lower_z2}/"
+                f"&MESH ID='Stair Mesh_Lower{idx}', IJK={ijk_x_coarse},{ijk_y_coarse},{ijk_z_lower}, XB={x1},{x2},{y1},{y2},{lower_z1},{lower_z2}/"
             )
 
-        # Middle mesh: z to z+wall_height (fire floor — fine 0.1m mesh)
-        mid_z1 = snap_to_grid(z)
-        mid_z2 = snap_to_grid(z + wall_height)
-        upper_z_top = snap_to_grid(stair_enclosure_roof_z + 3.0)
-        has_upper = (upper_z_top - mid_z2) > 2
+        # Upper mesh top
+        upper_z_top_raw = stair_enclosure_roof_z + 3.0
+        has_upper = (upper_z_top_raw - mid_z2) > 2
 
         if not has_upper:
-            # No upper mesh — extend middle to the top
-            mid_z2 = upper_z_top
+            # No upper mesh — extend middle to the top, snap to fine grid
+            mid_z2 = snap_to_grid(upper_z_top_raw, cell_size)
 
-        dz = round(mid_z2 - mid_z1, 3)
+        # Middle mesh: fire floor Z range (fine 0.1m cells in all axes)
+        mid_dz = round(mid_z2 - mid_z1, 3)
         fds_array.append(
-            f"&MESH ID='Stair Mesh_Middle{idx}', IJK={round(dx/cell_size)},{round(dy/cell_size)},{round(dz/cell_size)}, XB={x1},{x2},{y1},{y2},{mid_z1},{mid_z2}/"
+            f"&MESH ID='Stair Mesh_Middle{idx}', IJK={ijk_x},{ijk_y},{round(mid_dz/cell_size)}, XB={x1},{x2},{y1},{y2},{mid_z1},{mid_z2}/"
         )
 
-        # Upper mesh: z+wall_height to stair_enclosure_roof_z+0.4 (coarse 0.2m)
+        # Upper mesh: above fire floor to top (coarse 0.2m)
+        # Upper Z1 must match mid_z2 exactly; expand upper Z top to fit coarse cells
         if has_upper:
             upper_z1 = mid_z2
-            dz = round(upper_z_top - upper_z1, 3)
+            ijk_z_upper = math.ceil((upper_z_top_raw - upper_z1) / coarse_cell)
+            upper_z_top = round(upper_z1 + ijk_z_upper * coarse_cell, 1)
             fds_array.append(
-                f"&MESH ID='Stair Mesh_Upper{idx}', IJK={round(dx/coarse_cell)},{round(dy/coarse_cell)},{round(dz/coarse_cell)}, XB={x1},{x2},{y1},{y2},{upper_z1},{upper_z_top}/"
+                f"&MESH ID='Stair Mesh_Upper{idx}', IJK={ijk_x_coarse},{ijk_y_coarse},{ijk_z_upper}, XB={x1},{x2},{y1},{y2},{upper_z1},{upper_z_top}/"
             )
 
         # Mesh vent at ZMAX of the topmost stair mesh
@@ -1484,6 +1591,9 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     # 2a. Align meshes — snap abutting boundaries so no gaps (EXE prep_mesh_data pattern)
     elements = align_meshes(elements, cell_size)
 
+    # 2b. Trim corridor meshes around extract shafts so they abut instead of overlap
+    elements = trim_meshes_around_shafts(elements, extract_config, wall_thickness, cell_size)
+
     # 3. Meshes (with inlet pushback if inlets present)
     inlets = [f for f in elements if f["comments"] == "inlet"]
     fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array, wall_height=wall_height, inlets=inlets if inlets else None, inlet_config=inlet_config)
@@ -1513,19 +1623,14 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     # Leakage-only doors always get leakage. Other doors (stair, apartment, lobby)
     # get leakage when doorLeakageConfig[id].enabled is true.
     doors = [f for f in elements if "door" in f["comments"]]
-    print(f"[LEAKAGE] {len(doors)} door elements, door_roles keys={list(door_roles.keys())}, leakage_config keys={list(door_leakage_config.keys())}")
-    with open("C:/Users/IanShaw/Downloads/leakage_debug.txt", "w") as _dbg:
-        _dbg.write(f"doors={len(doors)} roles={door_roles} config={door_leakage_config}\n")
     for idx, door in enumerate(doors):
         door_id = str(door.get("id", idx))
         role = door_roles.get(door_id, "")
         config = door_leakage_config.get(door_id, {})
-        # Leakage-only doors always leak. Other doors leak if config exists and enabled != false
-        # (frontend checkbox defaults to checked — enabled is absent, not True)
-        should_leak = (role == "leakage") or (bool(config) and config.get("enabled") is not False)
-        print(f"[LEAKAGE] door idx={idx} id={door_id} role='{role}' config={config} should_leak={should_leak}")
-        with open("C:/Users/IanShaw/Downloads/leakage_debug.txt", "a") as _dbg:
-            _dbg.write(f"idx={idx} id={door_id} role='{role}' config={config} should_leak={should_leak}\n")
+        # Leakage-only doors always leak. Other assigned doors (stair, apartment, lobby)
+        # leak by default unless explicitly disabled (frontend checkbox defaults to checked)
+        has_role = role in ("stair", "apartment", "lobby")
+        should_leak = (role == "leakage") or (has_role and config.get("enabled") is not False)
         if should_leak:
             seal = config.get("sealType", None) or config.get("doorType", "non-smoke-sealed")
             leakage_lines = generate_door_leakage_vents(door, door_index=idx, z=z, door_height=2.1, cell_size=0.1, seal_type=seal, wall_thickness=wall_thickness)
