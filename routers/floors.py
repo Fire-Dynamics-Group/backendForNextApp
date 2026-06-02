@@ -1,4 +1,5 @@
 import uuid
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
 from sqlalchemy import delete, select
@@ -84,6 +85,7 @@ async def get_floor_pdf_url(
 async def get_elements(
     project_id: uuid.UUID,
     floor_id: uuid.UUID,
+    mode: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(
@@ -92,9 +94,10 @@ async def get_elements(
     if not result.scalar_one_or_none():
         raise HTTPException(404, "Floor not found")
 
-    result = await db.execute(
-        select(Element).where(Element.floor_id == floor_id)
-    )
+    query = select(Element).where(Element.floor_id == floor_id)
+    if mode is not None:
+        query = query.where(Element.mode == mode)
+    result = await db.execute(query)
     return result.scalars().all()
 
 
@@ -126,6 +129,7 @@ async def replace_elements(
             type=el.type,
             points=[p.model_dump() for p in el.points],
             comments=el.comments,
+            mode=el.mode,
         )
         db.add(element)
         new_elements.append(element)

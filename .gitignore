@@ -1,3 +1,5 @@
 .space
 .vercel
 output-models
+.venv/
+test_projects.db

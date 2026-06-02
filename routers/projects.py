@@ -140,6 +140,7 @@ async def save_project(
                 type=el.type,
                 points=[p.model_dump() for p in el.points],
                 comments=el.comments,
+                mode=el.mode,
             )
             db.add(element)
         new_floors.append(floor)

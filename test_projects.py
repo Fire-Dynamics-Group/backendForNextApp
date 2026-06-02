@@ -271,3 +271,111 @@ async def test_api_replace_elements(client: AsyncClient):
     assert resp.status_code == 200
     assert len(resp.json()) == 2
     assert resp.json()[0]["comments"] == "wall"
+
+
+# --- Multi-mode schema: mode-tagged elements ---
+#
+# Elements carry an optional `mode` so a single project/floor can hold geometry
+# for more than one analysis mode (fdsGen / radiation / timeEq). Untagged
+# elements (mode is None) are legacy/fdsGen and must keep working unchanged.
+
+@pytest.mark.asyncio
+async def test_element_mode_orm_roundtrip(test_session: AsyncSession):
+    project = Project(name="Mode ORM")
+    test_session.add(project)
+    await test_session.commit()
+    await test_session.refresh(project)
+
+    floor = Floor(project_id=project.id, floor_number=0)
+    test_session.add(floor)
+    await test_session.commit()
+    await test_session.refresh(floor)
+
+    element = Element(
+        floor_id=floor.id, element_index=0, type="polyline",
+        points=[{"x": 0, "y": 0}], comments="escapeRoute", mode="radiation",
+    )
+    test_session.add(element)
+    await test_session.commit()
+    await test_session.refresh(element)
+
+    assert element.mode == "radiation"
+
+
+@pytest.mark.asyncio
+async def test_element_mode_defaults_none(test_session: AsyncSession):
+    project = Project(name="Mode default")
+    test_session.add(project)
+    await test_session.commit()
+    await test_session.refresh(project)
+
+    floor = Floor(project_id=project.id, floor_number=0)
+    test_session.add(floor)
+    await test_session.commit()
+    await test_session.refresh(floor)
+
+    element = Element(
+        floor_id=floor.id, element_index=0, type="rect",
+        points=[{"x": 0, "y": 0}], comments="mesh",
+    )
+    test_session.add(element)
+    await test_session.commit()
+    await test_session.refresh(element)
+
+    assert element.mode is None
+
+
+@pytest.mark.asyncio
+async def test_bulk_save_persists_element_mode(client: AsyncClient):
+    resp = await client.post("/projects", json={"name": "Mode Save"})
+    project_id = resp.json()["id"]
+
+    payload = {
+        "settings": {},
+        "floors": [{
+            "floor_number": 0, "name": "F", "elements": [
+                {"element_index": 0, "type": "polyline", "points": [{"x": 0, "y": 0}],
+                 "comments": "escapeRoute", "mode": "radiation"},
+                {"element_index": 1, "type": "rect", "points": [{"x": 1, "y": 1}],
+                 "comments": "mesh"},  # no mode -> None (legacy/fdsGen)
+            ],
+        }],
+    }
+    resp = await client.post(f"/projects/{project_id}/save", json=payload)
+    assert resp.status_code == 200
+    floor_id = resp.json()["floors"][0]["id"]
+
+    resp = await client.get(f"/projects/{project_id}/floors/{floor_id}")
+    els = {e["element_index"]: e for e in resp.json()["elements"]}
+    assert els[0]["mode"] == "radiation"
+    assert els[1]["mode"] is None
+
+
+@pytest.mark.asyncio
+async def test_elements_endpoint_mode_filter(client: AsyncClient):
+    resp = await client.post("/projects", json={"name": "Mode Filter"})
+    project_id = resp.json()["id"]
+    resp = await client.post(f"/projects/{project_id}/save", json={
+        "settings": {}, "floors": [{"floor_number": 0, "name": "F", "elements": []}],
+    })
+    floor_id = resp.json()["floors"][0]["id"]
+
+    new_elements = [
+        {"element_index": 0, "type": "rect", "points": [{"x": 0, "y": 0}],
+         "comments": "mesh", "mode": "fdsGen"},
+        {"element_index": 1, "type": "polyline", "points": [{"x": 1, "y": 1}],
+         "comments": "escapeRoute", "mode": "radiation"},
+    ]
+    resp = await client.put(f"/projects/{project_id}/floors/{floor_id}/elements", json=new_elements)
+    assert resp.status_code == 200
+    assert resp.json()[1]["mode"] == "radiation"
+
+    # Filter returns only the requested mode
+    resp = await client.get(f"/projects/{project_id}/floors/{floor_id}/elements?mode=radiation")
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["comments"] == "escapeRoute"
+
+    # No filter returns all
+    resp = await client.get(f"/projects/{project_id}/floors/{floor_id}/elements")
+    assert len(resp.json()) == 2

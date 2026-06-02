@@ -90,6 +90,8 @@ class ElementIn(BaseModel):
     type: str
     points: list[PointSchema]
     comments: Optional[str] = None
+    # Owning analysis mode; None for legacy/fdsGen geometry.
+    mode: Optional[str] = None
 
 
 class ElementOut(ElementIn):
@@ -112,7 +114,20 @@ class FloorSavePayload(BaseModel):
 
 
 class ProjectSavePayload(BaseModel):
-    """Full project save: settings + all floors + all elements in one shot."""
+    """Full project save: settings + all floors + all elements in one shot.
+
+    Multi-mode note: `settings` is a freeform JSON object. When more than one
+    analysis mode persists into the same project, settings are namespaced by
+    mode under a `byMode` key, e.g. ``{"byMode": {"fdsGen": {...}, "radiation":
+    {...}}}``. fdsGen currently still sends a flat settings object; both shapes
+    are stored verbatim, so the convention is additive and needs no migration.
+
+    Elements carry an optional per-element `mode` (see ElementIn) so one floor
+    can hold geometry for several modes. NOTE: this bulk-save still replaces ALL
+    of a project's floors/elements. Per-mode scoped save (replace only the
+    submitted mode's elements, preserve floors and other modes' geometry) is the
+    next step, to be implemented when a second mode is actually onboarded.
+    """
     name: Optional[str] = None
     settings: dict[str, Any] = {}
     floors: list[FloorSavePayload] = []

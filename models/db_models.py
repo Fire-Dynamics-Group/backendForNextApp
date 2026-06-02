@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Text,
     UniqueConstraint,
@@ -66,6 +67,13 @@ class Element(Base):
     type = Column(Text, nullable=False)
     points = Column(JSONB, nullable=False)
     comments = Column(Text, nullable=True)
+    # Owning analysis mode (fdsGen / radiation / timeEq). NULL = legacy/fdsGen.
+    # Lets a single floor hold geometry for more than one mode.
+    mode = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     floor = relationship("Floor", back_populates="elements")
+
+    __table_args__ = (
+        Index("ix_elements_floor_mode", "floor_id", "mode"),
+    )
