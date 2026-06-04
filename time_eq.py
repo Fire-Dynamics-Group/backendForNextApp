@@ -1,5 +1,6 @@
 import math
 import io
+from dataclasses import dataclass
 import matplotlib.pyplot as plt
 
 from mockData import mockTimeEqElements
@@ -231,11 +232,41 @@ def calcDistPointList(pointsList):
     pass
 def calcDist(x1, y1, x2, y2):
     return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+@dataclass
+class Geometry:
+    """Obstruction-derived compartment geometry shared by the deterministic and
+    Monte Carlo reliability time-equivalence calcs."""
+    wall_points: list
+    floor_area: float
+    wall_lengths: list      # per-wall plan length (m)
+    wall_dimensions: list   # per-wall surface area (length * compartment height)
+    room_dimensions: list   # [floor, *walls, ceiling] surface areas
+    At: float               # total enclosure surface area
+
+
+def derive_geometry(data, compartment_height):
+    """Derive floor area, per-wall lengths/areas, the room surface-area list and the
+    total surface area At from the drawn obstruction. No fire-physics here — pure geometry."""
+    walls = [f for f in data if f.comments == 'obstruction']
+    wall_points = walls[0].finalPoints
+    floor_area = calculate_polygon_area(wall_points)
+    wall_lengths = []
+    wall_dimensions = []
+    for wall_index in range(len(wall_points) - 1):
+        currentP = wall_points[wall_index]
+        nextP = wall_points[wall_index + 1]
+        dist = math.sqrt((nextP.x - currentP.x) ** 2 + (nextP.y - currentP.y) ** 2)
+        wall_lengths.append(dist)
+        wall_dimensions.append(dist * compartment_height)
+    room_dimensions = [floor_area, *wall_dimensions, floor_area]
+    At = sum(room_dimensions)
+    return Geometry(wall_points, floor_area, wall_lengths, wall_dimensions, room_dimensions, At)
+
+
 # window data -> list of width * height
 # TODO: prep for api call
 # TODO: later save charts
 def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False, fld=948, compartment_height=3.15, t_lim= 20/60, fire_resistance_period=90):
-    walls = [f for f in data if f.comments== 'obstruction']
     openings = [f for f in data if f.comments== 'opening']
     # b_value = material_b_values['concrete']
 
@@ -244,25 +275,11 @@ def compute_time_eq(data, opening_heights,room_composition,is_sprinklered=False,
     # find room dimensions
     if is_sprinklered:
         fld = fld * 0.65
-    wall_length = []
-    wall_dimensions = []
-    wall_points = walls[0].finalPoints # ['finalPoints']
-    floor_area = calculate_polygon_area(wall_points)
-    for wall_index in range(len(wall_points)-1):
-        # length = distance i to i+1
-        currentP = wall_points[wall_index]
-        nextP = wall_points[wall_index + 1]
-
-        x1 = currentP.x
-        x2 = nextP.x
-        y1 = currentP.y
-        y2 = nextP.y
-        dist = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-        wall_length.append(dist)
-        wall_dimensions.append(dist * compartment_height)
-
-    room_dimensions = [floor_area, *wall_dimensions, floor_area]
-    At = sum(room_dimensions) ## gets At (total area of surfaces) for use throughout.
+    geometry = derive_geometry(data, compartment_height)
+    wall_points = geometry.wall_points
+    floor_area = geometry.floor_area
+    room_dimensions = geometry.room_dimensions
+    At = geometry.At  ## gets At (total area of surfaces) for use throughout.
     # get opening length from data, multiply by window height
     opening_lengths = [calcDistPointList(f.finalPoints) for f in openings]
     window_list = []

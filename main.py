@@ -1,16 +1,21 @@
 import contextlib
 
 from fastapi import FastAPI, Response, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 
 from fds import testFunction
 try:
-    from time_eq import compute_time_eq
+    from time_eq import compute_time_eq, derive_geometry, get_b_value
     from radiation import fillWordDoc
 except ImportError as e:
     print(f"Warning: Optional modules not loaded: {e}")
+try:
+    from teq_reliability import compute_reliability, SteelParams
+except ImportError as e:
+    print(f"Warning: teq_reliability not loaded: {e}")
 from routers.fee_proposal import router as fee_proposal_router
 from routers.efs import router as efs_router
 from routers.cfd_dashboard import router as cfd_dashboard_router
@@ -227,10 +232,77 @@ async def read_timeEq_elements(data: TimeEqData):
 
     return Response(content=img_data, media_type="image/jpeg")
 
-    # roomUse: str, 
-    # floorMaterial: str, 
+
+class TimeEqReliabilityData(BaseModel):
+    convertedPoints: List[ConvertedElement]
+    occupancy: str
+    compartmentHeight: float
+    fireResistancePeriod: float
+    isSprinklered: bool = False
+    nSim: int = 2000
+    # per-wall openable width (party/fire walls = 0); defaults to full wall lengths if omitted
+    openableWidths: Optional[List[float]] = None
+    roomComposition: Optional[List[str]] = None  # for derived b-value
+    # overridable constants (None => default / derived)
+    bValue: Optional[float] = None
+    sectionFactor: Optional[float] = None
+    criticalTemp: Optional[float] = None
+    tLimMinutes: Optional[float] = None          # fire growth rate (medium=20)
+    combustionFactor: float = 0.8
+    sprinklerFactor: float = 0.65
+
+
+@app.post("/timeEqReliability")
+async def read_timeEq_reliability(data: TimeEqReliabilityData):
+    """Monte Carlo time-equivalence reliability: probability that steel protected to the
+    given FR rating survives a realistic fire in this compartment. Returns JSON."""
+    geo = derive_geometry(data.convertedPoints, data.compartmentHeight)
+    vent_widths = data.openableWidths if data.openableWidths is not None else geo.wall_lengths
+    vent_heights = [data.compartmentHeight] * len(vent_widths)
+
+    params = SteelParams()
+    if data.sectionFactor is not None:
+        params.sect_factor = data.sectionFactor
+    if data.criticalTemp is not None:
+        params.steel_fail_temp = data.criticalTemp
+    if data.tLimMinutes is not None:
+        params.t_lim_hours = data.tLimMinutes / 60.0
+    # b-value: explicit override > derived from composition > engine default
+    if data.bValue is not None:
+        params.thermal_inertia = data.bValue
+    elif data.roomComposition:
+        params.thermal_inertia = get_b_value(
+            room_composition=data.roomComposition,
+            room_dimensions=geo.room_dimensions, At=geo.At)
+
+    try:
+        result = await run_in_threadpool(
+            compute_reliability,
+            occupancy=data.occupancy, total_area=geo.At, floor_area=geo.floor_area,
+            vent_widths=vent_widths, vent_heights=vent_heights,
+            fr_period_min=data.fireResistancePeriod, n_sim=min(max(data.nSim, 1), 10000),
+            is_sprinklered=data.isSprinklered, combustion_factor=data.combustionFactor,
+            sprinkler_factor=data.sprinklerFactor, params=params,
+        )
+    except ValueError as e:  # e.g. unknown occupancy — client error, not server fault
+        raise HTTPException(status_code=400, detail=str(e))
+    return {
+        "reliability": result.reliability,
+        "reliabilityPercent": round(result.reliability * 100, 2),
+        "nFailed": result.n_failed,
+        "nSim": result.n_sim,
+        "frPeriod": result.fr_period,
+        "protectionThickness_mm": result.protection_thickness_mm,
+        "bValue": result.b_value,
+        "sectionFactor": result.section_factor,
+        "criticalTemp": result.critical_temp,
+        "factorsApplied": result.factors_applied,
+    }
+
+    # roomUse: str,
+    # floorMaterial: str,
     # ceilingMaterial: str
-# class 
+# class
 class RadiationData(BaseModel):
     timeArray: List[float]
     accumulatedDistanceList: List[float]
