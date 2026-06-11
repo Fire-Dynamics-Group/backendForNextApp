@@ -24,18 +24,20 @@ async def _load_text_map(data: FeeProposalRequest):
     None (pure-constant generation) when no database is configured/reachable."""
     import database
 
+    overrides = getattr(data, "text_overrides", None) or None
+
     if database.async_session is None:
-        return None
+        # No DB: still apply per-proposal overrides on top of the constants.
+        return build_text_map([], overrides=overrides) if overrides else None
     try:
         from models.db_models import FeeTextBlock
 
         async with database.async_session() as session:
             rows = (await session.execute(select(FeeTextBlock))).scalars().all()
-        overrides = getattr(data, "text_overrides", None)
         return build_text_map([(r.key, r.kind, r.content) for r in rows], overrides=overrides)
     except Exception as e:  # noqa: BLE001 — never fail generation over text loading
         print(f"Warning: failed to load fee text blocks, using constants: {e}")
-        return None
+        return build_text_map([], overrides=overrides) if overrides else None
 
 
 @router.get("/engineers", response_model=List[EngineerResponse])
