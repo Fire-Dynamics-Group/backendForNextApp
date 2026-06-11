@@ -28,18 +28,30 @@ except Exception as e:  # noqa: BLE001 — want all import-time failures, not ju
 
 
 async def _seed_text_blocks():
-    """Idempotently ensure fee text blocks exist (self-heals new constants)."""
+    """Ensure the fee_text_block tables exist and are seeded.
+
+    The Railway start command runs uvicorn only (no `alembic upgrade`), so the
+    tables are created here on startup (idempotent, only the two new tables)
+    and then seeded. Self-heals newly-added constants on every boot.
+    """
     import database
-    if database.async_session is None:
+    if database.async_session is None or database.engine is None:
         return
     try:
+        from database import Base
+        from models.db_models import FeeTextBlock, FeeTextBlockHistory
+        async with database.engine.begin() as conn:
+            await conn.run_sync(
+                Base.metadata.create_all,
+                tables=[FeeTextBlock.__table__, FeeTextBlockHistory.__table__],
+            )
         from services.fee_text_blocks import seed_fee_text_blocks
         async with database.async_session() as session:
             inserted = await seed_fee_text_blocks(session)
             if inserted:
                 print(f"Seeded {inserted} fee text block(s)")
-    except Exception as e:  # noqa: BLE001 — seeding must never block startup
-        print(f"Warning: fee text block seeding failed: {e}")
+    except Exception as e:  # noqa: BLE001 — setup must never block startup
+        print(f"Warning: fee text block setup failed: {e}")
 
 
 @contextlib.asynccontextmanager
