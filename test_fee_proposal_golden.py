@@ -161,3 +161,55 @@ def test_golden_kitchen_sink():
     data = _extract(generate_proposal(_kitchen_sink()))
     data["filename"] = get_proposal_filename(_kitchen_sink())
     _check_golden("kitchen_sink", data)
+
+
+# --- Branch fixtures: cover the conditional paths the cutover must preserve ---
+
+def _peer_review() -> FeeProposalRequest:
+    """Third-party/peer-review branch: suppresses standard intros, uses the
+    peer-review exclusions branch."""
+    return _request(
+        design_stages_1_4=DesignStagesRiba1to4(
+            peer_review=ServiceConfig(included=True, fee=6000, num_models=2),
+        ),
+    )
+
+
+def test_golden_peer_review():
+    data = _extract(generate_proposal(_peer_review()))
+    data["filename"] = get_proposal_filename(_peer_review())
+    _check_golden("peer_review", data)
+
+
+def _jersey() -> FeeProposalRequest:
+    """Jersey country: VAT omitted, Jersey legislation in {legislation} templates."""
+    return _request(
+        project=ProjectDetails(project_name="Jersey House", project_location="St Helier",
+                               country=CountryEnum.JERSEY),
+        design_stages_1_4=DesignStagesRiba1to4(
+            stage_3=ServiceConfig(included=True, fee=9000),
+            stage_4=ServiceConfig(included=True, fee=11000),
+            open_plan_cfd=ServiceConfig(included=True, fee=8500, num_models=2),
+        ),
+    )
+
+
+def test_golden_jersey():
+    data = _extract(generate_proposal(_jersey()))
+    data["filename"] = get_proposal_filename(_jersey())
+    _check_golden("jersey", data)
+
+
+def _single_service_minimal() -> FeeProposalRequest:
+    """Single service, no end date, hourly rates OFF: single-fee prose path."""
+    return _request(
+        design_stages_1_4=DesignStagesRiba1to4(
+            stage_1=ServiceConfig(included=True, fee=5000),
+        ),
+    )
+
+
+def test_golden_single_service_minimal():
+    data = _extract(generate_proposal(_single_service_minimal()))
+    data["filename"] = get_proposal_filename(_single_service_minimal())
+    _check_golden("single_service_minimal", data)

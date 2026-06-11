@@ -1,0 +1,666 @@
+{
+  "header": "Fire Engineering Fee Proposal \nTest Tower\n\n",
+  "paragraphs": [
+    {
+      "style": "Normal",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "11th June, 2026",
+      "runs": [
+        {
+          "text": "11",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "th",
+          "bold": null,
+          "underline": null,
+          "superscript": true,
+          "image": false
+        },
+        {
+          "text": " June, 2026",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Test Client",
+      "runs": [
+        {
+          "text": "Test Client",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "1 Test Street",
+      "runs": [
+        {
+          "text": "1 Test Street",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "Testville",
+      "runs": [
+        {
+          "text": "Testville",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "TE1 1ST",
+      "runs": [
+        {
+          "text": "TE1 1ST",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Dear Test,",
+      "runs": [
+        {
+          "text": "Dear Test,",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Ref:",
+      "text": "REF: Test Tower - Fire Engineering Fee Proposal",
+      "runs": [
+        {
+          "text": "REF: Test Tower - Fire Engineering Fee Proposal",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice for the proposed works at Test Tower in London.",
+      "runs": [
+        {
+          "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " for the proposed works at Test Tower in London.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We understand that the extent of our involvement will be to provide an independent third party review of a CFD Modelling analysis undertaken as part of the fire engineering design of the project. This will require the review of the input and output data of two CFD models as well as a review of the accompanying report.",
+      "runs": [
+        {
+          "text": "We understand that the extent of our involvement will be to provide an independent third party review of a CFD Modelling analysis undertaken as part of the fire engineering design of the project. This will require the review of the input and output data of two CFD models as well as a review of the accompanying report.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "A detailed scope of works is provided in Appendix A of this document. Our proposed fees and terms of business are set out in the sections which follow.",
+      "runs": [
+        {
+          "text": "A detailed scope of works is provided in Appendix A of this document. Our proposed fees and terms of business are set out in the sections which follow.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Fees",
+      "runs": [
+        {
+          "text": "Fees",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Our proposed fee for the scope outlined in this document is £6,000.00 exc. VAT.",
+      "runs": [
+        {
+          "text": "Our proposed fee for the scope outlined in this document is ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "£6,000.00",
+          "bold": true,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " exc. VAT.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Any additional works beyond the detailed scope will either be charged at our standard hourly rates (available upon request) or would be subject to an additional fee agreement.",
+      "runs": [
+        {
+          "text": "Any additional works beyond the detailed scope will either be charged at our standard hourly rates (available upon request) or would be subject to an additional fee agreement.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Terms of Business",
+      "runs": [
+        {
+          "text": "Terms of Business",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We propose to offer professional indemnity insurance to the value of £100,000 in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.",
+      "runs": [
+        {
+          "text": "We propose to offer professional indemnity insurance to the value of £100,000 in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This proposal is based on the ACE Short Form Agreement 2015 (unamended) with an aggregate limit to liability equal to the extent of professional indemnity insurance offered. Should other terms of business be proposed, this may affect the fees quoted in this letter and until such point where alternative contract terms are agreed in writing and signed by both parties, this fee proposal and the ACE Short Form Agreement remain in place. Our standard period of liability following completion of the works is 5 years. Should alternative terms of business be proposed, a charge of £1,500+VAT for external review of the terms is required.",
+      "runs": [
+        {
+          "text": "This proposal is based on the ACE Short Form Agreement 2015 (unamended) with an aggregate limit to liability equal to the extent of professional indemnity insurance offered. Should other terms of business be proposed, this may affect the fees quoted in this letter and until such point where alternative contract terms are agreed in writing and signed by both parties, this fee proposal and the ACE Short Form Agreement remain in place. Our standard period of liability following completion of the works is 5 years. Should alternative terms of business be proposed, a charge of £1,500+VAT for external review of the terms is required.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Invoices will be issued on a monthly basis to reflect the work completed. Our standard terms are for payment to be received in our bank account within 30 days of the date our invoice is issued.",
+      "runs": [
+        {
+          "text": "Invoices will be issued on a monthly basis to reflect the work completed. Our standard terms are for payment to be received in our bank account within 30 days of the date our invoice is issued.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This fee proposal is valid until 10/08/26 (60 days).",
+      "runs": [
+        {
+          "text": "This fee proposal is valid until 10/08/26 (60 days).",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "I trust this provides you with the information that you require, however, should you wish to discuss, please do not hesitate to contact me. ",
+      "runs": [
+        {
+          "text": "I trust this provides you with the information that you require, however, should you wish to discuss, please do not hesitate to contact me. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "Yours Sincerely ",
+      "runs": [
+        {
+          "text": "Yours Sincerely ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": true
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Sig",
+      "text": "Sam Bennett",
+      "runs": [
+        {
+          "text": "Sam Bennett",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Sig",
+      "text": "Director - Fire Engineer",
+      "runs": [
+        {
+          "text": "Director - Fire Engineer",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Sig",
+      "text": "Fire Dynamics",
+      "runs": [
+        {
+          "text": "Fire Dynamics",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Appendix A - Detailed Scope of Works",
+      "runs": [
+        {
+          "text": "Appendix A - Detailed Scope of Works",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – Third Party Review",
+      "runs": [
+        {
+          "text": "Scope of Works – Third Party Review",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope ",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review of a suitably qualified surveyors intrusive survey of the as-built construction. ",
+      "runs": [
+        {
+          "text": "Review of a suitably qualified surveyors intrusive survey of the as-built construction. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Meet with the project fire engineer and Approved Inspector to discuss the work undertaken to date and agree a way forward for the modelling study to demonstrate compliance.",
+      "runs": [
+        {
+          "text": "Meet with the project fire engineer and Approved Inspector to discuss the work undertaken to date and agree a way forward for the modelling study to demonstrate compliance.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review the fire safety engineering report provided by the project fire engineer with emphasis on the following: ",
+      "runs": [
+        {
+          "text": "Review the fire safety engineering report provided by the project fire engineer with emphasis on the following: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Review of fire engineering methodology adopted and suitability for the design. ",
+      "runs": [
+        {
+          "text": "Review of fire engineering methodology adopted and suitability for the design. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Review of input parameters, assumptions and proposed tenability criteria. ",
+      "runs": [
+        {
+          "text": "Review of input parameters, assumptions and proposed tenability criteria. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Review of results from model outputs and conclusions drawn from them.  ",
+      "runs": [
+        {
+          "text": "Review of results from model outputs and conclusions drawn from them.  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Input files for CFD Modelling will also undergo detailed review to ensure the input parameters specified in the report align with what has been constructed and modelled. ",
+      "runs": [
+        {
+          "text": "Input files for CFD Modelling will also undergo detailed review to ensure the input parameters specified in the report align with what has been constructed and modelled. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "The output files/results of CFD Modelling will also undergo detailed review to determine if the conclusions drawn in the report align with the results obtained.  ",
+      "runs": [
+        {
+          "text": "The output files/results of CFD Modelling will also undergo detailed review to determine if the conclusions drawn in the report align with the results obtained.  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Identify aspects of the CFD that requires further explanation to demonstrate compliance with the Building Regulations.  ",
+      "runs": [
+        {
+          "text": "Identify aspects of the CFD that requires further explanation to demonstrate compliance with the Building Regulations.  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "A third party review report will be provided which will state the professional opinion of Fire Dynamics Group. The report will be submitted to Building Control to aid in their determination on whether the fire engineering report suitably demonstrates that building design meet the functional requirements of the Building Regulations.",
+      "runs": [
+        {
+          "text": "A third party review report will be provided which will state the professional opinion of Fire Dynamics Group. The report will be submitted to Building Control to aid in their determination on whether the fire engineering report suitably demonstrates that building design meet the functional requirements of the Building Regulations.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attendance at relevant meetings to discuss our comments on the fire engineering design.",
+      "runs": [
+        {
+          "text": "Attendance at relevant meetings to discuss our comments on the fire engineering design.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "One revision of the peer review report should any changes to the study be made by the project fire engineer following discussion.",
+      "runs": [
+        {
+          "text": "One revision of the peer review report should any changes to the study be made by the project fire engineer following discussion.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Appendix B - Exclusions",
+      "runs": [
+        {
+          "text": "Appendix B - Exclusions",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Our scope of work involves provision of independent third party review services only. As such, all fire safety engineering design work is excluded from our deliverables. Alternative design solutions and general design work will not be provided as part of our independent review scope of works. ",
+      "runs": [
+        {
+          "text": "Our scope of work involves provision of independent third party review services only. As such, all fire safety engineering design work is excluded from our deliverables. Alternative design solutions and general design work will not be provided as part of our independent review scope of works. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    }
+  ],
+  "tables": [],
+  "filename": "Test Tower Fire Dynamics Fee Proposal 11_06_2026.docx"
+}

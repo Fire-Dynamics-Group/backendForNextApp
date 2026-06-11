@@ -1,0 +1,676 @@
+{
+  "header": "Fire Engineering Fee Proposal \nTest Tower\n\n",
+  "paragraphs": [
+    {
+      "style": "Normal",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "11th June, 2026",
+      "runs": [
+        {
+          "text": "11",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "th",
+          "bold": null,
+          "underline": null,
+          "superscript": true,
+          "image": false
+        },
+        {
+          "text": " June, 2026",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Test Client",
+      "runs": [
+        {
+          "text": "Test Client",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "1 Test Street",
+      "runs": [
+        {
+          "text": "1 Test Street",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "Testville",
+      "runs": [
+        {
+          "text": "Testville",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "TE1 1ST",
+      "runs": [
+        {
+          "text": "TE1 1ST",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Dear Test,",
+      "runs": [
+        {
+          "text": "Dear Test,",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Ref:",
+      "text": "REF: Test Tower - Fire Engineering Fee Proposal",
+      "runs": [
+        {
+          "text": "REF: Test Tower - Fire Engineering Fee Proposal",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice for the proposed works at Test Tower in London.It is understood that our involvement is required during RIBA Stage 1.",
+      "runs": [
+        {
+          "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " for the proposed works at Test Tower in London.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "It is understood that our involvement is required during RIBA Stage 1.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "A detailed scope of works is provided in Appendix A of this document. Our proposed fees and terms of business are set out in the sections which follow.",
+      "runs": [
+        {
+          "text": "A detailed scope of works is provided in Appendix A of this document. Our proposed fees and terms of business are set out in the sections which follow.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Fees",
+      "runs": [
+        {
+          "text": "Fees",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Our proposed fee for the scope outlined in this document is £5,000.00 exc. VAT.",
+      "runs": [
+        {
+          "text": "Our proposed fee for the scope outlined in this document is ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "£5,000.00",
+          "bold": true,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " exc. VAT.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Any additional works beyond the detailed scope will either be charged at our standard hourly rates (available upon request) or would be subject to an additional fee agreement.",
+      "runs": [
+        {
+          "text": "Any additional works beyond the detailed scope will either be charged at our standard hourly rates (available upon request) or would be subject to an additional fee agreement.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Terms of Business",
+      "runs": [
+        {
+          "text": "Terms of Business",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We propose to offer professional indemnity insurance to the value of £100,000 in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.",
+      "runs": [
+        {
+          "text": "We propose to offer professional indemnity insurance to the value of £100,000 in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This proposal is based on the ACE Short Form Agreement 2015 (unamended) with an aggregate limit to liability equal to the extent of professional indemnity insurance offered. Should other terms of business be proposed, this may affect the fees quoted in this letter and until such point where alternative contract terms are agreed in writing and signed by both parties, this fee proposal and the ACE Short Form Agreement remain in place. Our standard period of liability following completion of the works is 5 years. Should alternative terms of business be proposed, a charge of £1,500+VAT for external review of the terms is required.",
+      "runs": [
+        {
+          "text": "This proposal is based on the ACE Short Form Agreement 2015 (unamended) with an aggregate limit to liability equal to the extent of professional indemnity insurance offered. Should other terms of business be proposed, this may affect the fees quoted in this letter and until such point where alternative contract terms are agreed in writing and signed by both parties, this fee proposal and the ACE Short Form Agreement remain in place. Our standard period of liability following completion of the works is 5 years. Should alternative terms of business be proposed, a charge of £1,500+VAT for external review of the terms is required.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Invoices will be issued on a monthly basis to reflect the work completed. Our standard terms are for payment to be received in our bank account within 30 days of the date our invoice is issued.",
+      "runs": [
+        {
+          "text": "Invoices will be issued on a monthly basis to reflect the work completed. Our standard terms are for payment to be received in our bank account within 30 days of the date our invoice is issued.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This fee proposal is valid until 10/08/26 (60 days).",
+      "runs": [
+        {
+          "text": "This fee proposal is valid until 10/08/26 (60 days).",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "I trust this provides you with the information that you require, however, should you wish to discuss, please do not hesitate to contact me. ",
+      "runs": [
+        {
+          "text": "I trust this provides you with the information that you require, however, should you wish to discuss, please do not hesitate to contact me. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "Yours Sincerely ",
+      "runs": [
+        {
+          "text": "Yours Sincerely ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": true
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Sig",
+      "text": "Sam Bennett",
+      "runs": [
+        {
+          "text": "Sam Bennett",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Sig",
+      "text": "Director - Fire Engineer",
+      "runs": [
+        {
+          "text": "Director - Fire Engineer",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Sig",
+      "text": "Fire Dynamics",
+      "runs": [
+        {
+          "text": "Fire Dynamics",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Appendix A - Detailed Scope of Works",
+      "runs": [
+        {
+          "text": "Appendix A - Detailed Scope of Works",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – RIBA Stage 1",
+      "runs": [
+        {
+          "text": "Scope of Works – RIBA Stage 1",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Carry out a desktop review of the client requirements and business case and provide advice as to any recommendations that would benefit or affect the project either architecturally or financially.",
+      "runs": [
+        {
+          "text": "Carry out a desktop review of the client requirements and business case and provide advice as to any recommendations that would benefit or affect the project either architecturally or financially.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Our key deliverable will be a high level statement of requirements and basis of design document.",
+      "runs": [
+        {
+          "text": "Our key deliverable will be a high level statement of requirements and basis of design document.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend all relevant meetings with the project team and relevant stakeholders",
+      "runs": [
+        {
+          "text": "Attend all relevant meetings with the project team and relevant stakeholders",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Appendix B - Exclusions",
+      "runs": [
+        {
+          "text": "Appendix B - Exclusions",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Whilst many of the techniques we use are relatively simple in engineering terms, some are highly sophisticated and take many days of computational time. It is for this reason that we need to eliminate these types of analysis from our standard set of deliverables. Specifically, these are:",
+      "runs": [
+        {
+          "text": "Whilst many of the techniques we use are relatively simple in engineering terms, some are highly sophisticated and take many days of computational time. It is for this reason that we need to eliminate these types of analysis from our standard set of deliverables. Specifically, these are:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Structural Fire Engineering - We do not envisage that advanced structural fire engineering techniques would offer any benefit to this project.",
+      "runs": [
+        {
+          "text": "Structural Fire Engineering",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - We do not envisage that advanced structural fire engineering techniques would offer any benefit to this project.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Evacuation Modelling - We do not anticipate that evacuation modelling will be necessary at the current time.",
+      "runs": [
+        {
+          "text": "Evacuation Modelling",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - We do not anticipate that evacuation modelling will be necessary at the current time.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Smoke Modelling - We do not envisage that CFD Modelling techniques would offer any benefit to this project.",
+      "runs": [
+        {
+          "text": "Smoke Modelling",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - We do not envisage that CFD Modelling techniques would offer any benefit to this project.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Fire Strategy Drawings in CAD/BIM Format - Fire strategy drawings will be provided in PDF format to allow the relevant information to be inputted into CAD drawings or BIM models by other members of the design team, as necessary.",
+      "runs": [
+        {
+          "text": "Fire Strategy Drawings in CAD/BIM Format",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - Fire strategy drawings will be provided in PDF format to allow the relevant information to be inputted into CAD drawings or BIM models by other members of the design team, as necessary.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "External Walls - The completion of EWS1 forms, or other non-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
+      "runs": [
+        {
+          "text": "External Walls",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - The completion of EWS1 forms, or other non-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Letters of Comfort - The completion of EWS1 forms, or other non-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
+      "runs": [
+        {
+          "text": "Letters of Comfort",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - The completion of EWS1 forms, or other non-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    }
+  ],
+  "tables": [],
+  "filename": "Test Tower Fire Dynamics Fee Proposal 11_06_2026.docx"
+}
