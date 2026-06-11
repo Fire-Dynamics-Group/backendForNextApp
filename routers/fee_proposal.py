@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from models.db_models import FeeTextBlock, FeeTextBlockHistory
 from models.fee_proposal_models import FeeProposalRequest, EngineerResponse
-from services.fee_document_service import generate_proposal, get_proposal_filename
+from services.fee_document_service import generate_proposal, get_proposal_filename, rendered_block_keys
 from services.fee_text_blocks import build_text_map, token_errors
 
 router = APIRouter()
@@ -89,6 +89,30 @@ async def get_engineers():
         return engineers
     except FileNotFoundError:
         raise HTTPException(status_code=500, detail="Engineers data file not found")
+
+
+@router.post("/applicable-text-blocks", response_model=List[str])
+async def applicable_text_blocks(data: FeeProposalRequest):
+    """Dry run: which text-block keys this proposal would actually render.
+
+    The frontend uses this to show override fields only for blocks that will
+    appear, instead of duplicating the renderer's conditional logic. The
+    engineer doesn't affect which narrative blocks render, so a missing/invalid
+    engineer is tolerated by substituting any known engineer for the dry run.
+    """
+    try:
+        return sorted(rendered_block_keys(data))
+    except ValueError:
+        try:
+            with open(ENGINEERS_PATH, "r", encoding="utf-8") as f:
+                engineers = json.load(f)
+            if engineers:
+                probe = data.model_copy(deep=True)
+                probe.fee_options.engineer_name = engineers[0]["full_name"]
+                return sorted(rendered_block_keys(probe))
+        except Exception as e:  # noqa: BLE001
+            print(f"Warning: applicable-text-blocks dry run failed: {e}")
+        return []
 
 
 @router.post("/generate")

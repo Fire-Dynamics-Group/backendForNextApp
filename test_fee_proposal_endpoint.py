@@ -57,3 +57,41 @@ async def test_generate_endpoint_applies_text_overrides():
     doc = Document(io.BytesIO(resp.content))
     text = "\n".join(p.text for p in doc.paragraphs)
     assert "OVERRIDE BULLET ALPHA" in text  # per-proposal override applied (no DB needed)
+
+
+@pytest.mark.asyncio
+async def test_applicable_text_blocks_reflects_selection():
+    from main import app
+
+    req = FeeProposalRequest(
+        client=ClientDetails(first_name="Test", surname="Client", address_lines=["1 Test St"]),
+        project=ProjectDetails(project_name="Test Tower", project_location="London",
+                               country=CountryEnum.ENGLAND_WALES),
+        fee_options=FeeOptions(engineer_name="Sam Bennett"),
+        design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/fee-proposals/applicable-text-blocks", json=req.model_dump(mode="json"))
+
+    assert resp.status_code == 200
+    keys = resp.json()
+    assert "STAGE_1_SCOPE" in keys
+    assert "EXCL_SITE_VISIT_RECORDS" not in keys  # site visits not selected
+
+
+@pytest.mark.asyncio
+async def test_applicable_text_blocks_resilient_to_missing_engineer():
+    from main import app
+
+    req = FeeProposalRequest(
+        client=ClientDetails(first_name="Test", surname="Client", address_lines=["1 Test St"]),
+        project=ProjectDetails(project_name="Test Tower", project_location="London",
+                               country=CountryEnum.ENGLAND_WALES),
+        fee_options=FeeOptions(engineer_name=""),  # not chosen yet
+        design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+    )
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/fee-proposals/applicable-text-blocks", json=req.model_dump(mode="json"))
+
+    assert resp.status_code == 200
+    assert "STAGE_1_SCOPE" in resp.json()  # still resolves despite no engineer
