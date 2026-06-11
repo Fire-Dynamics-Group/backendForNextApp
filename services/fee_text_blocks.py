@@ -96,6 +96,54 @@ def get_seed_blocks():
     return blocks
 
 
+def token_errors(placeholders, content: str):
+    """Validate an edited block's tokens against its allow-list.
+
+    Returns a list of human-readable error strings (empty == valid). The token
+    set must match exactly: unknown tokens are rejected, and a token present in
+    the allow-list (i.e. the original default) may not be removed.
+    """
+    found = set(_PLACEHOLDER_RE.findall(content or ""))
+    allowed = set(placeholders or [])
+    errors = []
+    unknown = found - allowed
+    if unknown:
+        errors.append("Unknown placeholder(s): " + ", ".join("{" + t + "}" for t in sorted(unknown)))
+    missing = allowed - found
+    if missing:
+        errors.append("Missing required placeholder(s): " + ", ".join("{" + t + "}" for t in sorted(missing)))
+    return errors
+
+
+def _to_native(kind: str, content: str):
+    """Convert stored/override string content into the shape the renderer wants."""
+    if kind == "bullet_list":
+        return [line.strip() for line in content.split("\n") if line.strip()]
+    return content
+
+
+def build_text_map(blocks, overrides=None):
+    """Resolve the text the renderer should use, precedence override > DB > constant.
+
+    ``blocks`` is an iterable of ``(key, kind, content)`` (the rows present in the
+    DB). ``overrides`` is an optional ``{key: raw_string}`` for a single proposal.
+    Missing keys fall back to the module constant (native shape preserved), so
+    generation never breaks on an absent row.
+    """
+    seed = get_seed_blocks()
+    kinds = {b["key"]: b["kind"] for b in seed}
+    resolved = {key: getattr(txt, key) for key in kinds}  # constant fallback (native)
+
+    for key, kind, content in blocks:
+        resolved[key] = _to_native(kind, content)
+        kinds[key] = kind
+
+    for key, content in (overrides or {}).items():
+        resolved[key] = _to_native(kinds.get(key, "paragraph"), content)
+
+    return resolved
+
+
 async def seed_fee_text_blocks(session: AsyncSession) -> int:
     """Idempotently insert any missing blocks. Returns the number inserted.
 

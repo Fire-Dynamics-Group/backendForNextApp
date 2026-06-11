@@ -11,7 +11,9 @@ os.environ["DATABASE_URL"] = ""  # prevent real DB connection
 from database import Base  # noqa: E402
 from models.db_models import FeeTextBlock, FeeTextBlockHistory  # noqa: E402, F401
 from services import fee_text_templates as txt  # noqa: E402
-from services.fee_text_blocks import seed_fee_text_blocks, build_text_map  # noqa: E402
+from services.fee_text_blocks import (  # noqa: E402
+    seed_fee_text_blocks, build_text_map, token_errors,
+)
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_fee_text_blocks.db"
 
@@ -111,3 +113,19 @@ def test_build_text_map_override_beats_db_and_constant():
         overrides={"INTRO_OPEN_PLAN": "OVERRIDE TEXT"},
     )
     assert m["INTRO_OPEN_PLAN"] == "OVERRIDE TEXT"
+
+
+# --- token_errors: validation for default-text edits ---
+
+def test_token_errors_flags_unknown_token():
+    errs = token_errors(["legislation"], "Per {legislation} and {bogus}.")
+    assert any("bogus" in e for e in errs)
+
+
+def test_token_errors_flags_removed_required_token():
+    errs = token_errors(["legislation"], "No placeholder at all.")
+    assert any("legislation" in e for e in errs)
+
+
+def test_token_errors_empty_when_tokens_match():
+    assert token_errors(["legislation"], "Issued under {legislation}.") == []
