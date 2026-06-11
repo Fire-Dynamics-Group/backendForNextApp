@@ -27,8 +27,24 @@ except Exception as e:  # noqa: BLE001 — want all import-time failures, not ju
     _MCP_AVAILABLE = False
 
 
+async def _seed_text_blocks():
+    """Idempotently ensure fee text blocks exist (self-heals new constants)."""
+    import database
+    if database.async_session is None:
+        return
+    try:
+        from services.fee_text_blocks import seed_fee_text_blocks
+        async with database.async_session() as session:
+            inserted = await seed_fee_text_blocks(session)
+            if inserted:
+                print(f"Seeded {inserted} fee text block(s)")
+    except Exception as e:  # noqa: BLE001 — seeding must never block startup
+        print(f"Warning: fee text block seeding failed: {e}")
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
+    await _seed_text_blocks()
     if _MCP_AVAILABLE:
         async with mcp_lifespan(app):
             yield

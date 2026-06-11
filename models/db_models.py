@@ -57,6 +57,31 @@ class Floor(Base):
     )
 
 
+class FeeTextBlock(Base):
+    __tablename__ = "fee_text_block"
+
+    key = Column(Text, primary_key=True)
+    default_content = Column(Text, nullable=False)  # immutable, written once at seed
+    content = Column(Text, nullable=False)           # editable live value
+    kind = Column(Text, nullable=False)              # paragraph | bullet_list | template
+    label = Column(Text, nullable=False, default="")
+    group_name = Column(Text, nullable=False, default="")  # 'group' is a SQL reserved word
+    sort_order = Column(Integer, nullable=False, default=0)
+    placeholders = Column(JSONB, default=list)
+    updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_by = Column(Text, nullable=True)
+
+
+class FeeTextBlockHistory(Base):
+    __tablename__ = "fee_text_block_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    key = Column(Text, ForeignKey("fee_text_block.key"), nullable=False)
+    content = Column(Text, nullable=False)
+    edited_by = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utcnow)
+
+
 class Element(Base):
     __tablename__ = "elements"
 
