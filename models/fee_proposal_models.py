@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict, List, Optional
 from enum import Enum
 
 
@@ -76,6 +76,8 @@ class FeeProposalRequest(BaseModel):
     design_stages_1_4: DesignStagesRiba1to4 = DesignStagesRiba1to4()
     design_stages_5: DesignStagesRiba5 = DesignStagesRiba5()
     design_stages_6: DesignStagesRiba6 = DesignStagesRiba6()
+    # Ephemeral per-proposal text overrides, keyed by block key. Never persisted.
+    text_overrides: Dict[str, str] = {}
 
 
 class EngineerResponse(BaseModel):

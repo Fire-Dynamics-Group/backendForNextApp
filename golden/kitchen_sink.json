@@ -1,0 +1,3583 @@
+{
+  "header": "Fire Engineering Fee Proposal \nTest Tower\n\n",
+  "paragraphs": [
+    {
+      "style": "Normal",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "11th June, 2026",
+      "runs": [
+        {
+          "text": "11",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "th",
+          "bold": null,
+          "underline": null,
+          "superscript": true,
+          "image": false
+        },
+        {
+          "text": " June, 2026",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Test Client",
+      "runs": [
+        {
+          "text": "Test Client",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "1 Test Street",
+      "runs": [
+        {
+          "text": "1 Test Street",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "Testville",
+      "runs": [
+        {
+          "text": "Testville",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "TE1 1ST",
+      "runs": [
+        {
+          "text": "TE1 1ST",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Dear Test,",
+      "runs": [
+        {
+          "text": "Dear Test,",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Ref:",
+      "text": "REF: Test Tower - Fire Engineering Fee Proposal",
+      "runs": [
+        {
+          "text": "REF: Test Tower - Fire Engineering Fee Proposal",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice for the proposed works at Test Tower in London.It is understood that our involvement is required during RIBA Stages 1-6.",
+      "runs": [
+        {
+          "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " for the proposed works at Test Tower in London.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "It is understood that our involvement is required during RIBA Stages 1-6.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "It is understood that mechanical depressurisation systems will be provided within the stair lobbies. Where such systems are used, it is necessary to undertake CFD modelling to demonstrate that in the event of a fire, this system will perform at least as well as a code compliant ventilation system when the Fire Service are fighting the fire. As such, a scope of works and fee have been included for this study.",
+      "runs": [
+        {
+          "text": "It is understood that mechanical depressurisation systems will be provided within the stair lobbies. Where such systems are used, it is necessary to undertake CFD modelling to demonstrate that in the event of a fire, this system will perform at least as well as a code compliant ventilation system when the Fire Service are fighting the fire. As such, a scope of works and fee have been included for this study.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The design currently includes open-plan dwelling layouts which exceed the design limits stated in the design guidance. Fire Dynamics has developed a bespoke methodology for justifying such layouts. This method involves conducting a semi-probabilistic, comparative assessment to show that in the event of a fire, the probability of an occupant being trapped or harmed in the proposed open plan design is less than that of an enclosed code compliant design. As such, a scope of works and fee have been included for this study.",
+      "runs": [
+        {
+          "text": "The design currently includes open-plan dwelling layouts which exceed the design limits stated in the design guidance. Fire Dynamics has developed a bespoke methodology for justifying such layouts. This method involves conducting a semi-probabilistic, comparative assessment to show that in the event of a fire, the probability of an occupant being trapped or harmed in the proposed open plan design is less than that of an enclosed code compliant design. As such, a scope of works and fee have been included for this study.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We understand that the warehouse will feature travel distances that exceed those stated in the design guidance. In order to justify these travel distance extensions, a CFD modelling study will need to be undertaken. This type of analysis would require the use of FDS (Fire Dynamics Simulator) to model the movement, temperature and visibility of smoke. Subsequently, the changing internal conditions will be compared with the times taken for persons to evacuate once an alarm has been raised to show that the occupants can escape safely should fire occur. As such, a scope of works and fee have been included for this study.",
+      "runs": [
+        {
+          "text": "We understand that the warehouse will feature travel distances that exceed those stated in the design guidance. In order to justify these travel distance extensions, a CFD modelling study will need to be undertaken. This type of analysis would require the use of FDS (Fire Dynamics Simulator) to model the movement, temperature and visibility of smoke. Subsequently, the changing internal conditions will be compared with the times taken for persons to evacuate once an alarm has been raised to show that the occupants can escape safely should fire occur. As such, a scope of works and fee have been included for this study.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We understand that the warehouse will be provided with freestanding mezzanine structures.  Given that a suppression system is to be provided, it is possible to show that passive fire protection to all load-bearing elements of structure which support these floors (columns / beams / bracing / floors) can be safely omitted due to the enhanced degree of structural fire protection provided by a suppression system. This requires a combined CFD/Finite Element Analysis to be undertaken to show that should fire occur, failure of the structure will not occur during the evacuation of the building or during fire fighting operations. This document details a scope of works and fee for this study. ",
+      "runs": [
+        {
+          "text": "We understand that the warehouse will be provided with freestanding mezzanine structures.  Given that a suppression system is to be provided, it is possible to show that passive fire protection to all load-bearing elements of structure which support these floors (columns / beams / bracing / floors) can be safely omitted due to the enhanced degree of structural fire protection provided by a suppression system. This requires a combined CFD/Finite Element Analysis to be undertaken to show that should fire occur, failure of the structure will not occur during the evacuation of the building or during fire fighting operations. This document details a scope of works and fee for this study. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We understand our involvement will be to provide a major application fire statement as per Policy D12B of the London Plan). In addition, the building would be considered a higher risk building under the Building Safety Act 2022. As such, a Gateway 1 fire statement will need to be submitted to the Building Safety Regulator as part of the Planning Application. Our fee includes for the production of both statements as well as our assistance with the development of the design is suitable to meet the requirements of both processes.",
+      "runs": [
+        {
+          "text": "We understand our involvement will be to provide a major application fire statement as per Policy D12B of the London Plan). In addition, the building would be considered a higher risk building under the Building Safety Act 2022. As such, a Gateway 1 fire statement will need to be submitted to the Building Safety Regulator as part of the Planning Application. Our fee includes for the production of both statements as well as our assistance with the development of the design is suitable to meet the requirements of both processes.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "A detailed scope of works is provided in Appendix A of this document. Our proposed fees and terms of business are set out in the sections which follow.",
+      "runs": [
+        {
+          "text": "A detailed scope of works is provided in Appendix A of this document. Our proposed fees and terms of business are set out in the sections which follow.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Fees",
+      "runs": [
+        {
+          "text": "Fees",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Our proposed fees for the scope outlined in this document are as follows:",
+      "runs": [
+        {
+          "text": "Our proposed fees for the scope outlined in this document are as follows:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "All fees quoted are exclusive of VAT. ",
+      "runs": [
+        {
+          "text": "All fees quoted are exclusive of VAT. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Any additional works beyond the detailed scope will either be charged at our hourly rates, exclusive of VAT, as follows:",
+      "runs": [
+        {
+          "text": "Any additional works beyond the detailed scope will either be charged at our hourly rates, ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "exclusive of VAT, ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "as follows:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Terms of Business",
+      "runs": [
+        {
+          "text": "Terms of Business",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We propose to offer professional indemnity insurance to the value of £250,000 in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.",
+      "runs": [
+        {
+          "text": "We propose to offer professional indemnity insurance to the value of £250,000 in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This proposal is based on the ACE Short Form Agreement 2015 (unamended) with an aggregate limit to liability equal to the extent of professional indemnity insurance offered. Should other terms of business be proposed, this may affect the fees quoted in this letter and until such point where alternative contract terms are agreed in writing and signed by both parties, this fee proposal and the ACE Short Form Agreement remain in place. Our standard period of liability following completion of the works is 5 years. Should alternative terms of business be proposed, a charge of £1,500+VAT for external review of the terms is required.",
+      "runs": [
+        {
+          "text": "This proposal is based on the ACE Short Form Agreement 2015 (unamended) with an aggregate limit to liability equal to the extent of professional indemnity insurance offered. Should other terms of business be proposed, this may affect the fees quoted in this letter and until such point where alternative contract terms are agreed in writing and signed by both parties, this fee proposal and the ACE Short Form Agreement remain in place. Our standard period of liability following completion of the works is 5 years. Should alternative terms of business be proposed, a charge of £1,500+VAT for external review of the terms is required.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Invoices will be issued on a monthly basis to reflect the work completed. Our standard terms are for payment to be received in our bank account within 30 days of the date our invoice is issued.",
+      "runs": [
+        {
+          "text": "Invoices will be issued on a monthly basis to reflect the work completed. Our standard terms are for payment to be received in our bank account within 30 days of the date our invoice is issued.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This fee proposal is valid until 10/08/26 (60 days).",
+      "runs": [
+        {
+          "text": "This fee proposal is valid until 10/08/26 (60 days).",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text",
+      "text": "I trust this provides you with the information that you require, however, should you wish to discuss, please do not hesitate to contact me. ",
+      "runs": [
+        {
+          "text": "I trust this provides you with the information that you require, however, should you wish to discuss, please do not hesitate to contact me. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "Yours Sincerely ",
+      "runs": [
+        {
+          "text": "Yours Sincerely ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": true
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text_No_Line_Spacing",
+      "text": "",
+      "runs": []
+    },
+    {
+      "style": "Sig",
+      "text": "Sam Bennett",
+      "runs": [
+        {
+          "text": "Sam Bennett",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Sig",
+      "text": "Director - Fire Engineer",
+      "runs": [
+        {
+          "text": "Director - Fire Engineer",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Sig",
+      "text": "Fire Dynamics",
+      "runs": [
+        {
+          "text": "Fire Dynamics",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Appendix A - Detailed Scope of Works",
+      "runs": [
+        {
+          "text": "Appendix A - Detailed Scope of Works",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – RIBA Stage 1",
+      "runs": [
+        {
+          "text": "Scope of Works – RIBA Stage 1",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Carry out a desktop review of the client requirements and business case and provide advice as to any recommendations that would benefit or affect the project either architecturally or financially.",
+      "runs": [
+        {
+          "text": "Carry out a desktop review of the client requirements and business case and provide advice as to any recommendations that would benefit or affect the project either architecturally or financially.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Our key deliverable will be a high level statement of requirements and basis of design document.",
+      "runs": [
+        {
+          "text": "Our key deliverable will be a high level statement of requirements and basis of design document.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Where necessary, attend meetings with the project team and relevant stakeholders.  Allowance has been made in this proposal for attendance at three project meetings.",
+      "runs": [
+        {
+          "text": "Where necessary, attend meetings with the project team and relevant stakeholders.  Allowance has been made in this proposal for attendance at three project meetings.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – RIBA Stage 2",
+      "runs": [
+        {
+          "text": "Scope of Works – RIBA Stage 2",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Carry out a desktop review of the current design to determine if the functional requirements of the Building Regulations are achieved.",
+      "runs": [
+        {
+          "text": "Carry out a desktop review of the current design to determine if the functional requirements of the Building Regulations are achieved.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Identify where a fire engineered (non-standard) approach could add value by reducing build costs, shortening the construction programme or enhancing the design (e.g. increasing net area, flexibility and functionality).",
+      "runs": [
+        {
+          "text": "Identify where a fire engineered (non-standard) approach could add value by reducing build costs, shortening the construction programme or enhancing the design (e.g. increasing net area, flexibility and functionality).",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Support the development of the design in relation to:",
+      "runs": [
+        {
+          "text": "Support the development of the design in relation to:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Structural design: the degree of fire resistance needed for all loadbearing elements of structure;",
+      "runs": [
+        {
+          "text": "Structural design: the degree of fire resistance needed for all loadbearing elements of structure;",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Architectural design: identify where walls, partitions and facades are required to be fire resisting, advise on travel distances, layouts, staircase numbers and widths;",
+      "runs": [
+        {
+          "text": "Architectural design: identify where walls, partitions and facades are required to be fire resisting, advise on travel distances, layouts, staircase numbers and widths;",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Service design: fire-fighting provisions (i.e. dry risers, fire-fighting lifts, hydrants), smoke ventilation, automatic fire suppression systems, fire alarm and detection systems.",
+      "runs": [
+        {
+          "text": "Service design: fire-fighting provisions (i.e. dry risers, fire-fighting lifts, hydrants), smoke ventilation, automatic fire suppression systems, fire alarm and detection systems.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Our key deliverable will be a high level fire strategy report that is suitable for supporting the design and assisting with the planning submission with fire strategy drawings.",
+      "runs": [
+        {
+          "text": "Our key deliverable will be a high level fire strategy report that is suitable for supporting the design and assisting with the planning submission with fire strategy drawings.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+      "runs": [
+        {
+          "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – London Plan Fire Statement",
+      "runs": [
+        {
+          "text": "Scope of Works – London Plan Fire Statement",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Policy D12B of the London Plan states that all major development proposals should be submitted with a fire statement.",
+      "runs": [
+        {
+          "text": "Policy D12B of the London Plan states that all major development proposals should be submitted with a fire statement.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The fire statement document will define the fire safety objectives and performance requirements of the development alongside and how these objectives are to be satisfied. Our scope of work will be as follows: ",
+      "runs": [
+        {
+          "text": "The fire statement document will define the fire safety objectives and performance requirements of the development alongside and how these objectives are to be satisfied. Our scope of work will be as follows: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Submission of RFI’s to the design team in order to obtain all relevant information.",
+      "runs": [
+        {
+          "text": "Submission of RFI’s to the design team in order to obtain all relevant information.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review the relevant information and suggest where changes need to be made to meet the requirements of Policy D12B of the London Plan (if required).",
+      "runs": [
+        {
+          "text": "Review the relevant information and suggest where changes need to be made to meet the requirements of Policy D12B of the London Plan (if required).",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Once information is received, the fire statement is to be submitted in the format required, including information relating to (but not limited to):  ",
+      "runs": [
+        {
+          "text": "Once information is received, the fire statement is to be submitted in the format required, including information relating to (but not limited to):  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "The buildings construction method and products and materials used.",
+      "runs": [
+        {
+          "text": "The buildings construction method and products and materials used.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Means of escape for all building users and evacuation strategy.",
+      "runs": [
+        {
+          "text": "Means of escape for all building users and evacuation strategy.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Passive and active fire safety measures. ",
+      "runs": [
+        {
+          "text": "Passive and active fire safety measures. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Access and facilities for the fire and rescue service. ",
+      "runs": [
+        {
+          "text": "Access and facilities for the fire and rescue service. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Site access for the fire and rescue service. ",
+      "runs": [
+        {
+          "text": "Site access for the fire and rescue service. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Future development of the asset and the \"Golden Thread\" of information.",
+      "runs": [
+        {
+          "text": "Future development of the asset and the \"Golden Thread\" of information.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Our key deliverable will be a high level fire strategy report that is suitable for supporting the design and assisting with the planning submission with fire strategy drawings.",
+      "runs": [
+        {
+          "text": "Our key deliverable will be a high level fire strategy report that is suitable for supporting the design and assisting with the planning submission with fire strategy drawings.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+      "runs": [
+        {
+          "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – Gateway 1 Fire Statement",
+      "runs": [
+        {
+          "text": "Scope of Works – Gateway 1 Fire Statement",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "As the building qualifies as a Higher Risk Building under the Building Safety Act 2022, it is necessary to submit a Gateway 1 fire statement to the Building Safety Regulator as part of the planning process",
+      "runs": [
+        {
+          "text": "As the building qualifies as a Higher Risk Building under the Building Safety Act 2022, it is necessary to submit a Gateway 1 fire statement to the Building Safety Regulator as part of the planning process",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The fire statement document will define the fire safety objectives and performance requirements of the development alongside and how these objectives are to be satisfied. Our scope of work will be as follows: ",
+      "runs": [
+        {
+          "text": "The fire statement document will define the fire safety objectives and performance requirements of the development alongside and how these objectives are to be satisfied. Our scope of work will be as follows: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Submission of RFI’s to the design team in order to obtain all relevant information.",
+      "runs": [
+        {
+          "text": "Submission of RFI’s to the design team in order to obtain all relevant information.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review the relevant information and suggest where changes need to be made to meet the requirementsof the Building Safety Regulator.",
+      "runs": [
+        {
+          "text": "Review the relevant information and suggest where changes need to be made to meet the requirementsof the Building Safety Regulator.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Once information is received, the fire statement is to be submitted in the format required, including information relating to (but not limited to):  ",
+      "runs": [
+        {
+          "text": "Once information is received, the fire statement is to be submitted in the format required, including information relating to (but not limited to):  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "The buildings construction method and products and materials used.",
+      "runs": [
+        {
+          "text": "The buildings construction method and products and materials used.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Means of escape for all building users and evacuation strategy.",
+      "runs": [
+        {
+          "text": "Means of escape for all building users and evacuation strategy.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Passive and active fire safety measures. ",
+      "runs": [
+        {
+          "text": "Passive and active fire safety measures. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Access and facilities for the fire and rescue service. ",
+      "runs": [
+        {
+          "text": "Access and facilities for the fire and rescue service. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Site access for the fire and rescue service. ",
+      "runs": [
+        {
+          "text": "Site access for the fire and rescue service. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Future development of the asset and the \"Golden Thread\" of information.",
+      "runs": [
+        {
+          "text": "Future development of the asset and the \"Golden Thread\" of information.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Our key deliverable will be a high level fire strategy report that is suitable for supporting the design and assisting with the planning submission with fire strategy drawings.",
+      "runs": [
+        {
+          "text": "Our key deliverable will be a high level fire strategy report that is suitable for supporting the design and assisting with the planning submission with fire strategy drawings.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+      "runs": [
+        {
+          "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – RIBA Stage 3",
+      "runs": [
+        {
+          "text": "Scope of Works – RIBA Stage 3",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Continue providing fire safety advice to allow the design to be suitably developed to commence consultation with the Approving Authorities.",
+      "runs": [
+        {
+          "text": "Continue providing fire safety advice to allow the design to be suitably developed to commence consultation with the Approving Authorities.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Support the development of the design in relation to:",
+      "runs": [
+        {
+          "text": "Support the development of the design in relation to:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Structural design: the degree of fire resistance needed for all loadbearing elements of structure;",
+      "runs": [
+        {
+          "text": "Structural design: the degree of fire resistance needed for all loadbearing elements of structure;",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Architectural design: identify where walls, partitions and facades are required to be fire resisting, advise on travel distances, layouts, staircase numbers and widths;",
+      "runs": [
+        {
+          "text": "Architectural design: identify where walls, partitions and facades are required to be fire resisting, advise on travel distances, layouts, staircase numbers and widths;",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Service design: fire-fighting provisions (i.e. dry risers, fire-fighting lifts, hydrants), smoke ventilation, automatic fire suppression systems, fire alarm and detection systems.",
+      "runs": [
+        {
+          "text": "Service design: fire-fighting provisions (i.e. dry risers, fire-fighting lifts, hydrants), smoke ventilation, automatic fire suppression systems, fire alarm and detection systems.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "The information above will be documented in a detailed fire safety strategy which will be suitable for submission to the Approving Authorities. This strategy will demonstrate how the building complies with the functional requirements of Building Regulations 2010 (Part B) and will also include:",
+      "runs": [
+        {
+          "text": "The information above will be documented in a detailed fire safety strategy which will be suitable for submission to the Approving Authorities. This strategy will demonstrate how the building complies with the functional requirements of Building Regulations 2010 (Part B) and will also include:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Preliminary calculations and sketches to support any alternative design solutions;",
+      "runs": [
+        {
+          "text": "Preliminary calculations and sketches to support any alternative design solutions;",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Marked up fire strategy drawings; and",
+      "runs": [
+        {
+          "text": "Marked up fire strategy drawings; and",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Performance specifications for active fire safety systems to allow the detailed design of the system to be progressed by the appropriate design engineer.",
+      "runs": [
+        {
+          "text": "Performance specifications for active fire safety systems to allow the detailed design of the system to be progressed by the appropriate design engineer.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+      "runs": [
+        {
+          "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – RIBA Stage 4",
+      "runs": [
+        {
+          "text": "Scope of Works – RIBA Stage 4",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "A detailed and refined fire strategy report will be prepared during Stage 4 which will summarise the strategy to date and allow detailed discussions with the approving authorities to commence. ",
+      "runs": [
+        {
+          "text": "A detailed and refined fire strategy report will be prepared during Stage 4 which will summarise the strategy to date and allow detailed discussions with the approving authorities to commence. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Fire strategy marked-up drawings will be produced to allow the architect to develop the scaled fire strategy drawings. ",
+      "runs": [
+        {
+          "text": "Fire strategy marked-up drawings will be produced to allow the architect to develop the scaled fire strategy drawings. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Outline performance specifications for each of the different systems will be developed to allow the detailed design of the system/s to be progressed by the appropriate design engineer. ",
+      "runs": [
+        {
+          "text": "Outline performance specifications for each of the different systems will be developed to allow the detailed design of the system/s to be progressed by the appropriate design engineer. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "All calculations which are required to support the fire strategy will be undertaken in Stage 4. The outputs of the calculations will inform the fire strategy requirements to enable the developed design to be finalised and incorporated into the respective drawings / designs. ",
+      "runs": [
+        {
+          "text": "All calculations which are required to support the fire strategy will be undertaken in Stage 4. The outputs of the calculations will inform the fire strategy requirements to enable the developed design to be finalised and incorporated into the respective drawings / designs. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "If required, we will advise on the phasing of the works with regard to fire strategy compliance in respect of sectional completion, however this will only be a bullet point list of the key considerations. ",
+      "runs": [
+        {
+          "text": "If required, we will advise on the phasing of the works with regard to fire strategy compliance in respect of sectional completion, however this will only be a bullet point list of the key considerations. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Provide continued support to the design team with the integration of the recommendations of the detailed fire safety strategy into their technical design information. ",
+      "runs": [
+        {
+          "text": "Provide continued support to the design team with the integration of the recommendations of the detailed fire safety strategy into their technical design information. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Where required, provide alternative solutions to address issues raised by design team members or sub-contractors including value engineering exercises. ",
+      "runs": [
+        {
+          "text": "Where required, provide alternative solutions to address issues raised by design team members or sub-contractors including value engineering exercises. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "A fire strategy report and associated documentation which incorporates any design team and approving authorities comments and alterations to the design during Stage 4. This report will also finalise any calculations required to demonstrate compliance with Building Regulations 2010 (Part B). ",
+      "runs": [
+        {
+          "text": "A fire strategy report and associated documentation which incorporates any design team and approving authorities comments and alterations to the design during Stage 4. This report will also finalise any calculations required to demonstrate compliance with Building Regulations 2010 (Part B). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+      "runs": [
+        {
+          "text": "Attend all relevant meetings with the design team and approving authorities to present and discuss the outline strategy proposals.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - CFD Modelling Study of Common Corridors",
+      "runs": [
+        {
+          "text": "Scope of Works - CFD Modelling Study of Common Corridors",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The design features travel distances within the common corridors which exceed the limits provided in the standard guidance. As such, a fire engineered solution is proposed. ",
+      "runs": [
+        {
+          "text": "The design features travel distances within the common corridors which exceed the limits provided in the standard guidance. As such, a fire engineered solution is proposed. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This solution involves providing mechanical smoke shafts within the common corridor. Upon the detection of smoke, the system will move smoke away from the stair and provide clearance to the whole length of the corridor. This is an enhancement over a code compliant system where the only objective is to keep the stair clear of smoke and, therefore, can be used to justify travel distances which exceed the code compliant maximum. ",
+      "runs": [
+        {
+          "text": "This solution involves providing mechanical smoke shafts within the common corridor. Upon the detection of smoke, the system will move smoke away from the stair and provide clearance to the whole length of the corridor. This is an enhancement over a code compliant system where the only objective is to keep the stair clear of smoke and, therefore, can be used to justify travel distances which exceed the code compliant maximum. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This solution will require a CFD modelling study to calculate the required extraction rate of the system and demonstrate its effectiveness. The scope of works for this study will be as follows: ",
+      "runs": [
+        {
+          "text": "This solution will require a CFD modelling study to calculate the required extraction rate of the system and demonstrate its effectiveness. The scope of works for this study will be as follows: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Meet with the approving authorities to agree the required inputs for the model including fire sizes, fire locations and timelines. ",
+      "runs": [
+        {
+          "text": "Meet with the approving authorities to agree the required inputs for the model including fire sizes, fire locations and timelines. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Build a computational 3D model of all relevant spaces and run models for each scenario required by the approving authorities (no more than three envisaged). ",
+      "runs": [
+        {
+          "text": "Build a computational 3D model of all relevant spaces and run models for each scenario required by the approving authorities (no more than three envisaged). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Collate the results of the modelling into a stand-alone report which will detail the inputs, methodology and results of the study. ",
+      "runs": [
+        {
+          "text": "Collate the results of the modelling into a stand-alone report which will detail the inputs, methodology and results of the study. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Meet with the approving authorities to present the results and conclusions of the study. If necessary, the report and / or modelling will be revised to achieve Building Regulations approval. ",
+      "runs": [
+        {
+          "text": "Meet with the approving authorities to present the results and conclusions of the study. If necessary, the report and / or modelling will be revised to achieve Building Regulations approval. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - CFD Modelling of Open Plan Apartments",
+      "runs": [
+        {
+          "text": "Scope of Works - CFD Modelling of Open Plan Apartments",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The design features apartments which have open plan layouts which do not meet the guidance of BS 9991. As such, further work is required to demonstrate that these layouts comply with the functional requirements of Building Regulations 2010 (Part B). ",
+      "runs": [
+        {
+          "text": "The design features apartments which have open plan layouts which do not meet the guidance of BS 9991. As such, further work is required to demonstrate that these layouts comply with the functional requirements of Building Regulations 2010 (Part B). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Fire Dynamics has developed a unique approach to open plan residential modelling and has a proven track record in gaining approval for open plan arrangements of various sizes across the UK. ",
+      "runs": [
+        {
+          "text": "Fire Dynamics has developed a unique approach to open plan residential modelling and has a proven track record in gaining approval for open plan arrangements of various sizes across the UK. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Our approach is to model multiple fire scenarios for both a code compliant design and the proposed design to determine the probability that an occupant will be able to escape both when the fire safety measures operate and when they fail. These results are fed into event trees to determine an overall risk that an occupant could become trapped for both designs. ",
+      "runs": [
+        {
+          "text": "Our approach is to model multiple fire scenarios for both a code compliant design and the proposed design to determine the probability that an occupant will be able to escape both when the fire safety measures operate and when they fail. These results are fed into event trees to determine an overall risk that an occupant could become trapped for both designs. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "It is anticipated that the results will show that the risk of an occupant becoming trapped under the proposed design is lower than in a comparable code compliant design and, as such, the proposed design can be assumed to comply with the functional requirements of Building Regulations 2010 (Part B). ",
+      "runs": [
+        {
+          "text": "It is anticipated that the results will show that the risk of an occupant becoming trapped under the proposed design is lower than in a comparable code compliant design and, as such, the proposed design can be assumed to comply with the functional requirements of Building Regulations 2010 (Part B). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The scope of work for this study would be as follows: ",
+      "runs": [
+        {
+          "text": "The scope of work for this study would be as follows: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Produce a proposal document to agree the required inputs for the model including fire sizes, fire locations and timelines. ",
+      "runs": [
+        {
+          "text": "Produce a proposal document to agree the required inputs for the model including fire sizes, fire locations and timelines. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Build a computational 3D model of the space and run fire models for both a code compliant and proposed layout (no more than two scenarios envisaged). ",
+      "runs": [
+        {
+          "text": "Build a computational 3D model of the space and run fire models for both a code compliant and proposed layout (no more than two scenarios envisaged). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Using Microsoft Excel, determine the probability of failure in all scenarios and feed these results into event trees to calculate the overall probability of failure in each case. ",
+      "runs": [
+        {
+          "text": "Using Microsoft Excel, determine the probability of failure in all scenarios and feed these results into event trees to calculate the overall probability of failure in each case. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Collate the results of the modelling into a standalone report which will detail the inputs, methodology and results of the study. The CFD data and associated spreadsheets will also be provided for review. ",
+      "runs": [
+        {
+          "text": "Collate the results of the modelling into a standalone report which will detail the inputs, methodology and results of the study. The CFD data and associated spreadsheets will also be provided for review. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Meet with the approving authorities to present the results and conclusions of the study. If necessary the report and / or modelling will be revised to allow the scheme to achieve Building Regulations approval. ",
+      "runs": [
+        {
+          "text": "Meet with the approving authorities to present the results and conclusions of the study. If necessary the report and / or modelling will be revised to allow the scheme to achieve Building Regulations approval. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - Warehouse CFD Modelling Study",
+      "runs": [
+        {
+          "text": "Scope of Works - Warehouse CFD Modelling Study",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The design features travel distances that exceed those stated in the design guidance.  In order to justify these travel distance extensions, a CFD modelling study will need to be undertaken. This type of analysis would require the use of FDS (Fire Dynamics Simulator) to model the movement, temperature and visibility of smoke. Subsequently, the changing internal conditions will be compared with the times taken for persons to evacuate once an alarm has been raised. The scope of works for this study will be as follows: ",
+      "runs": [
+        {
+          "text": "The design features travel distances that exceed those stated in the design guidance.  In order to justify these travel distance extensions, a CFD modelling study will need to be undertaken. This type of analysis would require the use of FDS (Fire Dynamics Simulator) to model the movement, temperature and visibility of smoke. Subsequently, the changing internal conditions will be compared with the times taken for persons to evacuate once an alarm has been raised. The scope of works for this study will be as follows: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Meet with the approving authorities to agree the required inputs for the model including fire sizes, fire locations and timelines. ",
+      "runs": [
+        {
+          "text": "Meet with the approving authorities to agree the required inputs for the model including fire sizes, fire locations and timelines. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Build a computational 3D model of all relevant spaces and run models for each scenario required by the approving authorities (no more than four envisaged). ",
+      "runs": [
+        {
+          "text": "Build a computational 3D model of all relevant spaces and run models for each scenario required by the approving authorities (no more than four envisaged). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Calculate the time taken for all occupants within the warehouse to reach a place of relative safety (i.e. outside the building or within a protected stair). ",
+      "runs": [
+        {
+          "text": "Calculate the time taken for all occupants within the warehouse to reach a place of relative safety (i.e. outside the building or within a protected stair). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Collate the results of the modelling into a stand-alone report which will detail the inputs, methodology and results of the study and demonstrate that the time taken for occupants to escape is less than the time taken for conditions within the space to become untenable. ",
+      "runs": [
+        {
+          "text": "Collate the results of the modelling into a stand-alone report which will detail the inputs, methodology and results of the study and demonstrate that the time taken for occupants to escape is less than the time taken for conditions within the space to become untenable. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Meet with the approving authorities to present the results and conclusions of the study. If necessary, the report and / or modelling will be revised to achieve Building Regulations approval. ",
+      "runs": [
+        {
+          "text": "Meet with the approving authorities to present the results and conclusions of the study. If necessary, the report and / or modelling will be revised to achieve Building Regulations approval. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - Structural Fire Engineering Assessment",
+      "runs": [
+        {
+          "text": "Scope of Works - Structural Fire Engineering Assessment",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We will show that the passive fire protection to all load-bearing elements of structure which support the mezzanine (columns / beams / bracing / floors) can be safely omitted due to the enhanced degree of structural fire protection provided by the buildings suppression system. To achieve this, a combined CFD (Computational Fluid Dynamics) and Finite Element Analysis will be undertaken. Specifically, the scope of works for this study will be as follows:",
+      "runs": [
+        {
+          "text": "We will show that the passive fire protection to all load-bearing elements of structure which support the mezzanine (columns / beams / bracing / floors) can be safely omitted due to the enhanced degree of structural fire protection provided by the buildings suppression system. To achieve this, a combined CFD (Computational Fluid Dynamics) and Finite Element Analysis will be undertaken. Specifically, the scope of works for this study will be as follows:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Undertake a Qualitative Design Review with the approving authorities to agree the inputs, methodology and failure criteria for the study.",
+      "runs": [
+        {
+          "text": "Undertake a Qualitative Design Review with the approving authorities to agree the inputs, methodology and failure criteria for the study.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Undertake a CFD assessment (Fire Dynamics Simulator) to measure the expected temperatures adjacent to all elements of structure when subjected to two fires, specifically:",
+      "runs": [
+        {
+          "text": "Undertake a CFD assessment (Fire Dynamics Simulator) to measure the expected temperatures adjacent to all elements of structure when subjected to two fires, specifically:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "A growing fire with a heat release rate capped by the activation of the suppression system; and",
+      "runs": [
+        {
+          "text": "A growing fire with a heat release rate capped by the activation of the suppression system; and",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "A growing fire which is allowed to grow for the duration of the simulation (assumed suppression failure).",
+      "runs": [
+        {
+          "text": "A growing fire which is allowed to grow for the duration of the simulation (assumed suppression failure).",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Undertake a Finite Element Analysis to assess the performance of the structure under the heating regimes calculated by the CFD assessments. The results of these assessments will be compared against the agreed failure criteria. It is anticipated that the results will show:",
+      "runs": [
+        {
+          "text": "Undertake a Finite Element Analysis to assess the performance of the structure under the heating regimes calculated by the CFD assessments. The results of these assessments will be compared against the agreed failure criteria. It is anticipated that the results will show:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "When the suppression system activates, the structure will not fail for the duration of the simulation. Therefore, it is reasonable to assume the structure will remain stable during evacuation and when the Fire Service attempt to fight the fire; and",
+      "runs": [
+        {
+          "text": "When the suppression system activates, the structure will not fail for the duration of the simulation. Therefore, it is reasonable to assume the structure will remain stable during evacuation and when the Fire Service attempt to fight the fire; and",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "When the suppression system fails, the structure will remain stable for a sufficient period of time to allow the evacuation of the building.",
+      "runs": [
+        {
+          "text": "When the suppression system fails, the structure will remain stable for a sufficient period of time to allow the evacuation of the building.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Collate the results of the study into a stand-alone report which will detail the inputs, methodology and results of the study.",
+      "runs": [
+        {
+          "text": "Collate the results of the study into a stand-alone report which will detail the inputs, methodology and results of the study.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Meet with the Approving Authorities to present the results and conclusions of the study.",
+      "runs": [
+        {
+          "text": "Meet with the Approving Authorities to present the results and conclusions of the study.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "If necessary, revise the report / study one time to account for any adverse comments raised by the Approving Authorities.",
+      "runs": [
+        {
+          "text": "If necessary, revise the report / study one time to account for any adverse comments raised by the Approving Authorities.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – RIBA Stage 5: Technical Support",
+      "runs": [
+        {
+          "text": "Scope of Works – RIBA Stage 5: Technical Support",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We will, on request, provide general, ad-hoc fire engineering advice during the construction stages to aid the design team and contractor in the following: ",
+      "runs": [
+        {
+          "text": "We will, on request, provide general, ad-hoc fire engineering advice during the construction stages to aid the design team and contractor in the following: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Understanding and implementing the strategy; ",
+      "runs": [
+        {
+          "text": "Understanding and implementing the strategy; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Avoiding misinterpretation which can add cost to a scheme; ",
+      "runs": [
+        {
+          "text": "Avoiding misinterpretation which can add cost to a scheme; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Responding to design alterations that are made during the construction stage; ",
+      "runs": [
+        {
+          "text": "Responding to design alterations that are made during the construction stage; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Evaluating value engineering proposals; ",
+      "runs": [
+        {
+          "text": "Evaluating value engineering proposals; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Evaluating alternative designs/materials put forward by the principal contractor or the sub-contractors; ",
+      "runs": [
+        {
+          "text": "Evaluating alternative designs/materials put forward by the principal contractor or the sub-contractors; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Provision of support to the principal contractor and/or nominated sub-contractors to facilitate completion of all requisite commissioning and certification activity; and",
+      "runs": [
+        {
+          "text": "Provision of support to the principal contractor and/or nominated sub-contractors to facilitate completion of all requisite commissioning and certification activity; and",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Outline the implications of the fire strategy on the fire management of the building post completion (RRO). This would be a bullet point type list within the fire strategy report only. ",
+      "runs": [
+        {
+          "text": "Outline the implications of the fire strategy on the fire management of the building post completion (RRO). This would be a bullet point type list within the fire strategy report only. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Provide on-going support during construction on an ad-hoc/as requested basis; ",
+      "runs": [
+        {
+          "text": "Provide on-going support during construction on an ad-hoc/as requested basis; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Update the fire strategy report at 90% and 100% completion; ",
+      "runs": [
+        {
+          "text": "Update the fire strategy report at 90% and 100% completion; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Where necessary, attend fire engineering workshops or design team meetings to discuss the scheme (an average of one meeting per month is included in this scope); and",
+      "runs": [
+        {
+          "text": "Where necessary, attend fire engineering workshops or design team meetings to discuss the scheme (an average of one meeting per month is included in this scope); and",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Where necessary, attend meetings with the approval authorities to seek approval for the detailed fire strategy (an average of one meeting per month is included in this scope). ",
+      "runs": [
+        {
+          "text": "Where necessary, attend meetings with the approval authorities to seek approval for the detailed fire strategy (an average of one meeting per month is included in this scope). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The fee has been based on an average of 5 hours per month. Should more time than this be required we would reserve the right to consider this as a variation to the scope of services and request additional fees. ",
+      "runs": [
+        {
+          "text": "The fee has been based on an average of 5 hours per month. Should more time than this be required we would reserve the right to consider this as a variation to the scope of services and request additional fees. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - RIBA Stage 5: Site Visits",
+      "runs": [
+        {
+          "text": "Scope of Works - RIBA Stage 5: Site Visits",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend site to review the completed or partially completed construction details.  The scope of such visits and level of reporting required would need to be agreed prior to attendance. ",
+      "runs": [
+        {
+          "text": "Attend site to review the completed or partially completed construction details.  The scope of such visits and level of reporting required would need to be agreed prior to attendance. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Provide a short form report highlighting the findings of any site visit.  The scope and format of any such report would be agreed prior to attendance on site. ",
+      "runs": [
+        {
+          "text": "Provide a short form report highlighting the findings of any site visit.  The scope and format of any such report would be agreed prior to attendance on site. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - RIBA Stage 5: Phased Occupation Strategy",
+      "runs": [
+        {
+          "text": "Scope of Works - RIBA Stage 5: Phased Occupation Strategy",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope ",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Where a phased occupation strategy is proposed, we will prepare a document which demonstrates that for each phase, a suitable level of safety is achieved in the occupied areas. Specifically, we will:  ",
+      "runs": [
+        {
+          "text": "Where a phased occupation strategy is proposed, we will prepare a document which demonstrates that for each phase, a suitable level of safety is achieved in the occupied areas. Specifically, we will:  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Assist in the production of the contractors phased handover strategy. ",
+      "runs": [
+        {
+          "text": "Assist in the production of the contractors phased handover strategy. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Provide advice as to the required fire safety provisions within each occupied area during each phase. this will include recommendations for: ",
+      "runs": [
+        {
+          "text": "Provide advice as to the required fire safety provisions within each occupied area during each phase. this will include recommendations for: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Means of escape; ",
+      "runs": [
+        {
+          "text": "Means of escape; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Passive fire protection systems such as structural fire protection and compartmentation; ",
+      "runs": [
+        {
+          "text": "Passive fire protection systems such as structural fire protection and compartmentation; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Active fire safety systems such as fire detection and alarm, automatic fire suppression and smoke control systems; and",
+      "runs": [
+        {
+          "text": "Active fire safety systems such as fire detection and alarm, automatic fire suppression and smoke control systems; and",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Facilities for fire service intervention and access. ",
+      "runs": [
+        {
+          "text": "Facilities for fire service intervention and access. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "A document which demonstrates that for each phase, the level of safety achieved in each occupied area is in compliance with Building Regulations 2010 (Part B). This report will be revised once, if necessary, following discussion with the relevant stakeholders. ",
+      "runs": [
+        {
+          "text": "A document which demonstrates that for each phase, the level of safety achieved in each occupied area is in compliance with Building Regulations 2010 (Part B). This report will be revised once, if necessary, following discussion with the relevant stakeholders. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend all relevant meetings with the project team and relevant stakeholders",
+      "runs": [
+        {
+          "text": "Attend all relevant meetings with the project team and relevant stakeholders",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - RIBA Stage 5: Construction Fire Safety Plan",
+      "runs": [
+        {
+          "text": "Scope of Works - RIBA Stage 5: Construction Fire Safety Plan",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We will provide advice on the fire safety during construction in order to assist the contractor in identifying the main causes of accidents and ill health, and to eliminate the hazards and control the risks. This will support the Contractor’s responsibilities under the Construction (Design and Management) Regulations 2015. Specifically, we will:",
+      "runs": [
+        {
+          "text": "We will provide advice on the fire safety during construction in order to assist the contractor in identifying the main causes of accidents and ill health, and to eliminate the hazards and control the risks. This will support the Contractor’s responsibilities under the Construction (Design and Management) Regulations 2015. Specifically, we will:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Prepare a Construction Fire Safety Plan in accordance with the guidance contained within the Health and Safety Executive Publication HSG168 Fire Safety in Construction. This would address the following aspects for implementation and management by the contractor: ",
+      "runs": [
+        {
+          "text": "Prepare a Construction Fire Safety Plan in accordance with the guidance contained within the Health and Safety Executive Publication HSG168 Fire Safety in Construction. This would address the following aspects for implementation and management by the contractor: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Reducing ignition sources. ",
+      "runs": [
+        {
+          "text": "Reducing ignition sources. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Reducing potential fuel sources. ",
+      "runs": [
+        {
+          "text": "Reducing potential fuel sources. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "General fire precautions ",
+      "runs": [
+        {
+          "text": "General fire precautions ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Emergency procedures ",
+      "runs": [
+        {
+          "text": "Emergency procedures ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Higher fire risk methods and materials of construction. ",
+      "runs": [
+        {
+          "text": "Higher fire risk methods and materials of construction. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_bullets",
+      "text": "Guidance for multi-storey buildings (if applicable). ",
+      "runs": [
+        {
+          "text": "Guidance for multi-storey buildings (if applicable). ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend all relevant meetings with the project team and relevant stakeholders",
+      "runs": [
+        {
+          "text": "Attend all relevant meetings with the project team and relevant stakeholders",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - RIBA Stage 5: Construction Fire Risk Assessment",
+      "runs": [
+        {
+          "text": "Scope of Works - RIBA Stage 5: Construction Fire Risk Assessment",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Following the production of the Construction Fire Safety Management Plan, it is necessary to carry out periodic Fire Risk Assessments (FRA) in order to verify that those fire precautions are being correctly implemented. ",
+      "runs": [
+        {
+          "text": "Following the production of the Construction Fire Safety Management Plan, it is necessary to carry out periodic Fire Risk Assessments (FRA) in order to verify that those fire precautions are being correctly implemented. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The scope includes for one fire risk assessment every three months. Following each Fire Risk Assessment, we would produce a report documenting the results of the inspection and highlighting any issues which were identified. ",
+      "runs": [
+        {
+          "text": "The scope includes for one fire risk assessment every three months. Following each Fire Risk Assessment, we would produce a report documenting the results of the inspection and highlighting any issues which were identified. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - RIBA Stage 5: Regulation 38 Information",
+      "runs": [
+        {
+          "text": "Scope of Works - RIBA Stage 5: Regulation 38 Information",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Regulation 38 of the Building Regulations requires that, on practical completion of the project, the main contractor should ensure that a pack of information is provided for the operator to ensure that they have the information required to manage the fire safety of the building. ",
+      "runs": [
+        {
+          "text": "Regulation 38 of the Building Regulations requires that, on practical completion of the project, the main contractor should ensure that a pack of information is provided for the operator to ensure that they have the information required to manage the fire safety of the building. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This pack of information should include details such as an as-built fire strategy report as well as as-built details of key fire safety systems. ",
+      "runs": [
+        {
+          "text": "This pack of information should include details such as an as-built fire strategy report as well as as-built details of key fire safety systems. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We will produce a short report giving a summary of the key fire safety issues for the building. With regards to all other required documentation, we would produce a summary list of the information required and would coordinate the pack into a format suitable for submission.  ",
+      "runs": [
+        {
+          "text": "We will produce a short report giving a summary of the key fire safety issues for the building. With regards to all other required documentation, we would produce a summary list of the information required and would coordinate the pack into a format suitable for submission.  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - RIBA Stage 5: EWS1 Forms",
+      "runs": [
+        {
+          "text": "Scope of Works - RIBA Stage 5: EWS1 Forms",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope ",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Our involvement would be to undertake a review of the building, focused on the risks within the external walls (including attachments). The purpose of this is to produce a report suitable for submission to the mortgage providers of current leaseholders and prospective purchasers. ",
+      "runs": [
+        {
+          "text": "Our involvement would be to undertake a review of the building, focused on the risks within the external walls (including attachments). The purpose of this is to produce a report suitable for submission to the mortgage providers of current leaseholders and prospective purchasers. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The works would comprise of: ",
+      "runs": [
+        {
+          "text": "The works would comprise of: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review of the as-built drawings with relation to fire safety. ",
+      "runs": [
+        {
+          "text": "Review of the as-built drawings with relation to fire safety. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review of a suitably qualified surveyors intrusive survey of the as-built construction. ",
+      "runs": [
+        {
+          "text": "Review of a suitably qualified surveyors intrusive survey of the as-built construction. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Production of a report, assessing the risk of fire spread within the external wall construction and comparing to best practice / government guidelines. ",
+      "runs": [
+        {
+          "text": "Production of a report, assessing the risk of fire spread within the external wall construction and comparing to best practice / government guidelines. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Following this review: ",
+      "runs": [
+        {
+          "text": "Following this review: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "If Fire Dynamics is satisfied that the design and construction is of a sufficiently low level of risk, produce a summary letter of comfort (LOC) with an EWS1 form appended. ",
+      "runs": [
+        {
+          "text": "If Fire Dynamics is satisfied that the design and construction is of a sufficiently low level of risk, produce a summary letter of comfort (LOC) with an EWS1 form appended. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "If Fire Dynamics is not satisfied that the design and construction is of a sufficiently low level of risk, a conclusion as such will be included within the report and no EWS1 or LOC would be issued. Should it be deemed that the risk is not sufficiently low, the reasons will be stated, but no advice on the type of remedial work required will be provided. ",
+      "runs": [
+        {
+          "text": "If Fire Dynamics is not satisfied that the design and construction is of a sufficiently low level of risk, a conclusion as such will be included within the report and no EWS1 or LOC would be issued. Should it be deemed that the risk is not sufficiently low, the reasons will be stated, but no advice on the type of remedial work required will be provided. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Exclusions ",
+      "runs": [
+        {
+          "text": "Exclusions ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "The following would not form part of this scope and would be expected to be provided by others: ",
+      "runs": [
+        {
+          "text": "The following would not form part of this scope and would be expected to be provided by others: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Intrusive investigation of cavity barriers; ",
+      "runs": [
+        {
+          "text": "Intrusive investigation of cavity barriers; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Fire testing, but high-level advice can be provided by Fire Dynamics, which may incur additional fees; ",
+      "runs": [
+        {
+          "text": "Fire testing, but high-level advice can be provided by Fire Dynamics, which may incur additional fees; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Intrusive investigation of external wall; ",
+      "runs": [
+        {
+          "text": "Intrusive investigation of external wall; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Fire risk assessment; ",
+      "runs": [
+        {
+          "text": "Fire risk assessment; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Post analysis support (i.e. advice on any shortcomings highlighted); and ",
+      "runs": [
+        {
+          "text": "Post analysis support (i.e. advice on any shortcomings highlighted); and ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Fire safety review of items not related to external wall areas. ",
+      "runs": [
+        {
+          "text": "Fire safety review of items not related to external wall areas. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works - RIBA Stage 5: Pre-Occupation Fire Risk Assessment",
+      "runs": [
+        {
+          "text": "Scope of Works - RIBA Stage 5: Pre-Occupation Fire Risk Assessment",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "During the construction phase we will undertake a pre-occupation fire safety risk assessment to ensure that the fire strategy design and completed building has provided the necessary facilities to enable the building to comply with The Regulatory Reform (Fire Safety) Order 2005 or where located within Scotland, to the Fire (Scotland) Act 2005.  ",
+      "runs": [
+        {
+          "text": "During the construction phase we will undertake a pre-occupation fire safety risk assessment to ensure that the fire strategy design and completed building has provided the necessary facilities to enable the building to comply with The Regulatory Reform (Fire Safety) Order 2005 or where located within Scotland, to the Fire (Scotland) Act 2005.  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "As a project nears completion (but not complete for handover), the aim of a pre-occupation fire risk assessment is to provide the client with a document that shows that suitable and sufficient documentation has been put in place to enable them to occupy the building with a high degree of assurance that the primary legislative requirements relating to fire safety have been satisfied. ",
+      "runs": [
+        {
+          "text": "As a project nears completion (but not complete for handover), the aim of a pre-occupation fire risk assessment is to provide the client with a document that shows that suitable and sufficient documentation has been put in place to enable them to occupy the building with a high degree of assurance that the primary legislative requirements relating to fire safety have been satisfied. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This would ensure that all relevant information relating information relating to emergency procedures for evacuation are established, emergency assembly points had been identified and the client advised on the correct channels to communicate information to the enforcing authorities, handling, storage and control over hazardous substances on site. ",
+      "runs": [
+        {
+          "text": "This would ensure that all relevant information relating information relating to emergency procedures for evacuation are established, emergency assembly points had been identified and the client advised on the correct channels to communicate information to the enforcing authorities, handling, storage and control over hazardous substances on site. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "This service would involve a range of services from assessment, inspection, audit and liaison with other stakeholders which enabled the client to evolve from a position of non-compliance to compliance within a pre-occupation time-frame following practical completion of the construction / fit-out phase. ",
+      "runs": [
+        {
+          "text": "This service would involve a range of services from assessment, inspection, audit and liaison with other stakeholders which enabled the client to evolve from a position of non-compliance to compliance within a pre-occupation time-frame following practical completion of the construction / fit-out phase. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE SubHeader",
+      "text": "Scope of Works – RIBA Stage 5: Client Monitoring",
+      "runs": [
+        {
+          "text": "Scope of Works – RIBA Stage 5: Client Monitoring",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Fire Engineering Scope ",
+      "runs": [
+        {
+          "text": "Fire Engineering Scope ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "We will, on request, provide general, ad-hoc fire engineering advice during the construction stages to aid the client team and by, on behalf of the client team, reviewing the contractor team in their implementation of the fire strategy by providing the following support: ",
+      "runs": [
+        {
+          "text": "We will, on request, provide general, ad-hoc fire engineering advice during the construction stages to aid the client team and by, on behalf of the client team, reviewing the contractor team in their implementation of the fire strategy by providing the following support: ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Understanding and implementing the strategy (prepared by others);",
+      "runs": [
+        {
+          "text": "Understanding and implementing the strategy (prepared by others);",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Avoiding misinterpretation which can add cost to a scheme; ",
+      "runs": [
+        {
+          "text": "Avoiding misinterpretation which can add cost to a scheme; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Responding to design alterations that are made during the construction stage; ",
+      "runs": [
+        {
+          "text": "Responding to design alterations that are made during the construction stage; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Evaluating value engineering proposals; ",
+      "runs": [
+        {
+          "text": "Evaluating value engineering proposals; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Evaluating alternative designs/materials put forward by the principal contractor or the sub-contractors; ",
+      "runs": [
+        {
+          "text": "Evaluating alternative designs/materials put forward by the principal contractor or the sub-contractors; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Provision of support to the principal contractor and/or nominated sub-contractors to facilitate completion of all requisite commissioning and certification activity (responsibility lies with those parties); ",
+      "runs": [
+        {
+          "text": "Provision of support to the principal contractor and/or nominated sub-contractors to facilitate completion of all requisite commissioning and certification activity (responsibility lies with those parties); ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review of fire engineering methodology adopted and suitability for the design. ",
+      "runs": [
+        {
+          "text": "Review of fire engineering methodology adopted and suitability for the design. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review of input parameters, assumptions and proposed tenability criteria. ",
+      "runs": [
+        {
+          "text": "Review of input parameters, assumptions and proposed tenability criteria. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Review of results from model outputs and conclusions drawn from them.  ",
+      "runs": [
+        {
+          "text": "Review of results from model outputs and conclusions drawn from them.  ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Outline the implications of the fire strategy on the fire management of the building post completion (RRO). This would be a bullet point type list report only to aid the client in understanding of their obligations based on the works undertaken;",
+      "runs": [
+        {
+          "text": "Outline the implications of the fire strategy on the fire management of the building post completion (RRO). This would be a bullet point type list report only to aid the client in understanding of their obligations based on the works undertaken;",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Attend site to review the completed or partially completed construction details.  The scope of such visits and level of reporting required would need to be agreed prior to attendance. However it is typically expected that attendance will be an average of once per month (aligned with site meetings) with an additional site visit at Practical Completion to review C&E witnessing with the client team.",
+      "runs": [
+        {
+          "text": "Attend site to review the completed or partially completed construction details.  The scope of such visits and level of reporting required would need to be agreed prior to attendance. However it is typically expected that attendance will be an average of once per month (aligned with site meetings) with an additional site visit at Practical Completion to review C&E witnessing with the client team.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "sub_sub_heading",
+      "text": "Deliverables, Meeting Attendance and Completion",
+      "runs": [
+        {
+          "text": "Deliverables, Meeting Attendance and Completion",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Provide on-going support during construction on an ad-hoc/as requested basis; ",
+      "runs": [
+        {
+          "text": "Provide on-going support during construction on an ad-hoc/as requested basis; ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Where necessary, attend fire engineering workshops or design team meetings to discuss the scheme (an average of 1 meeting per month is included in this scope); and",
+      "runs": [
+        {
+          "text": "Where necessary, attend fire engineering workshops or design team meetings to discuss the scheme (an average of 1 meeting per month is included in this scope); and",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Provide a short form report highlighting the findings of any site visit.  The scope and format of any such report would be agreed prior to attendance on site. ",
+      "runs": [
+        {
+          "text": "Provide a short form report highlighting the findings of any site visit.  The scope and format of any such report would be agreed prior to attendance on site. ",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "One revision of the peer review report should any changes to the study be made by the project fire engineer following discussion.",
+      "runs": [
+        {
+          "text": "One revision of the peer review report should any changes to the study be made by the project fire engineer following discussion.",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "",
+      "runs": [
+        {
+          "text": "",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Subheading",
+      "text": "Appendix B - Exclusions",
+      "runs": [
+        {
+          "text": "Appendix B - Exclusions",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "Standard_Text",
+      "text": "Whilst many of the techniques we use are relatively simple in engineering terms, some are highly sophisticated and take many days of computational time. It is for this reason that we need to eliminate these types of analysis from our standard set of deliverables. Specifically, these are:",
+      "runs": [
+        {
+          "text": "Whilst many of the techniques we use are relatively simple in engineering terms, some are highly sophisticated and take many days of computational time. It is for this reason that we need to eliminate these types of analysis from our standard set of deliverables. Specifically, these are:",
+          "bold": null,
+          "underline": null,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Structural Fire Engineering - Advanced structural fire engineering techniques, beyond those detailed in this scope, are not included in this proposal.",
+      "runs": [
+        {
+          "text": "Structural Fire Engineering",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - Advanced structural fire engineering techniques, beyond those detailed in this scope, are not included in this proposal.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Evacuation Modelling - We do not anticipate that evacuation modelling will be necessary at the current time.",
+      "runs": [
+        {
+          "text": "Evacuation Modelling",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - We do not anticipate that evacuation modelling will be necessary at the current time.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Smoke Modelling - CFD Modelling studies, outside of those detailed in the scope, are not included in this proposal.",
+      "runs": [
+        {
+          "text": "Smoke Modelling",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - CFD Modelling studies, outside of those detailed in the scope, are not included in this proposal.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Fire Strategy Drawings in CAD/BIM Format - Fire strategy drawings will be provided in PDF format to allow the relevant information to be inputted into CAD drawings or BIM models by other members of the design team, as necessary.",
+      "runs": [
+        {
+          "text": "Fire Strategy Drawings in CAD/BIM Format",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - Fire strategy drawings will be provided in PDF format to allow the relevant information to be inputted into CAD drawings or BIM models by other members of the design team, as necessary.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "External Walls - The scope includes for the provision of EWS1 forms upon completion. Any other works relating to on-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
+      "runs": [
+        {
+          "text": "External Walls",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - The scope includes for the provision of EWS1 forms upon completion. Any other works relating to on-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Letters of Comfort - The completion of EWS1 forms, or other non-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
+      "runs": [
+        {
+          "text": "Letters of Comfort",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - The completion of EWS1 forms, or other non-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Site Visit Records– Any items highlighted within site visits will be recorded either by the project site software or by post visit report, not both.",
+      "runs": [
+        {
+          "text": "Site Visit Records",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": "– Any items highlighted within site visits will be recorded either by the project site software or by post visit report, not both.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    },
+    {
+      "style": "ASTUTE_Bullet_Points",
+      "text": "Validity of Site Visit Observations - Site visit records are not to be relied upon as an exhaustive list, they are provided as a summary of items seen at the time of visit or as examples of potential issues. Therefore, they are not to be viewed as a \"snagging list\" and others are responsible for ensuring that the same, similar or related issues are resolved in other areas or at other times.",
+      "runs": [
+        {
+          "text": "Validity of Site Visit Observations",
+          "bold": null,
+          "underline": true,
+          "superscript": false,
+          "image": false
+        },
+        {
+          "text": " - Site visit records are not to be relied upon as an exhaustive list, they are provided as a summary of items seen at the time of visit or as examples of potential issues. Therefore, they are not to be viewed as a \"snagging list\" and others are responsible for ensuring that the same, similar or related issues are resolved in other areas or at other times.",
+          "bold": null,
+          "underline": false,
+          "superscript": false,
+          "image": false
+        }
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "style": "invisible",
+      "rows": [
+        [
+          {
+            "text": "RIBA Stage 1",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£5,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 2 (expected end date June 2026)",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£7,500.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "London Plan",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£3,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "Gateway 1",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£3,500.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 3",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£9,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 4",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£11,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "Common Corridor CFD Modelling",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£8,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "Open Plan Apartments CFD Modelling",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£8,500.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "CFD Modelling of the Warehouse",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£12,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "Structural Fire Engineering Assessment",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£14,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 5: Client Monitoring Strategy",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£4,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 5: Construction Advice",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£6,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 5: Site Visits",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£2,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 5: Phased Occupation Strategy",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£3,500.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 5: Construction Fire Safety Management Plan",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£3,000.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "Construction Fire Risk Assessment",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£2,500.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 6: Regulation 38",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£1,500.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 6: EWS1 Forms",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£1,800.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "RIBA Stage 6: Completion Risk Assessments",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£2,200.00",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "Total",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£108,000.00",
+            "style": "Standard_Text"
+          }
+        ]
+      ]
+    },
+    {
+      "style": "invisible",
+      "rows": [
+        [
+          {
+            "text": "Fire Engineer",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£125/hour",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "Senior Fire Engineer",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£150/hour",
+            "style": "Standard_Text"
+          }
+        ],
+        [
+          {
+            "text": "Associate / Director",
+            "style": "Standard_Text"
+          },
+          {
+            "text": "£200/hour",
+            "style": "Standard_Text"
+          }
+        ]
+      ]
+    }
+  ],
+  "filename": "Test Tower Fire Dynamics Fee Proposal 11_06_2026.docx"
+}

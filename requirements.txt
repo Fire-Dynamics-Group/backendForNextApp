@@ -14,3 +14,6 @@ python-dotenv
 python-multipart
 mcp>=1.20
 httpx
+pytest
+pytest-asyncio
+aiosqlite

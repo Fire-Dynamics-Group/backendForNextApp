@@ -16,6 +16,34 @@ from services.fee_calculator import (
     format_riba_stages, determine_riba_stages, build_input_data, get_initials
 )
 from services import fee_text_templates as txt
+from services.fee_text_blocks import build_text_map
+
+import string
+
+
+class _SafeFormatDict(dict):
+    def __missing__(self, key):
+        return "{" + key + "}"
+
+
+def _safe_format(template, **kwargs):
+    """Format a template, leaving any unknown {token} literal instead of raising."""
+    return string.Formatter().vformat(template, (), _SafeFormatDict(**kwargs))
+
+
+class _TextAccessor:
+    """Resolve narrative text by attribute; fall back to the constants module for
+    non-editable constants (e.g. OFFICE_ADDRESS, HOURLY_RATES)."""
+
+    def __init__(self, resolved):
+        self._resolved = resolved
+
+    def __getattr__(self, name):
+        resolved = object.__getattribute__(self, "_resolved")
+        if name in resolved:
+            return resolved[name]
+        return getattr(txt, name)
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "styles.docx")
@@ -61,7 +89,8 @@ def _get_num_models_text(svc_data, default="three"):
     return str(nm) if nm else default
 
 
-def generate_proposal(data) -> io.BytesIO:
+def generate_proposal(data, texts=None) -> io.BytesIO:
+    T = _TextAccessor(texts if texts is not None else build_text_map([]))
     first_name = data.client.first_name
     surname = data.client.surname
     address_lines = data.client.address_lines
@@ -92,7 +121,7 @@ def generate_proposal(data) -> io.BytesIO:
     legislation = get_legislation(project_country)
     input_data = build_input_data(data)
 
-    address = txt.OFFICE_ADDRESS
+    address = T.OFFICE_ADDRESS
     temp_output = io.BytesIO()
     with MailMerge(TEMPLATE_PATH) as mm_doc:
         mm_doc.merge(add1=address[0], add2=address[1], add3=address[2], add4=address[3], email=emailad, tel=telno)
@@ -144,22 +173,22 @@ def generate_proposal(data) -> io.BytesIO:
 
     if s14.common_corridor_cfd.included:
         if not s14.common_corridor_cfd.extended_travel_distance:
-            _add_para(doc, txt.INTRO_COMMON_CORRIDOR_DEPRESSURISATION, "Standard_Text")
+            _add_para(doc, T.INTRO_COMMON_CORRIDOR_DEPRESSURISATION, "Standard_Text")
         else:
-            _add_para(doc, txt.INTRO_COMMON_CORRIDOR_EXTENDED_TRAVEL, "Standard_Text")
+            _add_para(doc, T.INTRO_COMMON_CORRIDOR_EXTENDED_TRAVEL, "Standard_Text")
     if s14.open_plan_cfd.included:
-        _add_para(doc, txt.INTRO_OPEN_PLAN, "Standard_Text")
+        _add_para(doc, T.INTRO_OPEN_PLAN, "Standard_Text")
     if s14.warehouse_cfd.included:
-        _add_para(doc, txt.INTRO_WAREHOUSE_CFD, "Standard_Text")
+        _add_para(doc, T.INTRO_WAREHOUSE_CFD, "Standard_Text")
     if s14.warehouse_structural.included:
-        _add_para(doc, txt.INTRO_WAREHOUSE_STRUCTURAL, "Standard_Text")
+        _add_para(doc, T.INTRO_WAREHOUSE_STRUCTURAL, "Standard_Text")
     if s14.london_plan.included and s14.gateway.included:
-        _add_para(doc, txt.INTRO_LONDON_PLAN_AND_GATEWAY, "Standard_Text")
+        _add_para(doc, T.INTRO_LONDON_PLAN_AND_GATEWAY, "Standard_Text")
     elif s14.london_plan.included:
-        _add_para(doc, txt.INTRO_LONDON_PLAN_ONLY, "Standard_Text")
+        _add_para(doc, T.INTRO_LONDON_PLAN_ONLY, "Standard_Text")
     elif s14.gateway.included:
-        _add_para(doc, txt.INTRO_GATEWAY_ONLY, "Standard_Text")
-    _add_para(doc, txt.INTRO_APPENDIX_REFERENCE, "Standard_Text")
+        _add_para(doc, T.INTRO_GATEWAY_ONLY, "Standard_Text")
+    _add_para(doc, T.INTRO_APPENDIX_REFERENCE, "Standard_Text")
 
     # FEES
     _add_para(doc, "Fees", "Subheading")
@@ -214,7 +243,7 @@ def generate_proposal(data) -> io.BytesIO:
         table.style = "invisible"
         table.add_column(Cm(8))
         table.add_column(Cm(5))
-        for n, (title, rate) in enumerate(txt.HOURLY_RATES):
+        for n, (title, rate) in enumerate(T.HOURLY_RATES):
             table.add_row()
             row = table.rows[n]
             row.cells[0].text = title
@@ -228,13 +257,13 @@ def generate_proposal(data) -> io.BytesIO:
     vat_text = "" if project_country == "J" else "+VAT"
     _add_para(doc, "Terms of Business", "Subheading")
     _add_para(doc, f"We propose to offer professional indemnity insurance to the value of \u00a3{PII_fmt} in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.", "Standard_Text")
-    _add_para(doc, txt.TERMS_ACE.format(vat_text=vat_text), "Standard_Text")
-    _add_para(doc, txt.TERMS_INVOICING, "Standard_Text")
+    _add_para(doc, _safe_format(T.TERMS_ACE, vat_text=vat_text), "Standard_Text")
+    _add_para(doc, T.TERMS_INVOICING, "Standard_Text")
     _add_para(doc, f"This fee proposal is valid until {validity_date} (60 days).", "Standard_Text")
 
     # CLOSING
     _add_blank_line(doc, 2)
-    _add_para(doc, txt.TERMS_CLOSING, "Standard_Text")
+    _add_para(doc, T.TERMS_CLOSING, "Standard_Text")
     _add_blank_line(doc, 2)
     _add_para(doc, "Yours Sincerely ", "Standard_Text_No_Line_Spacing")
     _add_blank_line(doc, 1)
@@ -256,13 +285,13 @@ def generate_proposal(data) -> io.BytesIO:
     p = _add_para(doc, "", "Standard_Text")
     p.add_run().add_break(WD_BREAK.PAGE)
     _add_para(doc, "Appendix A - Detailed Scope of Works", "Subheading")
-    _write_appendix_a(doc, data, input_data, legislation)
+    _write_appendix_a(doc, data, input_data, legislation, T)
 
     # PAGE BREAK -> APPENDIX B
     p = _add_para(doc, "", "Standard_Text")
     p.add_run().add_break(WD_BREAK.PAGE)
     _add_para(doc, "Appendix B - Exclusions", "Subheading")
-    _write_appendix_b(doc, data, input_data)
+    _write_appendix_b(doc, data, input_data, T)
 
     output = io.BytesIO()
     doc.save(output)
@@ -270,7 +299,7 @@ def generate_proposal(data) -> io.BytesIO:
     return output
 
 
-def _write_appendix_a(doc, data, input_data, legislation):
+def _write_appendix_a(doc, data, input_data, legislation, T):
     s14 = data.design_stages_1_4
     s5 = data.design_stages_5
     s6 = data.design_stages_6
@@ -298,48 +327,48 @@ def _write_appendix_a(doc, data, input_data, legislation):
     if stage_1:
         _add_para(doc, f"Scope of Works \u2013 RIBA Stage 1{_get_opt(stage_1)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope", "sub_sub_heading")
-        for t in txt.STAGE_1_SCOPE:
+        for t in T.STAGE_1_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        for t in txt.STAGE_1_DELIVERABLES:
+        for t in T.STAGE_1_DELIVERABLES:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_meeting_text(doc, stage_1, "Where necessary, attend meetings with the project team and relevant stakeholders. ", "Attend all relevant meetings with the project team and relevant stakeholders")
 
     if stage_2:
         _add_para(doc, f"Scope of Works \u2013 RIBA Stage 2{_get_opt(stage_2)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope", "sub_sub_heading")
-        for t in txt.STAGE_2_SCOPE:
+        for t in T.STAGE_2_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.STAGE_2_SUB_BULLETS:
+        for t in T.STAGE_2_SUB_BULLETS:
             _add_para(doc, t, "sub_bullets")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        for t in txt.STAGE_2_DELIVERABLES:
+        for t in T.STAGE_2_DELIVERABLES:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_meeting_text(doc, stage_2)
 
     if lp:
         _add_para(doc, f"Scope of Works \u2013 London Plan Fire Statement{_get_opt(lp)}", "ASTUTE SubHeader")
-        for t in txt.LONDON_PLAN_INTRO:
+        for t in T.LONDON_PLAN_INTRO:
             _add_para(doc, t, "Standard_Text")
-        for t in txt.LONDON_PLAN_SCOPE:
+        for t in T.LONDON_PLAN_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.LONDON_PLAN_SUB_BULLETS:
+        for t in T.LONDON_PLAN_SUB_BULLETS:
             _add_para(doc, t, "sub_bullets")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        for t in txt.LONDON_PLAN_DELIVERABLES:
+        for t in T.LONDON_PLAN_DELIVERABLES:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_meeting_text(doc, lp)
 
     if gw:
         _add_para(doc, f"Scope of Works \u2013 Gateway 1 Fire Statement{_get_opt(gw)}", "ASTUTE SubHeader")
-        for t in txt.GATEWAY_INTRO:
+        for t in T.GATEWAY_INTRO:
             _add_para(doc, t, "Standard_Text")
-        for t in txt.GATEWAY_SCOPE:
+        for t in T.GATEWAY_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.GATEWAY_SUB_BULLETS:
+        for t in T.GATEWAY_SUB_BULLETS:
             _add_para(doc, t, "sub_bullets")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        for t in txt.GATEWAY_DELIVERABLES:
+        for t in T.GATEWAY_DELIVERABLES:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_meeting_text(doc, gw)
 
@@ -347,18 +376,18 @@ def _write_appendix_a(doc, data, input_data, legislation):
         _add_para(doc, f"Scope of Works \u2013 RIBA Stage 3{_get_opt(stage_3)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope", "sub_sub_heading")
         if stage_2:
-            for t in txt.STAGE_3_SCOPE_WITH_STAGE_2:
+            for t in T.STAGE_3_SCOPE_WITH_STAGE_2:
                 _add_para(doc, t, "ASTUTE_Bullet_Points")
         else:
-            for t in txt.STAGE_3_SCOPE_WITHOUT_STAGE_2:
+            for t in T.STAGE_3_SCOPE_WITHOUT_STAGE_2:
                 _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.STAGE_3_COMMON_SCOPE:
+        for t in T.STAGE_3_COMMON_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.STAGE_3_SUB_BULLETS:
+        for t in T.STAGE_3_SUB_BULLETS:
             _add_para(doc, t, "sub_bullets")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        _add_para(doc, txt.STAGE_3_DELIVERABLES_TEMPLATE.format(legislation=legislation), "ASTUTE_Bullet_Points")
-        for t in txt.STAGE_3_DELIVERABLES_SUB_BULLETS:
+        _add_para(doc, _safe_format(T.STAGE_3_DELIVERABLES_TEMPLATE, legislation=legislation), "ASTUTE_Bullet_Points")
+        for t in T.STAGE_3_DELIVERABLES_SUB_BULLETS:
             _add_para(doc, t, "sub_bullets")
         _add_meeting_text(doc, stage_3)
 
@@ -366,63 +395,63 @@ def _write_appendix_a(doc, data, input_data, legislation):
         _add_para(doc, f"Scope of Works \u2013 RIBA Stage 4{_get_opt(stage_4)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope", "sub_sub_heading")
         if not stage_3:
-            for t in txt.STAGE_4_SCOPE_WITHOUT_STAGE_3:
+            for t in T.STAGE_4_SCOPE_WITHOUT_STAGE_3:
                 _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.STAGE_4_SCOPE:
+        for t in T.STAGE_4_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        _add_para(doc, txt.STAGE_4_DELIVERABLES_TEMPLATE.format(legislation=legislation), "ASTUTE_Bullet_Points")
+        _add_para(doc, _safe_format(T.STAGE_4_DELIVERABLES_TEMPLATE, legislation=legislation), "ASTUTE_Bullet_Points")
         _add_meeting_text(doc, stage_4)
 
     if cc:
         nmt = _get_num_models_text(cc)
         _add_para(doc, f"Scope of Works - CFD Modelling Study of Common Corridors{_get_opt(cc)}", "ASTUTE SubHeader")
-        _add_para(doc, txt.COMMON_CORRIDOR_INTRO, "Standard_Text")
-        _add_para(doc, txt.COMMON_CORRIDOR_SOLUTION, "Standard_Text")
-        _add_para(doc, txt.COMMON_CORRIDOR_CFD_INTRO, "Standard_Text")
-        for t in txt.COMMON_CORRIDOR_SCOPE:
-            _add_para(doc, t.format(num_models=nmt), "ASTUTE_Bullet_Points")
+        _add_para(doc, T.COMMON_CORRIDOR_INTRO, "Standard_Text")
+        _add_para(doc, T.COMMON_CORRIDOR_SOLUTION, "Standard_Text")
+        _add_para(doc, T.COMMON_CORRIDOR_CFD_INTRO, "Standard_Text")
+        for t in T.COMMON_CORRIDOR_SCOPE:
+            _add_para(doc, _safe_format(t, num_models=nmt), "ASTUTE_Bullet_Points")
 
     if op:
         nmt = _get_num_models_text(op)
         _add_para(doc, f"Scope of Works - CFD Modelling of Open Plan Apartments{_get_opt(op)}", "ASTUTE SubHeader")
-        _add_para(doc, txt.OPEN_PLAN_INTRO_TEMPLATE.format(legislation=legislation), "Standard_Text")
-        for t in txt.OPEN_PLAN_METHODOLOGY:
+        _add_para(doc, _safe_format(T.OPEN_PLAN_INTRO_TEMPLATE, legislation=legislation), "Standard_Text")
+        for t in T.OPEN_PLAN_METHODOLOGY:
             _add_para(doc, t, "Standard_Text")
-        _add_para(doc, txt.OPEN_PLAN_ANTICIPATED_TEMPLATE.format(legislation=legislation), "Standard_Text")
+        _add_para(doc, _safe_format(T.OPEN_PLAN_ANTICIPATED_TEMPLATE, legislation=legislation), "Standard_Text")
         _add_para(doc, "The scope of work for this study would be as follows: ", "Standard_Text")
-        for t in txt.OPEN_PLAN_SCOPE:
-            _add_para(doc, t.format(num_models=nmt), "ASTUTE_Bullet_Points")
+        for t in T.OPEN_PLAN_SCOPE:
+            _add_para(doc, _safe_format(t, num_models=nmt), "ASTUTE_Bullet_Points")
 
     if wcfd:
         nmt = _get_num_models_text(wcfd)
         _add_para(doc, f"Scope of Works - Warehouse CFD Modelling Study{_get_opt(wcfd)}", "ASTUTE SubHeader")
-        _add_para(doc, txt.WAREHOUSE_CFD_INTRO, "Standard_Text")
-        for t in txt.WAREHOUSE_CFD_SCOPE:
-            _add_para(doc, t.format(num_models=nmt), "ASTUTE_Bullet_Points")
+        _add_para(doc, T.WAREHOUSE_CFD_INTRO, "Standard_Text")
+        for t in T.WAREHOUSE_CFD_SCOPE:
+            _add_para(doc, _safe_format(t, num_models=nmt), "ASTUTE_Bullet_Points")
 
     if ws:
         _add_para(doc, f"Scope of Works - Structural Fire Engineering Assessment{_get_opt(ws)}", "ASTUTE SubHeader")
-        _add_para(doc, txt.STRUCTURAL_FE_INTRO, "Standard_Text")
-        for t in txt.STRUCTURAL_FE_SCOPE:
+        _add_para(doc, T.STRUCTURAL_FE_INTRO, "Standard_Text")
+        for t in T.STRUCTURAL_FE_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.STRUCTURAL_FE_SUB_BULLETS_1:
+        for t in T.STRUCTURAL_FE_SUB_BULLETS_1:
             _add_para(doc, t, "sub_bullets")
-        for t in txt.STRUCTURAL_FE_SCOPE_2:
+        for t in T.STRUCTURAL_FE_SCOPE_2:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.STRUCTURAL_FE_SUB_BULLETS_2:
+        for t in T.STRUCTURAL_FE_SUB_BULLETS_2:
             _add_para(doc, t, "sub_bullets")
-        for t in txt.STRUCTURAL_FE_SCOPE_3:
+        for t in T.STRUCTURAL_FE_SCOPE_3:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
 
     if ca:
         _add_para(doc, f"Scope of Works \u2013 RIBA Stage 5: Technical Support{_get_opt(ca)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope", "sub_sub_heading")
-        _add_para(doc, txt.CONSTRUCTION_ADVICE_INTRO, "Standard_Text")
-        for t in txt.CONSTRUCTION_ADVICE_SCOPE:
+        _add_para(doc, T.CONSTRUCTION_ADVICE_INTRO, "Standard_Text")
+        for t in T.CONSTRUCTION_ADVICE_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        for t in txt.CONSTRUCTION_ADVICE_DELIVERABLES:
+        for t in T.CONSTRUCTION_ADVICE_DELIVERABLES:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         ml = ca.get("meetings_per_month")
         ml_text = "one meeting" if ml and str(ml) == "1" else f"{ml} meetings" if ml else "one meeting"
@@ -435,71 +464,71 @@ def _write_appendix_a(doc, data, input_data, legislation):
     if sv:
         _add_para(doc, f"Scope of Works - RIBA Stage 5: Site Visits{_get_opt(sv)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope", "sub_sub_heading")
-        for t in txt.SITE_VISITS_SCOPE:
+        for t in T.SITE_VISITS_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        for t in txt.SITE_VISITS_DELIVERABLES:
+        for t in T.SITE_VISITS_DELIVERABLES:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
 
     if po:
         _add_para(doc, f"Scope of Works - RIBA Stage 5: Phased Occupation Strategy{_get_opt(po)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope ", "sub_sub_heading")
-        _add_para(doc, txt.PHASED_OCCUPATION_INTRO, "Standard_Text")
-        for t in txt.PHASED_OCCUPATION_SCOPE:
+        _add_para(doc, T.PHASED_OCCUPATION_INTRO, "Standard_Text")
+        for t in T.PHASED_OCCUPATION_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.PHASED_OCCUPATION_SUB_BULLETS:
+        for t in T.PHASED_OCCUPATION_SUB_BULLETS:
             _add_para(doc, t, "sub_bullets")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        _add_para(doc, txt.PHASED_OCCUPATION_DELIVERABLES_TEMPLATE.format(legislation=legislation), "ASTUTE_Bullet_Points")
+        _add_para(doc, _safe_format(T.PHASED_OCCUPATION_DELIVERABLES_TEMPLATE, legislation=legislation), "ASTUTE_Bullet_Points")
         _add_meeting_text(doc, po, "Where necessary, attend meetings with the project team and relevant stakeholders. ", "Attend all relevant meetings with the project team and relevant stakeholders")
 
     if cfsmp:
         _add_para(doc, f"Scope of Works - RIBA Stage 5: Construction Fire Safety Plan{_get_opt(cfsmp)}", "ASTUTE SubHeader")
-        _add_para(doc, txt.CFSMP_INTRO, "Standard_Text")
-        for t in txt.CFSMP_SCOPE:
+        _add_para(doc, T.CFSMP_INTRO, "Standard_Text")
+        for t in T.CFSMP_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.CFSMP_SUB_BULLETS:
+        for t in T.CFSMP_SUB_BULLETS:
             _add_para(doc, t, "sub_bullets")
         _add_meeting_text(doc, cfsmp, "Where necessary, attend meetings with the project team and relevant stakeholders. ", "Attend all relevant meetings with the project team and relevant stakeholders")
 
     if sr:
         _add_para(doc, f"Scope of Works - RIBA Stage 5: Construction Fire Risk Assessment{_get_opt(sr)}", "ASTUTE SubHeader")
-        for t in txt.CONSTRUCTION_RA_TEXT:
+        for t in T.CONSTRUCTION_RA_TEXT:
             _add_para(doc, t, "Standard_Text")
 
     if r38:
         _add_para(doc, f"Scope of Works - RIBA Stage 5: Regulation 38 Information{_get_opt(r38)}", "ASTUTE SubHeader")
-        for t in txt.REG38_TEXT:
+        for t in T.REG38_TEXT:
             _add_para(doc, t, "Standard_Text")
 
     if ews1:
         _add_para(doc, f"Scope of Works - RIBA Stage 5: EWS1 Forms{_get_opt(ews1)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope ", "sub_sub_heading")
-        _add_para(doc, txt.EWS1_INTRO, "Standard_Text")
+        _add_para(doc, T.EWS1_INTRO, "Standard_Text")
         _add_para(doc, "The works would comprise of: ", "Standard_Text")
-        for t in txt.EWS1_SCOPE:
+        for t in T.EWS1_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        _add_para(doc, txt.EWS1_FOLLOWING, "Standard_Text")
-        for t in txt.EWS1_FOLLOWING_SCOPE:
+        _add_para(doc, T.EWS1_FOLLOWING, "Standard_Text")
+        for t in T.EWS1_FOLLOWING_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_para(doc, "Exclusions ", "sub_sub_heading")
-        _add_para(doc, txt.EWS1_EXCLUSIONS_INTRO, "Standard_Text")
-        for t in txt.EWS1_EXCLUSIONS:
+        _add_para(doc, T.EWS1_EXCLUSIONS_INTRO, "Standard_Text")
+        for t in T.EWS1_EXCLUSIONS:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
 
     if rro:
         _add_para(doc, f"Scope of Works - RIBA Stage 5: Pre-Occupation Fire Risk Assessment{_get_opt(rro)}", "ASTUTE SubHeader")
-        for t in txt.COMPLETION_RA_TEXT:
+        for t in T.COMPLETION_RA_TEXT:
             _add_para(doc, t, "Standard_Text")
 
     if pr:
         _add_para(doc, f"Scope of Works \u2013 Third Party Review{_get_opt(pr)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope ", "sub_sub_heading")
-        for t in txt.PEER_REVIEW_SCOPE:
+        for t in T.PEER_REVIEW_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in txt.PEER_REVIEW_SUB_BULLETS:
+        for t in T.PEER_REVIEW_SUB_BULLETS:
             _add_para(doc, t, "sub_bullets")
-        for t in txt.PEER_REVIEW_SCOPE_2:
+        for t in T.PEER_REVIEW_SCOPE_2:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_meeting_text(doc, pr, "Where necessary, attend meetings to discuss our comments on the fire engineering design. ", "Attendance at relevant meetings to discuss our comments on the fire engineering design.")
         _add_para(doc, "One revision of the peer review report should any changes to the study be made by the project fire engineer following discussion.", "ASTUTE_Bullet_Points")
@@ -507,80 +536,80 @@ def _write_appendix_a(doc, data, input_data, legislation):
     if cm:
         _add_para(doc, f"Scope of Works \u2013 RIBA Stage 5: Client Monitoring{_get_opt(cm)}", "ASTUTE SubHeader")
         _add_para(doc, "Fire Engineering Scope ", "sub_sub_heading")
-        _add_para(doc, txt.CLIENT_MONITORING_INTRO, "Standard_Text")
-        for t in txt.CLIENT_MONITORING_SCOPE:
+        _add_para(doc, T.CLIENT_MONITORING_INTRO, "Standard_Text")
+        for t in T.CLIENT_MONITORING_SCOPE:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
         _add_para(doc, "Deliverables, Meeting Attendance and Completion", "sub_sub_heading")
-        for t in txt.CLIENT_MONITORING_DELIVERABLES:
+        for t in T.CLIENT_MONITORING_DELIVERABLES:
             _add_para(doc, t, "ASTUTE_Bullet_Points")
-        _add_para(doc, txt.CLIENT_MONITORING_CLOSING, "Standard_Text")
+        _add_para(doc, T.CLIENT_MONITORING_CLOSING, "Standard_Text")
 
 
-def _write_appendix_b(doc, data, input_data):
+def _write_appendix_b(doc, data, input_data, T):
     s14 = data.design_stages_1_4
     s6 = data.design_stages_6
     third_party = s14.peer_review.included
 
     if not third_party:
-        _add_para(doc, txt.EXCLUSIONS_INTRO, "Standard_Text")
+        _add_para(doc, T.EXCLUSIONS_INTRO, "Standard_Text")
 
         p = _add_para(doc, "", "ASTUTE_Bullet_Points")
         n = p.add_run("Structural Fire Engineering")
         n.font.underline = True
-        n2 = p.add_run(txt.EXCL_STRUCTURAL_FE_INCLUDED if s14.warehouse_structural.included else txt.EXCL_STRUCTURAL_FE_NOT_INCLUDED)
+        n2 = p.add_run(T.EXCL_STRUCTURAL_FE_INCLUDED if s14.warehouse_structural.included else T.EXCL_STRUCTURAL_FE_NOT_INCLUDED)
         n2.font.underline = False
 
         p = _add_para(doc, "", "ASTUTE_Bullet_Points")
         n = p.add_run("Evacuation Modelling")
         n.font.underline = True
-        n2 = p.add_run(txt.EXCL_EVAC_MODELLING)
+        n2 = p.add_run(T.EXCL_EVAC_MODELLING)
         n2.font.underline = False
 
         p = _add_para(doc, "", "ASTUTE_Bullet_Points")
         n = p.add_run("Smoke Modelling")
         n.font.underline = True
-        n2 = p.add_run(txt.EXCL_SMOKE_MODELLING_INCLUDED if (s14.open_plan_cfd.included or s14.common_corridor_cfd.included or s14.warehouse_cfd.included) else txt.EXCL_SMOKE_MODELLING_NOT_INCLUDED)
+        n2 = p.add_run(T.EXCL_SMOKE_MODELLING_INCLUDED if (s14.open_plan_cfd.included or s14.common_corridor_cfd.included or s14.warehouse_cfd.included) else T.EXCL_SMOKE_MODELLING_NOT_INCLUDED)
         n2.font.underline = False
 
         p = _add_para(doc, "", "ASTUTE_Bullet_Points")
         n = p.add_run("Fire Strategy Drawings in CAD/BIM Format")
         n.font.underline = True
-        n2 = p.add_run(txt.EXCL_FIRE_STRATEGY_DRAWINGS)
+        n2 = p.add_run(T.EXCL_FIRE_STRATEGY_DRAWINGS)
         n2.font.underline = False
 
         p = _add_para(doc, "", "ASTUTE_Bullet_Points")
         n = p.add_run("External Walls")
         n.font.underline = True
-        n2 = p.add_run(txt.EXCL_EXTERNAL_WALLS_WITH_EWS1 if s6.ews1_forms.included else txt.EXCL_EXTERNAL_WALLS_WITHOUT_EWS1)
+        n2 = p.add_run(T.EXCL_EXTERNAL_WALLS_WITH_EWS1 if s6.ews1_forms.included else T.EXCL_EXTERNAL_WALLS_WITHOUT_EWS1)
         n2.font.underline = False
 
         if not (s14.stage_1.included or s14.stage_2.included or s14.stage_3.included or s14.stage_4.included):
             p = _add_para(doc, "", "ASTUTE_Bullet_Points")
             n = p.add_run("Fire Strategy Development")
             n.font.underline = True
-            n2 = p.add_run(txt.EXCL_FIRE_STRATEGY_DEV)
+            n2 = p.add_run(T.EXCL_FIRE_STRATEGY_DEV)
             n2.font.underline = False
 
         p = _add_para(doc, "", "ASTUTE_Bullet_Points")
         n = p.add_run("Letters of Comfort")
         n.font.underline = True
-        n2 = p.add_run(txt.EXCL_LETTERS_OF_COMFORT)
+        n2 = p.add_run(T.EXCL_LETTERS_OF_COMFORT)
         n2.font.underline = False
 
         if _find_service(input_data, "site_visits"):
             p = _add_para(doc, "", "ASTUTE_Bullet_Points")
             n = p.add_run("Site Visit Records")
             n.font.underline = True
-            n2 = p.add_run(txt.EXCL_SITE_VISIT_RECORDS)
+            n2 = p.add_run(T.EXCL_SITE_VISIT_RECORDS)
             n2.font.underline = False
 
             p = _add_para(doc, "", "ASTUTE_Bullet_Points")
             n = p.add_run("Validity of Site Visit Observations")
             n.font.underline = True
-            n2 = p.add_run(txt.EXCL_SITE_VISIT_VALIDITY)
+            n2 = p.add_run(T.EXCL_SITE_VISIT_VALIDITY)
             n2.font.underline = False
     else:
-        _add_para(doc, txt.EXCLUSIONS_PEER_REVIEW, "Standard_Text")
+        _add_para(doc, T.EXCLUSIONS_PEER_REVIEW, "Standard_Text")
 
 
 def get_proposal_filename(data) -> str:
