@@ -11,7 +11,7 @@ os.environ["DATABASE_URL"] = ""  # prevent real DB connection
 from database import Base  # noqa: E402
 from models.db_models import FeeTextBlock, FeeTextBlockHistory  # noqa: E402, F401
 from services import fee_text_templates as txt  # noqa: E402
-from services.fee_text_blocks import seed_fee_text_blocks  # noqa: E402
+from services.fee_text_blocks import seed_fee_text_blocks, build_text_map  # noqa: E402
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test_fee_text_blocks.db"
 
@@ -85,3 +85,29 @@ async def test_reseed_preserves_edited_content(test_session):
     block = await test_session.get(FeeTextBlock, "INTRO_OPEN_PLAN")
     assert block.content == "EDITED BY USER"          # edit survives re-seed
     assert block.default_content == txt.INTRO_OPEN_PLAN  # default still original
+
+
+# --- build_text_map: pure resolution of override -> DB -> constant ---
+
+def test_build_text_map_falls_back_to_constants_when_empty():
+    m = build_text_map([])
+    assert m["INTRO_OPEN_PLAN"] == txt.INTRO_OPEN_PLAN          # paragraph: native str
+    assert m["STAGE_1_SCOPE"] == list(txt.STAGE_1_SCOPE)        # bullet_list: native list
+
+
+def test_build_text_map_db_block_overrides_constant():
+    m = build_text_map([("INTRO_OPEN_PLAN", "paragraph", "NEW TEXT")])
+    assert m["INTRO_OPEN_PLAN"] == "NEW TEXT"
+
+
+def test_build_text_map_splits_bullet_list_content():
+    m = build_text_map([("STAGE_1_SCOPE", "bullet_list", "first bullet\nsecond bullet")])
+    assert m["STAGE_1_SCOPE"] == ["first bullet", "second bullet"]
+
+
+def test_build_text_map_override_beats_db_and_constant():
+    m = build_text_map(
+        [("INTRO_OPEN_PLAN", "paragraph", "DB TEXT")],
+        overrides={"INTRO_OPEN_PLAN": "OVERRIDE TEXT"},
+    )
+    assert m["INTRO_OPEN_PLAN"] == "OVERRIDE TEXT"

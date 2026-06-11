@@ -13,7 +13,12 @@ from models.fee_proposal_models import (
     ServiceConfig,
     CountryEnum,
 )
-from services.fee_document_service import generate_proposal
+from services.fee_document_service import generate_proposal, _safe_format
+
+
+def test_safe_format_leaves_unknown_tokens_literal():
+    # Backstop: a missing/typo'd token degrades to literal text instead of crashing.
+    assert _safe_format("Per {legislation} and {unknown}.", legislation="Reg B") == "Per Reg B and {unknown}."
 
 
 def _base_request(stages_1_4: DesignStagesRiba1to4) -> FeeProposalRequest:

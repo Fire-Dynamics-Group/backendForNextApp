@@ -21,6 +21,8 @@ from docx import Document
 
 import services.fee_document_service as svc
 from services.fee_document_service import generate_proposal, get_proposal_filename
+from services.fee_text_blocks import build_text_map
+from services import fee_text_templates as txt
 from models.fee_proposal_models import (
     FeeProposalRequest,
     ClientDetails,
@@ -213,3 +215,23 @@ def test_golden_single_service_minimal():
     data = _extract(generate_proposal(_single_service_minimal()))
     data["filename"] = get_proposal_filename(_single_service_minimal())
     _check_golden("single_service_minimal", data)
+
+
+# --- DB-driven generation (#4): the resolved text map drives output ---
+
+def _all_text(extracted: dict) -> str:
+    return "\n".join(p["text"] for p in extracted["paragraphs"])
+
+
+def test_db_edited_block_changes_output():
+    """An edited block's content appears in the generated document."""
+    texts = build_text_map([("STAGE_1_SCOPE", "bullet_list", "UNIQUELY EDITED SCOPE BULLET")])
+    out = _all_text(_extract(generate_proposal(_single_service_minimal(), texts)))
+    assert "UNIQUELY EDITED SCOPE BULLET" in out
+
+
+def test_missing_block_falls_back_to_constant():
+    """A block absent from the DB rows renders from the module constant."""
+    texts = build_text_map([("INTRO_OPEN_PLAN", "paragraph", "unrelated edit")])
+    out = _all_text(_extract(generate_proposal(_single_service_minimal(), texts)))
+    assert txt.STAGE_1_SCOPE[0] in out  # STAGE_1_SCOPE not in DB rows -> constant used
