@@ -35,12 +35,16 @@ class _TextAccessor:
     """Resolve narrative text by attribute; fall back to the constants module for
     non-editable constants (e.g. OFFICE_ADDRESS, HOURLY_RATES)."""
 
-    def __init__(self, resolved):
+    def __init__(self, resolved, record=None):
         self._resolved = resolved
+        self._record = record
 
     def __getattr__(self, name):
         resolved = object.__getattribute__(self, "_resolved")
         if name in resolved:
+            record = object.__getattribute__(self, "_record")
+            if record is not None:
+                record.add(name)
             return resolved[name]
         return getattr(txt, name)
 
@@ -89,8 +93,8 @@ def _get_num_models_text(svc_data, default="three"):
     return str(nm) if nm else default
 
 
-def generate_proposal(data, texts=None) -> io.BytesIO:
-    T = _TextAccessor(texts if texts is not None else build_text_map([]))
+def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
+    T = _TextAccessor(texts if texts is not None else build_text_map([]), record_keys)
     first_name = data.client.first_name
     surname = data.client.surname
     address_lines = data.client.address_lines
@@ -610,6 +614,18 @@ def _write_appendix_b(doc, data, input_data, T):
             n2.font.underline = False
     else:
         _add_para(doc, T.EXCLUSIONS_PEER_REVIEW, "Standard_Text")
+
+
+def rendered_block_keys(data, texts=None) -> set:
+    """Return the set of text-block keys the renderer actually emits for ``data``.
+
+    Runs generation with a recording accessor (no logic duplication) and
+    discards the document. Used by the dry-run endpoint so the frontend can show
+    override fields only for blocks that will appear in this proposal.
+    """
+    record: set = set()
+    generate_proposal(data, texts, record_keys=record)
+    return record
 
 
 def get_proposal_filename(data) -> str:

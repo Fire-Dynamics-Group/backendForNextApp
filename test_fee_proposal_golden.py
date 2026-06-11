@@ -20,7 +20,7 @@ import pytest
 from docx import Document
 
 import services.fee_document_service as svc
-from services.fee_document_service import generate_proposal, get_proposal_filename
+from services.fee_document_service import generate_proposal, get_proposal_filename, rendered_block_keys
 from services.fee_text_blocks import build_text_map
 from services import fee_text_templates as txt
 from models.fee_proposal_models import (
@@ -235,3 +235,26 @@ def test_missing_block_falls_back_to_constant():
     texts = build_text_map([("INTRO_OPEN_PLAN", "paragraph", "unrelated edit")])
     out = _all_text(_extract(generate_proposal(_single_service_minimal(), texts)))
     assert txt.STAGE_1_SCOPE[0] in out  # STAGE_1_SCOPE not in DB rows -> constant used
+
+
+# --- rendered_block_keys: which blocks a given request actually emits ---
+
+def _with_site_visits() -> FeeProposalRequest:
+    return _request(
+        design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        design_stages_5=DesignStagesRiba5(site_visits=ServiceConfig(included=True, fee=2000)),
+    )
+
+
+def test_rendered_block_keys_includes_emitted_excludes_unemitted():
+    keys = rendered_block_keys(_single_service_minimal())
+    assert "STAGE_1_SCOPE" in keys
+    assert "STAGE_1_DELIVERABLES" in keys
+    # Stage 1 only: these blocks are not emitted
+    assert "EXCL_SITE_VISIT_RECORDS" not in keys
+    assert "STAGE_3_COMMON_SCOPE" not in keys
+
+
+def test_rendered_block_keys_reflects_conditional_blocks():
+    assert "EXCL_SITE_VISIT_RECORDS" not in rendered_block_keys(_single_service_minimal())
+    assert "EXCL_SITE_VISIT_RECORDS" in rendered_block_keys(_with_site_visits())
