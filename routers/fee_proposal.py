@@ -48,6 +48,17 @@ class HistoryOut(BaseModel):
     created_at: Optional[datetime] = None
 
 
+class ChangeOut(BaseModel):
+    """One entry in the cross-block 'what recently changed' activity feed."""
+    id: int
+    key: str
+    label: str
+    group_name: str
+    edited_by: str
+    created_at: Optional[datetime] = None
+    preview: str
+
+
 def _block_out(b: FeeTextBlock) -> TextBlockOut:
     return TextBlockOut(
         key=b.key, label=b.label, kind=b.kind, group_name=b.group_name,
@@ -168,6 +179,35 @@ async def _set_content(db: AsyncSession, block: FeeTextBlock, content: str, edit
 async def list_text_blocks(db: AsyncSession = Depends(get_db)):
     rows = (await db.execute(select(FeeTextBlock).order_by(FeeTextBlock.sort_order))).scalars().all()
     return [_block_out(b) for b in rows]
+
+
+# Literal route declared before "/text-blocks/{key}/..." so 'changes' is never
+# captured as a block key.
+@router.get("/text-blocks/changes", response_model=List[ChangeOut])
+async def text_block_changes(limit: int = 50, db: AsyncSession = Depends(get_db)):
+    """Recent default-wording edits across all blocks, newest first.
+
+    Powers the builder's notification bell. Each history row is one save; we
+    join the block for its current label/group so the feed reads without a
+    second lookup. A short preview of the saved content is included inline.
+    """
+    limit = max(1, min(limit, 200))
+    rows = (await db.execute(
+        select(FeeTextBlockHistory, FeeTextBlock.label, FeeTextBlock.group_name)
+        .join(FeeTextBlock, FeeTextBlock.key == FeeTextBlockHistory.key)
+        .order_by(FeeTextBlockHistory.id.desc())
+        .limit(limit)
+    )).all()
+    out = []
+    for hist, label, group_name in rows:
+        preview = " ".join((hist.content or "").split())
+        if len(preview) > 140:
+            preview = preview[:140].rstrip() + "…"
+        out.append(ChangeOut(
+            id=hist.id, key=hist.key, label=label, group_name=group_name,
+            edited_by=hist.edited_by, created_at=hist.created_at, preview=preview,
+        ))
+    return out
 
 
 @router.put("/text-blocks/{key}", response_model=TextBlockOut)
