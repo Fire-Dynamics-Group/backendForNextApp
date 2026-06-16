@@ -102,47 +102,42 @@ async def save_project(
     project.settings = body.settings
     project.updated_at = datetime.now(timezone.utc)
 
-    # Build a map of existing floors by floor_number to preserve pdf_s3_key
+    # Reconcile floors by floor_number, updating in place so floor ids stay
+    # stable across saves. The frontend caches floorId for PDF upload/fetch, so
+    # minting a new floor uuid on every save (the old delete-then-recreate)
+    # left that cached id stale -> mid-session PDF calls 404. Existing floors'
+    # pdf_s3_key is preserved automatically (we never reassign it here).
     existing_floors = {f.floor_number: f for f in project.floors}
+    incoming_numbers = {fp.floor_number for fp in body.floors}
 
-    # Delete all existing elements for this project's floors
-    floor_ids = [f.id for f in project.floors]
-    if floor_ids:
-        await db.execute(delete(Element).where(Element.floor_id.in_(floor_ids)))
+    # Drop floors that are no longer present (cascades to their elements).
+    for floor_number, floor in existing_floors.items():
+        if floor_number not in incoming_numbers:
+            await db.delete(floor)
 
-    # Delete all existing floors
-    await db.execute(delete(Floor).where(Floor.project_id == project_id))
-
-    # Re-create floors and elements
-    new_floors = []
     for fp in body.floors:
-        # Preserve existing pdf_s3_key if the floor existed before
-        old_floor = existing_floors.get(fp.floor_number)
-        pdf_key = old_floor.pdf_s3_key if old_floor else None
+        floor = existing_floors.get(fp.floor_number)
+        if floor is None:
+            floor = Floor(project_id=project_id, floor_number=fp.floor_number)
+            db.add(floor)
+        floor.name = fp.name
+        floor.canvas_dimensions = fp.canvas_dimensions
+        floor.pixels_per_mesh = fp.pixels_per_mesh
+        floor.origin_pixels = fp.origin_pixels
+        floor.settings = fp.settings
+        await db.flush()  # ensure floor.id for the elements below
 
-        floor = Floor(
-            project_id=project_id,
-            floor_number=fp.floor_number,
-            name=fp.name,
-            canvas_dimensions=fp.canvas_dimensions,
-            pixels_per_mesh=fp.pixels_per_mesh,
-            origin_pixels=fp.origin_pixels,
-            settings=fp.settings,
-            pdf_s3_key=pdf_key,
-        )
-        db.add(floor)
-        await db.flush()  # get floor.id
-
+        # Replace this floor's elements wholesale (element identity isn't
+        # tracked across saves; element_index carries the frontend's id).
+        await db.execute(delete(Element).where(Element.floor_id == floor.id))
         for el in fp.elements:
-            element = Element(
+            db.add(Element(
                 floor_id=floor.id,
                 element_index=el.element_index,
                 type=el.type,
                 points=[p.model_dump() for p in el.points],
                 comments=el.comments,
-            )
-            db.add(element)
-        new_floors.append(floor)
+            ))
 
     await db.commit()
 
