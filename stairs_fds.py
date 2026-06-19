@@ -217,29 +217,48 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         stair_1_x2_list = stair_x_mid_list
         stair_2_x1_list = stair_x_mid_list
 
-        tread = math.ceil(100*(delta_interlandings / num_steps)) / 100
-
-        # Determine stair direction: use landing_up_side if provided, else heuristic
+        # Climb direction: landing_up_side if given, else derive from the landings'
+        # INNER edges (robust to rectangle point ordering). The old raw
+        # landing_y1/landing_y2 heuristic + source-anchored marching mis-placed the
+        # flight so it never reached the destination landing — see
+        # test_stairs_dev_db.py (Sam's Big Residential, Kirsty's House).
         if landing_up_side == 'bottom':
             go_plus_y = True
         elif landing_up_side == 'top':
             go_plus_y = False
         else:
-            go_plus_y = landing_y1 - halflanding_y2 < halflanding_y1 - landing_y2
-        if go_plus_y:
-            # plus y: STEP1 from landing toward half landing
-            stair1_y1_list = [landing_y2 + tread*x for x in range(num_steps)]
-            stair1_y2_list = [x + tread*2 for x in stair1_y1_list]
-            # STEP2: from half landing toward floor landing
-            stair2_y1_list = [halflanding_y1 - tread*(x+2) for x in range(num_steps)]
-            stair2_y2_list = [halflanding_y1 - tread*x for x in range(num_steps)]
+            go_plus_y = halflanding_inner_y > landing_inner_y
+
+        if stair_style == "individual":
+            # Individual treads: both flights share one Y range that fills the gap
+            # from the floor-landing inner edge toward the half landing.
+            tread = math.ceil(100*(delta_interlandings / num_steps)) / 100
+            if halflanding_inner_y < landing_inner_y:
+                stair1_y1_list = [landing_inner_y - tread*(x+1) for x in range(num_steps)]
+                stair1_y2_list = [landing_inner_y - tread*x for x in range(num_steps)]
+            else:
+                stair1_y1_list = [landing_inner_y + tread*x for x in range(num_steps)]
+                stair1_y2_list = [landing_inner_y + tread*(x+1) for x in range(num_steps)]
+            stair2_y1_list = list(stair1_y1_list)
+            stair2_y2_list = list(stair1_y2_list)
         else:
-            # minus y: STEP1 from landing toward half landing
-            stair1_y1_list = [landing_y1 - tread*x for x in range(num_steps)]
-            stair1_y2_list = [x - tread*2 for x in stair1_y1_list]
-            # STEP2: from half landing toward floor landing
-            stair2_y1_list = [halflanding_y2 + tread*x for x in range(num_steps)]
-            stair2_y2_list = [halflanding_y2 + tread*(x+2) for x in range(num_steps)]
+            # Overlapping style — mirror of the x branch: the TOP step (num_steps-1)
+            # sits on the destination landing's full extent and the flight marches
+            # back one tread per step toward the source. So the flight always
+            # bridges BOTH landings regardless of point order.
+            tread = math.ceil(100*(delta_interlandings / (num_steps - 1))) / 100
+            if go_plus_y:
+                # STEP1: top step on half landing, bottom step toward floor landing
+                stair1_y1_list = [halflanding_y1 - tread*(num_steps-1-x) for x in range(num_steps)]
+                stair1_y2_list = [halflanding_y2 - tread*(num_steps-1-x) for x in range(num_steps)]
+                # STEP2: top step on next floor landing, bottom step toward half landing
+                stair2_y1_list = [landing_y1 + tread*(num_steps-1-x) for x in range(num_steps)]
+                stair2_y2_list = [landing_y2 + tread*(num_steps-1-x) for x in range(num_steps)]
+            else:
+                stair1_y1_list = [halflanding_y1 + tread*(num_steps-1-x) for x in range(num_steps)]
+                stair1_y2_list = [halflanding_y2 + tread*(num_steps-1-x) for x in range(num_steps)]
+                stair2_y1_list = [landing_y1 - tread*(num_steps-1-x) for x in range(num_steps)]
+                stair2_y2_list = [landing_y2 - tread*(num_steps-1-x) for x in range(num_steps)]
 
     # tread = math.ceil(100*(delta_interlandings / 8)) / 100 # diff between landings / 8
     # steps should be halfway of landing expanse i.e. to middle of the landing to the outerside
@@ -279,12 +298,13 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                     s1_x2 = round(stair_1_x2_list[step_num], 3)
                     s1_y1 = round(stair1_y1_list[step_num], 3)
                     s1_y2 = round(stair1_y2_list[step_num], 3)
-                    # Extend bottom step into source landing
+                    # Extend bottom step onto the source (floor) landing. Use the
+                    # landing's outer edge so it reaches regardless of point order.
                     if step_num == 0:
                         if go_plus_y:
-                            s1_y1 = round(landing_y1, 3)
+                            s1_y1 = round(fl_min_y, 3)
                         else:
-                            s1_y2 = round(landing_y2, 3)
+                            s1_y2 = round(fl_max_y, 3)
                 current_step_line = f"&OBST ID='STEP1', XB = {_xb(s1_x1, s1_x2, s1_y1, s1_y2, current_step_z1, current_step_z2)}, SURF_ID = 'Plasterboard'/"
                 array.append(current_step_line)
     for idx, z_current in enumerate(z_halflanding):

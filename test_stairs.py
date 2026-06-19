@@ -436,7 +436,17 @@ class TestStepLandingZInterface:
     @pytest.mark.parametrize("label,lpts,hlpts,side", ALL_CONFIGS)
     def test_middle_steps_within_gap(self, style, label, lpts, hlpts, side):
         """Middle steps (not 0 or N-1) must be entirely within the gap between landings.
-        Only the first and last step of each flight may encroach on a landing."""
+        Only the first and last step of each flight may encroach on a landing.
+
+        Individual style only: the overlapping style deliberately uses
+        landing-depth treads that overlap onto the landings (a continuous solid
+        ramp), so its middle steps legitimately extend past the inner edges. The
+        meaningful invariant for overlapping is that each flight BRIDGES both
+        landings (top step on the destination, bottom on the source) — covered by
+        test_stairs_dev_db.py and the dev-DB sweep, not by a within-gap check."""
+        if style != "individual":
+            pytest.skip("within-gap rule applies to individual treads only; "
+                        "overlapping treads are landing-depth by design")
         lines = run_setup(lpts, hlpts, side, stair_style=style)
         data = get_parsed_lines(lines)
         fl = data["landing"][0]
