@@ -193,7 +193,7 @@ class TestStairRoof:
 
 class TestStairAOV:
     def test_aov_generated(self):
-        """Verify create_stair_aov produces a shaft OBST and AOV HOLE."""
+        """Default aov_type is 'hole': a single AOV HOLE, no shaft OBST."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 1.0, "y": 1.0}, {"x": 3.0, "y": 1.0},
@@ -206,15 +206,28 @@ class TestStairAOV:
         ]
         roof_z = 21.0
         result = create_stair_aov(elements, roof_z)
+        assert len(result) == 1
+        assert "&HOLE ID='AOV'" in result[0]
+        assert not any("&OBST ID='AOV Shaft'" in l for l in result)
+        # Default mode is always_open — no CTRL_ID
+        assert "CTRL_ID" not in result[0]
+
+    def test_aov_shaft_generated(self):
+        """aov_type='shaft' produces a shaft OBST and AOV HOLE."""
+        elements = [
+            {"comments": "landing", "id": 0, "points": [
+                {"x": 1.0, "y": 1.0}, {"x": 3.0, "y": 3.0}
+            ], "type": "polyline"},
+        ]
+        result = create_stair_aov(elements, 21.0, aov_type="shaft")
         assert len(result) == 2
         assert "&OBST ID='AOV Shaft'" in result[0]
         assert "&HOLE ID='AOV'" in result[1]
-        # Default mode is always_open — no CTRL_ID on either line
         assert "CTRL_ID" not in result[0]
         assert "CTRL_ID" not in result[1]
 
     def test_aov_timed_has_ctrl_id(self):
-        """When mode is timed, AOV HOLE should have CTRL_ID but shaft OBST should not."""
+        """When mode is timed, the AOV HOLE should have CTRL_ID (hole-only default)."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 1.0, "y": 1.0}, {"x": 3.0, "y": 3.0}
@@ -222,25 +235,23 @@ class TestStairAOV:
         ]
         result = create_stair_aov(elements, 21.0, aov_mode="timed")
         hole_line = [l for l in result if "&HOLE" in l][0]
-        obst_line = [l for l in result if "&OBST" in l][0]
         assert "CTRL_ID='Extract Vent1'" in hole_line
-        assert "CTRL_ID" not in obst_line
 
     def test_aov_sprinkler_has_ctrl_id(self):
-        """When mode is sprinkler, AOV HOLE should have CTRL_ID but shaft OBST should not."""
+        """When mode is sprinkler, AOV HOLE has CTRL_ID but shaft OBST does not."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 1.0, "y": 1.0}, {"x": 3.0, "y": 3.0}
             ], "type": "polyline"},
         ]
-        result = create_stair_aov(elements, 21.0, aov_mode="sprinkler")
+        result = create_stair_aov(elements, 21.0, aov_mode="sprinkler", aov_type="shaft")
         hole_line = [l for l in result if "&HOLE" in l][0]
         obst_line = [l for l in result if "&OBST" in l][0]
         assert "CTRL_ID='Extract Vent1'" in hole_line
         assert "CTRL_ID" not in obst_line
 
     def test_aov_1m_square(self):
-        """Verify the AOV HOLE is 1m x 1m and the shaft OBST is 1.4m x 1.4m."""
+        """The AOV HOLE is 1m x 1m (hole-only) and the shaft OBST is 1.4m x 1.4m."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 2.0, "y": 2.0}, {"x": 4.0, "y": 2.0},
@@ -248,26 +259,41 @@ class TestStairAOV:
             ], "type": "polyline"},
         ]
         roof_z = 10.0
+        # Hole-only: HOLE is 1m x 1m
         result = create_stair_aov(elements, roof_z, cell_size=0.2)
-        # Check HOLE is 1m x 1m
         hole_line = [l for l in result if "&HOLE" in l][0]
         xb_part = hole_line.split("XB=")[1].split("/")[0].split(",CTRL_ID")[0].split(", CTRL_ID")[0]
         vals = [float(v.strip()) for v in xb_part.split(",")]
         x1, x2, y1, y2, z1, z2 = vals
         assert abs((x2 - x1) - 1.0) < 0.01
         assert abs((y2 - y1) - 1.0) < 0.01
-        # Check shaft OBST is 1.4m x 1.4m
+        # Shaft: OBST is 1.4m x 1.4m
+        result = create_stair_aov(elements, roof_z, cell_size=0.2, aov_type="shaft")
         obst_line = [l for l in result if "&OBST" in l][0]
-        xb_part = obst_line.split("XB=")[1].split(",")[0:6]
-        # Re-parse: split on ", SURF_ID" first to isolate XB
         xb_str = obst_line.split("XB=")[1].split(", SURF_ID")[0]
         vals = [float(v.strip()) for v in xb_str.split(",")]
         sx1, sx2, sy1, sy2, sz1, sz2 = vals
         assert abs((sx2 - sx1) - 1.4) < 0.01
         assert abs((sy2 - sy1) - 1.4) < 0.01
 
+    def test_aov_hole_z_range(self):
+        """Hole-only AOV: HOLE z spans roof_z-0.4 to roof_z+0.4, no shaft OBST."""
+        elements = [
+            {"comments": "landing", "id": 0, "points": [
+                {"x": 2.0, "y": 2.0}, {"x": 4.0, "y": 4.0}
+            ], "type": "polyline"},
+        ]
+        roof_z = 21.0
+        result = create_stair_aov(elements, roof_z)
+        assert not any("&OBST" in l for l in result)
+        hole_line = [l for l in result if "&HOLE" in l][0]
+        xb_part = hole_line.split("XB=")[1].split("/")[0].split(",CTRL_ID")[0].split(", CTRL_ID")[0]
+        hvals = [float(v.strip()) for v in xb_part.split(",")]
+        assert hvals[4] == 20.6  # hole z1 = roof_z - 0.4
+        assert hvals[5] == 21.4  # hole z2 = roof_z + 0.4
+
     def test_aov_shaft_z_range(self):
-        """Verify shaft OBST z from roof_z to roof_z+2.0, HOLE z from roof_z-cell_size to roof_z+3.0."""
+        """Shaft OBST z from roof_z to roof_z+2.0, HOLE z from roof_z-cell_size to roof_z+3.0."""
         elements = [
             {"comments": "landing", "id": 0, "points": [
                 {"x": 2.0, "y": 2.0}, {"x": 4.0, "y": 2.0},
@@ -276,7 +302,7 @@ class TestStairAOV:
         ]
         roof_z = 21.0
         cell_size = 0.2
-        result = create_stair_aov(elements, roof_z, cell_size=cell_size)
+        result = create_stair_aov(elements, roof_z, cell_size=cell_size, aov_type="shaft")
         # Shaft OBST z range: 21.0 to 23.0
         obst_line = [l for l in result if "&OBST" in l][0]
         xb_str = obst_line.split("XB=")[1].split(", SURF_ID")[0]

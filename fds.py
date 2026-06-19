@@ -443,12 +443,15 @@ def trim_meshes_around_shafts(elements, extract_config, wall_thickness, cell_siz
     return elements
 
 
-def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array):
+def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array, aov_type="hole"):
     """Create up to 3 stair meshes: Lower (0.2m), Middle/fire floor (0.1m), Upper (0.2m).
 
     - Lower: 0 to z (below fire floor) — skipped if fire floor is at ground level
     - Middle: z to z+wall_height (fire floor) — 0.1m cell size
-    - Upper: z+wall_height to stair_enclosure_roof_z+0.4 — skipped if not enough height (<=2m)
+    - Upper: z+wall_height to the AOV headroom top — skipped if not enough height (<=2m)
+
+    The mesh top clears the AOV: a "shaft" AOV rises 3m above the roof, while a
+    hole-only AOV only needs 1m of headroom above the roof.
     """
     stair_meshes = [f for f in elements if f["comments"] == "stairMesh"]
     coarse_cell = 2 * cell_size  # 0.2m
@@ -491,8 +494,9 @@ def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enc
                 f"&MESH ID='Stair Mesh_Lower{idx}', IJK={ijk_x_coarse},{ijk_y_coarse},{ijk_z_lower}, XB={x1},{x2},{y1},{y2},{lower_z1},{lower_z2}/"
             )
 
-        # Upper mesh top
-        upper_z_top_raw = stair_enclosure_roof_z + 3.0
+        # Upper mesh top — clear the AOV (3m for a shaft, 1m for a hole-only AOV)
+        aov_headroom = 3.0 if aov_type == "shaft" else 1.0
+        upper_z_top_raw = stair_enclosure_roof_z + aov_headroom
         has_upper = (upper_z_top_raw - mid_z2) > 2
 
         if not has_upper:
@@ -836,8 +840,15 @@ def create_stair_roof(elements, stair_enclosure_roof_z, transparency=None):
     return [f"&OBST ID='Stair Roof', XB={x_min},{x_max},{y_min},{y_max},{z1},{z2}, SURF_ID='Plasterboard'{transparency_str}/"]
 
 
-def create_stair_aov(elements, stair_enclosure_roof_z, aov_mode="always_open", cell_size=0.2):
-    """Create a 1m x 1m roof vent hole centred on the landing midpoint."""
+def create_stair_aov(elements, stair_enclosure_roof_z, aov_mode="always_open", cell_size=0.2, aov_type="hole"):
+    """Create a 1m x 1m roof vent centred on the landing midpoint.
+
+    aov_type:
+      - "hole" (default): just a hole through the roof slab (0.4m above/below roof),
+        no shaft. Covers ~95% of scenarios.
+      - "shaft": a 1.4m x 1.4m plasterboard shaft rising 2m above the roof, with
+        the hole extending 3m above the roof (1m above the shaft top).
+    """
     landings = [f for f in elements if f["comments"] == "landing"]
     if not landings:
         return []
@@ -868,20 +879,30 @@ def create_stair_aov(elements, stair_enclosure_roof_z, aov_mode="always_open", c
         ctrl_id = f'{Control_ID_Extract}1'
         ctrl_suffix = f", CTRL_ID='{ctrl_id}'"
 
-    # Shaft OBST: 1.4m x 1.4m solid block above roof
-    shaft_x1 = round(cx - 0.7, 2)
-    shaft_x2 = round(cx + 0.7, 2)
-    shaft_y1 = round(cy - 0.7, 2)
-    shaft_y2 = round(cy + 0.7, 2)
-    shaft_z1 = round(stair_enclosure_roof_z, 2)
-    shaft_z2 = round(stair_enclosure_roof_z + 2.0, 2)
+    if aov_type == "shaft":
+        # Shaft OBST: 1.4m x 1.4m solid block 2m above roof
+        shaft_x1 = round(cx - 0.7, 2)
+        shaft_x2 = round(cx + 0.7, 2)
+        shaft_y1 = round(cy - 0.7, 2)
+        shaft_y2 = round(cy + 0.7, 2)
+        shaft_z1 = round(stair_enclosure_roof_z, 2)
+        shaft_z2 = round(stair_enclosure_roof_z + 2.0, 2)
 
-    # AOV HOLE: 1.0m x 1.0m through roof and shaft, extending 1m above shaft
-    hole_z1 = round(stair_enclosure_roof_z - cell_size, 2)
-    hole_z2 = round(stair_enclosure_roof_z + 3.0, 2)
+        # AOV HOLE: 1.0m x 1.0m through roof and shaft, extending 1m above shaft
+        hole_z1 = round(stair_enclosure_roof_z - cell_size, 2)
+        hole_z2 = round(stair_enclosure_roof_z + 3.0, 2)
+
+        return [
+            f"&OBST ID='AOV Shaft', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}, SURF_ID='Plasterboard'/",
+            f"&HOLE ID='AOV', XB={x1},{x2},{y1},{y2},{hole_z1},{hole_z2}{ctrl_suffix}/",
+        ]
+
+    # Hole-only AOV (default): 1.0m x 1.0m opening through the roof slab, no shaft.
+    # Hole spans 0.4m above and below the roof.
+    hole_z1 = round(stair_enclosure_roof_z - 0.4, 2)
+    hole_z2 = round(stair_enclosure_roof_z + 0.4, 2)
 
     return [
-        f"&OBST ID='AOV Shaft', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}, SURF_ID='Plasterboard'/",
         f"&HOLE ID='AOV', XB={x1},{x2},{y1},{y2},{hole_z1},{hole_z2}{ctrl_suffix}/",
     ]
 
@@ -1548,7 +1569,7 @@ def generate_sensor_devcs_from_elements(elements, z, sensor_heights, fsa_sensor_
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z,
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
-                 aov_mode="always_open", aov_activation_time=None, stair_style="overlapping", extract_config=None, inlet_config=None,
+                 aov_mode="always_open", aov_activation_time=None, aov_type="hole", stair_style="overlapping", extract_config=None, inlet_config=None,
                  zone_config=None, include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, fsa_sensor_heights=None, is_sprinklered=True,
                  fire_hrr=1000.0, fire_dimension=1.4, fire_height_above_floor=0.5, fire_base=0.0,
                  fire_type="growing", fire_growth_rate="medium", fire_custom_alpha=None,
@@ -1599,7 +1620,7 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array, wall_height=wall_height, inlets=inlets if inlets else None, inlet_config=inlet_config)
 
     # 3a. Stair meshes (Lower 0.2m / Middle 0.1m / Upper 0.2m) + mesh vent at ZMAX
-    fds_array = create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array)
+    fds_array = create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array, aov_type=aov_type)
 
     # 4. Obstructions
     fire_wall_transparency = obstruction_transparency.get("fireFloorWalls", 0.0)
@@ -1664,7 +1685,7 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     fds_array = add_array_to_fds_array(roof_lines, fds_array)
 
     # 9b. AOV (roof vent hole)
-    aov_lines = create_stair_aov(elements, stair_enclosure_roof_z, aov_mode=aov_mode)
+    aov_lines = create_stair_aov(elements, stair_enclosure_roof_z, aov_mode=aov_mode, aov_type=aov_type)
     fds_array = add_array_to_fds_array(aov_lines, fds_array)
 
     # 9c. AOV controls (only when mode is timed or sprinkler)

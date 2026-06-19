@@ -108,6 +108,7 @@ class ElementsData(BaseModel):
     obstruction_transparency: Optional[dict] = {}
     aov_mode: Optional[str] = "always_open"
     aov_activation_time: Optional[float] = None
+    aov_type: Optional[str] = "hole"
     stair_style: Optional[str] = "overlapping"
     extract_config: Optional[dict] = {}
     inlet_config: Optional[dict] = {}
@@ -187,6 +188,7 @@ def _read_elements_impl(body: ElementsData):
     obstruction_transparency = body.obstruction_transparency
     aov_mode = body.aov_mode
     aov_activation_time = body.aov_activation_time
+    aov_type = body.aov_type
     stair_style = body.stair_style
     extract_config = body.extract_config
     inlet_config = body.inlet_config
@@ -221,6 +223,7 @@ def _read_elements_impl(body: ElementsData):
                             obstruction_transparency=obstruction_transparency,
                             aov_mode=aov_mode,
                             aov_activation_time=aov_activation_time,
+                            aov_type=aov_type,
                             stair_style=stair_style,
                             extract_config=extract_config,
                             inlet_config=inlet_config,
