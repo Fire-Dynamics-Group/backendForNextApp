@@ -499,3 +499,116 @@ class TestDefaultStyle:
             LANDING_RIGHT, HALFLANDING_RIGHT, "right", stair_style="overlapping"
         )
         assert lines_default == lines_explicit
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Regression fixtures captured from REAL projects in the production database.
+# Geometry is the actual user-drawn landings after the production transform that
+# fds.py applies before setup_landings (origin-relative -> px-to-m -> Y-flip), so
+# these are in FDS metres and feed setup_landings exactly as the live /fds route
+# does. Pulled from the live API: GET /projects -> floors[0] elements where
+# comments == 'landing'. Vertical params come from each project's settings.
+#
+# Both are x-direction stairs (landings offset in x). They guard the two fixes:
+#   * direction heuristic now compares landing CENTRES, not corners — 0406 North
+#     Finchley's x-offset landings have diagonally-ordered corner points that the
+#     old test misread as a 'y' stair, sending ~half the steps (54/96) outside
+#     the stair footprint;
+#   * the bottom STEP2 tread is no longer collapsed to zero depth.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# label, floor_landing_pts, half_landing_pts, fire_floor, total_floors, z, roof_z, expected STEP1 axis
+REAL_PROJECT_STAIRS = [
+    (
+        "ian_test_2",
+        [{"x": 10.0161, "y": 6.2125}, {"x": 12.6786, "y": 0.2536}],
+        [{"x": 14.5804, "y": 5.9589}, {"x": 16.3554, "y": 0.2536}],
+        2, 8, 7.0, 25.0, "x",
+    ),
+    (
+        "0406_north_finchley_gf",
+        [{"x": 2.827, "y": 11.7995}, {"x": 1.2291, "y": 16.2244}],
+        [{"x": 6.0227, "y": 16.2244}, {"x": 7.9893, "y": 11.7995}],
+        0, 3, 0.0, 11.8, "x",
+    ),
+]
+
+
+def _footprint(data):
+    """Union bounding box (x,y) of every LANDING + HALFLANDING slab."""
+    lh = data["landing"] + data["halflanding"]
+    return (
+        min(b["x1"] for b in lh), max(b["x2"] for b in lh),
+        min(b["y1"] for b in lh), max(b["y2"] for b in lh),
+    )
+
+
+def _dominant_axis(steps):
+    """The horizontal axis the treads span the most — i.e. the way the flight runs."""
+    xs = max(s["x2"] for s in steps) - min(s["x1"] for s in steps)
+    ys = max(s["y2"] for s in steps) - min(s["y1"] for s in steps)
+    return "x" if xs >= ys else "y"
+
+
+@pytest.mark.parametrize("style", ALL_STYLES)
+@pytest.mark.parametrize(
+    "label,floor_pts,half_pts,fire_floor,total_floors,z,roof_z,expected_axis",
+    REAL_PROJECT_STAIRS,
+    ids=[r[0] for r in REAL_PROJECT_STAIRS],
+)
+class TestRealProjectStairs:
+    """End-to-end stair invariants on real production geometry, both styles."""
+
+    def _data(self, floor_pts, half_pts, fire_floor, total_floors, z, roof_z, style):
+        # Real projects carried no explicit landing roles, so reproduce the
+        # production array-order behaviour: landings[0]=floor, landings[1]=half.
+        lines = run_setup(
+            floor_pts, half_pts, landing_up_side=None, landing_roles={},
+            fire_floor=fire_floor, total_floors=total_floors, z=z,
+            stair_enclosure_roof_z=roof_z, stair_style=style,
+        )
+        return get_parsed_lines(lines)
+
+    def test_step1_runs_along_expected_axis(self, label, floor_pts, half_pts,
+                                            fire_floor, total_floors, z, roof_z,
+                                            expected_axis, style):
+        data = self._data(floor_pts, half_pts, fire_floor, total_floors, z, roof_z, style)
+        assert _dominant_axis(data["step1"]) == expected_axis, (
+            f"[{label}/{style}] STEP1 runs along {_dominant_axis(data['step1'])}, "
+            f"expected {expected_axis} (direction heuristic misclassified)"
+        )
+
+    def test_no_degenerate_steps(self, label, floor_pts, half_pts, fire_floor,
+                                 total_floors, z, roof_z, expected_axis, style):
+        data = self._data(floor_pts, half_pts, fire_floor, total_floors, z, roof_z, style)
+        for kind in ("step1", "step2"):
+            for i, s in enumerate(data[kind]):
+                assert abs(s["x2"] - s["x1"]) > 0.02, f"[{label}/{style}] {kind}[{i}] zero x-depth"
+                assert abs(s["y2"] - s["y1"]) > 0.02, f"[{label}/{style}] {kind}[{i}] zero y-depth"
+
+    def test_steps_confined_to_landing_footprint(self, label, floor_pts, half_pts,
+                                                 fire_floor, total_floors, z, roof_z,
+                                                 expected_axis, style):
+        data = self._data(floor_pts, half_pts, fire_floor, total_floors, z, roof_z, style)
+        fx1, fx2, fy1, fy2 = _footprint(data)
+        TOL = 0.05
+        for kind in ("step1", "step2"):
+            for i, s in enumerate(data[kind]):
+                assert s["x1"] >= fx1 - TOL and s["x2"] <= fx2 + TOL, (
+                    f"[{label}/{style}] {kind}[{i}] x[{s['x1']},{s['x2']}] "
+                    f"escapes footprint x[{fx1:.2f},{fx2:.2f}]"
+                )
+                assert s["y1"] >= fy1 - TOL and s["y2"] <= fy2 + TOL, (
+                    f"[{label}/{style}] {kind}[{i}] y[{s['y1']},{s['y2']}] "
+                    f"escapes footprint y[{fy1:.2f},{fy2:.2f}]"
+                )
+
+    def test_step1_z_ascends_monotonically_per_flight(self, label, floor_pts, half_pts,
+                                                      fire_floor, total_floors, z, roof_z,
+                                                      expected_axis, style):
+        data = self._data(floor_pts, half_pts, fire_floor, total_floors, z, roof_z, style)
+        s1 = data["step1"]
+        for f in range(len(s1) // 8):
+            zc = [(b["z1"] + b["z2"]) / 2 for b in s1[f * 8:f * 8 + 8]]
+            for i in range(1, len(zc)):
+                assert zc[i] > zc[i - 1], f"[{label}/{style}] flight {f} step {i} z not ascending"

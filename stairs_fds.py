@@ -104,8 +104,17 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
         return fds lines
     '''
     num_steps = 8
-    delta_x1 = abs(landing_x1 - halflanding_x1)
-    delta_y1 = abs(landing_y1 - halflanding_y1)
+    # Stair runs along the axis the two landings are offset on. Compare the
+    # landings' bounding-box CENTRES, not single corners: the points come in as
+    # two opposite corners whose ordering varies per drawing, so a corner-to-
+    # corner delta can pick the wrong axis when the rectangles are offset
+    # diagonally (e.g. 0406 North Finchley: x-offset stair misread as 'y').
+    landing_cx = (landing_x1 + landing_x2) / 2
+    landing_cy = (landing_y1 + landing_y2) / 2
+    halflanding_cx = (halflanding_x1 + halflanding_x2) / 2
+    halflanding_cy = (halflanding_y1 + halflanding_y2) / 2
+    delta_x1 = abs(landing_cx - halflanding_cx)
+    delta_y1 = abs(landing_cy - halflanding_cy)
     if delta_x1 > delta_y1:
         stair_direction = 'x'
         # Inner edges: the edges of each landing facing the gap between them
@@ -339,11 +348,15 @@ def setup_landings(comments, fire_floor, total_floors, elements, px_per_m, z, st
                         s2_x2 = round(stair_x2_list[step_num], 3)
                         s2_y1 = round(stair2_y1_list[step_num], 3)
                         s2_y2 = round(stair2_y2_list[step_num], 3)
+                        # Bottom step overlaps the full source half landing,
+                        # mirroring STEP1's bottom step which spans the full source
+                        # floor landing. The per-step list already pins one edge to
+                        # a half-landing boundary, so setting only the other edge
+                        # (the old code) collapsed step 0 to zero depth — set both
+                        # edges to the half-landing extents instead.
                         if step_num == 0:
-                            if go_plus_y:
-                                s2_y1 = round(halflanding_y1, 3)
-                            else:
-                                s2_y2 = round(halflanding_y2, 3)
+                            s2_y1 = round(halflanding_y1, 3)
+                            s2_y2 = round(halflanding_y2, 3)
                     current_step_line = f"&OBST ID='STEP2', XB = {_xb(s2_x1, s2_x2, s2_y1, s2_y2, round(current_step_z1, 3), round(current_step_z2, 3))}, SURF_ID = 'Plasterboard'/"
                     array.append(current_step_line)
     # also half landing
