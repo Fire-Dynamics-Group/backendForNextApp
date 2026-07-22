@@ -11,10 +11,16 @@ python -m ops.daily      # one sweep, prints a line per service, exits
 pytest test_ops_uptime.py test_ops_health.py test_ops_daily.py -q
 ```
 
-Live run against the estate on 2026-07-22: 8 of 9 services UP. The one DOWN is
-`backendForNextApp (prod)` on `/health` — the endpoint exists in this repo but
-is **not deployed yet**, so it 404s. It goes green on the next backend deploy.
-48 unit tests pass.
+Live run against the estate on 2026-07-22: **10 of 10 UP**, exit 0.
+58 unit tests pass.
+
+One compromise to know about: `backendForNextApp (prod)` is only a *liveness*
+check on `/docs`, even though it owns Postgres and MinIO and deserves a deep
+one. `/health` exists in this repo but prod has not been deployed since
+2026-06-12 (`dev` is 48 commits ahead of `master`), so a deep check would
+report DOWN and alert every day until the backend ships.
+`test_ops_daily.py::TestBackendCheckIsTemporarilyShallow` fails the moment that
+is fixed, so it cannot be forgotten.
 
 ## What it checks
 
@@ -138,7 +144,10 @@ fails the suite rather than silently monitoring nothing.
 
 - **Deploy the cron service (above) — until then nothing runs on a schedule.**
   This is the only thing standing between "written" and "working".
-- Deploy the backend so `/health` stops 404ing.
+- Deploy the backend so `/health` exists, then switch its entry back to a deep
+  check (`url` → `.../health`, `deep=True`) and delete
+  `TestBackendCheckIsTemporarilyShallow`. Until then the service that owns
+  Postgres and the bucket is the *least* well monitored thing in the estate.
 - `i-macs` is not yet in `SERVICES` — no deployed URL was found for it.
 - **Dead-man's-switch.** Only failures are alerted, so a cron that never fires
   (bad schedule, deleted service, Railway outage) is indistinguishable from a

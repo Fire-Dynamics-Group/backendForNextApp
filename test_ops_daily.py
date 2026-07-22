@@ -64,12 +64,38 @@ class TestEstateRegistry:
             if service.deep:
                 assert service.url.rstrip("/").endswith("/health"), service.name
 
-    def test_the_data_owning_backends_are_checked_deeply(self):
-        """These two own Postgres and MinIO. Liveness alone cannot see a dead
+    def test_the_mobile_backend_is_checked_deeply(self):
+        """It owns Postgres and MinIO. Liveness alone cannot see a dead
         database behind a serving API - the failure mode that bit us."""
         deep = {s.name for s in SERVICES if s.deep}
         assert "mobile backend" in deep
-        assert "backendForNextApp (prod)" in deep
+
+
+class TestBackendCheckIsTemporarilyShallow:
+    """backendForNextApp owns Postgres and MinIO and *should* be checked deeply.
+
+    It is not, yet: /health exists in this repo but prod has not been deployed
+    since 2026-06-12, so a deep check would report DOWN and alert every day
+    until the backend ships.
+
+    This test documents that compromise rather than letting it rot silently.
+    When prod is redeployed, point the entry at /health with deep=True and
+    delete this class - the assertions below will fail and tell you to.
+    """
+
+    def _backend(self) -> Service:
+        return next(s for s in SERVICES if s.name == "backendForNextApp (prod)")
+
+    def test_backend_is_still_only_a_liveness_check(self):
+        assert self._backend().deep is False, (
+            "prod now has /health - switch this entry to deep=True and delete "
+            "TestBackendCheckIsTemporarilyShallow"
+        )
+
+    def test_backend_probes_docs_because_it_has_no_root_route(self):
+        """GET / on this backend is a genuine 404, so /docs is the only usable
+        liveness path until /health is deployed."""
+        assert self._backend().url.endswith("/docs")
 
 
 class TestServiceUrlResolution:

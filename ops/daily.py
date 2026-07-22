@@ -64,11 +64,17 @@ class Service:
 #     liveness fallback would have to be /docs. It gets a deep check instead.
 SERVICES: list[Service] = [
     # --- backends that own data -------------------------------------------
+    # TEMPORARY: liveness on /docs, not the deep /health check this deserves.
+    # /health exists in this repo but prod has not been deployed since
+    # 2026-06-12, so probing it would report DOWN and alert every single day
+    # until the backend ships - which is how an alert channel becomes one you
+    # mute. Switch `url` to .../health and `deep=True` the moment prod is
+    # redeployed; test_ops_daily.py::TestBackendCheckIsTemporarilyShallow is
+    # there to make sure this does not get forgotten.
     Service(
         name="backendForNextApp (prod)",
         env_var="BACKEND_PROBE_URL",
-        url="https://backendfornextapp-production.up.railway.app/health",
-        deep=True,
+        url="https://backendfornextapp-production.up.railway.app/docs",
     ),
     Service(
         name="mobile backend",
