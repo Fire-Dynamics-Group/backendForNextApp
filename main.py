@@ -46,6 +46,54 @@ if _MCP_AVAILABLE:
 def mcp_status():
     return {"available": _MCP_AVAILABLE, "import_error": _MCP_IMPORT_ERROR}
 
+
+@app.get("/health")
+async def health():
+    """Deep health: API, Postgres, required tables, and the S3/MinIO bucket.
+
+    Read by the daily sweep in ops/daily.py. `/docs` answering 200 says nothing
+    about the database or the bucket, and every FD tool posts here - so this
+    endpoint exists to make a dependency outage visible to monitoring instead
+    of to users.
+
+    Always returns 200 with a status field. A health check that 500s when a
+    dependency is down cannot report *which* dependency is down.
+    """
+    from sqlalchemy import inspect, text
+
+    from database import engine
+    from services.health_service import REQUIRED_TABLES, build_health
+    from services.s3_service import storage_available
+
+    database = False
+    database_error = None
+    tables: dict[str, bool] = {}
+
+    if engine is None:
+        database_error = "DATABASE_URL is not configured"
+    else:
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+                database = True
+                names = set(
+                    await conn.run_sync(
+                        lambda sync_conn: inspect(sync_conn).get_table_names()
+                    )
+                )
+                tables = {name: name in names for name in REQUIRED_TABLES}
+        except Exception as e:  # noqa: BLE001 - report it, never raise it
+            database_error = f"{type(e).__name__}: {e}"
+
+    # storage_available() is documented never to raise.
+    return build_health(
+        database=database,
+        tables=tables,
+        storage=storage_available(),
+        database_error=database_error,
+        storage_error=None,
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
