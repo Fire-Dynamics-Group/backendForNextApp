@@ -2,9 +2,10 @@
 
     python -m ops.daily
 
-Exits 0 when nothing is DOWN, 1 otherwise - so a failure shows up as a failed
-Railway run and rides the platform's existing failure notifications instead of
-needing a mail/Slack integration of its own.
+Exits 0 when nothing is DOWN, 1 otherwise, which marks the run failed in the
+Railway UI. That is *not* the alert: Railway does not notify on a cron service
+exiting non-zero, it only records the failed run. The alert is the Telegram
+message sent from ops/notify.py. Do not remove it and rely on the exit code.
 
 UNKNOWN never fails the run: "the tunnel would not let us ask" is not evidence
 the service is down, and paging on it is how monitors earn their way onto the
@@ -30,6 +31,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 from ops.health import classify_health
+from ops.notify import format_alert, send_telegram
 from ops.uptime import CheckResult, Verdict, probe
 
 
@@ -154,6 +156,11 @@ def run() -> int:
         print(f"\n{len(down)} service(s) DOWN:", flush=True)
         for line in down:
             print(f"  - {line}", flush=True)
+
+        # Railway does not alert on a cron service exiting non-zero, so the
+        # exit code alone would fail silently in the logs. This is the alert.
+        if send_telegram(format_alert(down, total_checked=len(SERVICES))):
+            print("Alert sent to Telegram.", flush=True)
     else:
         print("\nNothing down.", flush=True)
 

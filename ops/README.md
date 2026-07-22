@@ -81,9 +81,34 @@ Not done yet. Steps:
    project env vars.
 2. Start command: `python -m ops.daily`
 3. Set a **Cron Schedule** on the service (e.g. `0 8 * * *`).
-4. Confirm failure notifications are on for the project — the job exits **1**
-   when something is DOWN, so a failed run *is* the alert. No mail/Slack
-   integration needed for v1.
+4. Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` on the service (below).
+
+### Alerting: Telegram, not the exit code
+
+**Railway does not notify you when a cron service exits non-zero.** It records
+the run as failed and nothing else — no email, no webhook. An earlier version
+of this file claimed the exit code *was* the alert; that was wrong, and it
+would have meant the sweep failing silently in the logs forever.
+
+The exit code is still set (it marks the run failed in the Railway UI and is
+the right Unix behaviour), but the alert is a Telegram message from
+`ops/notify.py`.
+
+Setup, once:
+
+1. Message [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token.
+2. Send your new bot a message, then read your chat id from
+   `https://api.telegram.org/bot<TOKEN>/getUpdates`.
+3. Set both as variables on the cron service:
+   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`.
+
+Unset variables are not an error — the sweep prints that it skipped the alert
+and still exits with the right code, so local runs need no credentials.
+
+**Only failures are sent.** A daily "all fine" message is how an alert channel
+becomes one you mute. The trade-off is that silence cannot distinguish "all
+healthy" from "the cron never ran" — see *Next* for the dead-man's-switch that
+closes that gap.
 
 The process must exit; Railway will not start the next run while the previous
 one is alive. `ops/daily.py` returns from `run()` and never blocks.
@@ -115,6 +140,11 @@ fails the suite rather than silently monitoring nothing.
   This is the only thing standing between "written" and "working".
 - Deploy the backend so `/health` stops 404ing.
 - `i-macs` is not yet in `SERVICES` — no deployed URL was found for it.
+- **Dead-man's-switch.** Only failures are alerted, so a cron that never fires
+  (bad schedule, deleted service, Railway outage) is indistinguishable from a
+  healthy estate. Pinging healthchecks.io on each *successful* run closes it:
+  the monitor alerts when the ping stops arriving. Not done — it is the one
+  remaining way this can fail silently.
 - Persist results to an `ops_check_runs` table if you ever want history or a
   digest. Deliberately skipped in v1 — logs plus exit code are enough to answer
   "is it up".
