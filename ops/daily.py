@@ -80,9 +80,20 @@ SERVICES: list[Service] = [
     # MinIO's own liveness probe. Checked directly as well as through the
     # backends' /health so an outage is attributable: if this is DOWN too, the
     # bucket is the fault, not the app that depends on it.
+    #
+    # These are two *different* MinIO instances and it is easy to confuse them:
+    # fd13 is the one backendForNextApp writes to (S3_ENDPOINT_URL, bucket
+    # "upload-canvas"); a0e4 serves the Outlook add-in's static assets. Probing
+    # only a0e4 - the original mistake here - would have reported storage
+    # healthy while the bucket the backend actually uses was down.
     Service(
-        name="MinIO bucket",
+        name="MinIO (upload-canvas bucket)",
         env_var="MINIO_PROBE_URL",
+        url="https://bucket-production-fd13.up.railway.app/minio/health/live",
+    ),
+    Service(
+        name="MinIO (addin assets bucket)",
+        env_var="MINIO_ADDIN_PROBE_URL",
         url="https://bucket-production-a0e4.up.railway.app/minio/health/live",
     ),
     # --- frontends ----------------------------------------------------------
