@@ -180,14 +180,17 @@ JSON (no chart this round):
      (0.10 vs 0.27) is where the source quirks bite hardest and is below any design target.
      `Panattoni_2k_curves.png` is the visual reference.
 
-   **Source fidelity findings (decision pending).** The engine uses EC1-correct physics; the
-   validated source has three quirks it deviates from (each marked `# FIDELITY` in code):
-   (a) reuses one LHS column for fuel load *and* opening % → forces correlation (we sample
-   independently); (b) drops the EC1 `t*max ≤ 0.5` cooling branch (rate 625) via an overwrite
-   (we restore it); (c) evaluates steel specific heat from column 0 only (we do it per
-   simulation). These only affect the reliability number (not thickness) and only materially in
-   the low-FR tail. **Open decision:** keep corrected physics (recommended) vs replicate the
-   source for bit-exact reliability parity.
+   **Source fidelity findings (DECIDED 2026-06-04, ratified via issue #12 2026-08-05).** The
+   engine uses EC1-correct physics; the validated source has three quirks it deviates from
+   (each marked `# FIDELITY` in code): (a) reuses one LHS column for fuel load *and* opening %
+   → forces correlation (we sample independently); (b) drops the EC1 `t*max ≤ 0.5` cooling
+   branch (rate 625) via an overwrite (we restore it); (c) evaluates steel specific heat from
+   column 0 only (we do it per simulation). These only affect the reliability number (not
+   thickness) and only materially in the low-FR tail. **Decision: keep the EC1-correct
+   physics** — do not replicate the source quirks. Consequence accepted: thickness stays
+   exact-parity with Panattoni; reliability matches the workbook only in the design-relevant
+   band (FR ≥ 35 within ~1–3 %; FR 30 diverges 0.10 vs 0.27 — the buggy tail). Revisit only
+   if a future validation exercise needs bit-exact reproduction of the source outputs.
 2. **Monotonicity:** FR 30 / 60 / 90 → strictly increasing reliability and non-decreasing
    thickness.
 3. **Regression:** deterministic `/timeEq` jpeg is byte-for-byte unchanged after the
