@@ -39,8 +39,9 @@ PANATTONI = dict(
 
 DEFAULT_OCCUPANCY = "Office"
 
-# FR periods spanning mid (~0.9), high (~0.97) and very-high (~0.99) reliability bands
-FR_PERIODS = [35, 60, 90]
+# Standard UK fire resistance ratings. Reliability bands they hit vary by
+# occupancy (e.g. Office ~0.10 / 0.97 / 0.99, Restaurant ~0.52 / 0.97 / 0.99).
+FR_PERIODS = [30, 60, 90]
 
 # nSim -> K seeded repeats. K tapers at large nSim to keep the sweep ~1 h;
 # the flattening story is told by the smaller nSim anyway.
