@@ -27,14 +27,17 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import teq_reliability as tr
 
-# Panattoni benchmark compartment (matches test_teq_reliability.py / the workbook)
+# Panattoni benchmark compartment (matches test_teq_reliability.py / the workbook).
+# Occupancy is a separate knob: the study repeats across fire-load distributions
+# (Gumbel vs log-normal, rising CoV) and the worst-case N across them wins.
 PANATTONI = dict(
-    occupancy="Office",
     floor_area=64 * 13,                                          # 832
     total_area=2 * (64 * 3.5) + 2 * (13 * 3.5) + 2 * (64 * 13),  # 2203
     vent_widths=[0, 0, 64, 0],
     vent_heights=[0, 0, 3.5, 0],
 )
+
+DEFAULT_OCCUPANCY = "Office"
 
 # FR periods spanning a mid (~0.9) and high (~0.97) reliability band
 FR_PERIODS = [35, 60]
@@ -86,14 +89,16 @@ def recommend_n(stats_by_n: dict, tol: float):
 
 
 # ------------------------------------------------------------------ the sweep
-def run_study(fr_periods, schedule, base_seed, engine=None, log=None) -> dict:
+def run_study(fr_periods, schedule, base_seed, engine=None, log=None,
+              occupancy=DEFAULT_OCCUPANCY) -> dict:
     """Repeat the reliability run K times per (FR, nSim) cell and aggregate spread.
 
     ``engine`` defaults to ``tr.compute_reliability``; injectable for tests.
     Result dict is JSON-ready (string keys).
     """
     engine = engine or (lambda **kw: tr.compute_reliability(
-        **PANATTONI, combustion_factor=1.0, is_sprinklered=False, **kw))
+        **PANATTONI, occupancy=occupancy, combustion_factor=1.0,
+        is_sprinklered=False, **kw))
     t0 = time.perf_counter()
     results, raw = {}, {}
     for fr in fr_periods:
@@ -111,8 +116,9 @@ def run_study(fr_periods, schedule, base_seed, engine=None, log=None) -> dict:
                     f"band=+/-{s['band_half_width']:.4f} "
                     f"[{time.perf_counter() - t0:.0f}s elapsed]")
     return {
-        "scenario": "Panattoni benchmark (Office 64x13x3.5, one openable wall, "
-                    "sect 135, b=1200, 500C, no factors)",
+        "scenario": f"Panattoni benchmark ({occupancy} 64x13x3.5, one openable "
+                    "wall, sect 135, b=1200, 500C, no factors)",
+        "occupancy": occupancy,
         "fr_periods": [str(f) for f in fr_periods],
         "schedule": {str(n): k for n, k in schedule.items()},
         "base_seed": base_seed,
@@ -131,8 +137,8 @@ def make_chart(study: dict, path: str):
 
     frs = study["fr_periods"]
     fig, axes = plt.subplots(len(frs), 1, figsize=(9, 4.5 * len(frs)), squeeze=False)
-    colors = {"35": "limegreen", "60": "deepskyblue"}
-    for ax, fr in zip(axes[:, 0], frs):
+    palette = ["limegreen", "deepskyblue", "orange", "orchid"]
+    for i, (ax, fr) in enumerate(zip(axes[:, 0], frs)):
         stats = study["results"][fr]
         ns = sorted(int(n) for n in stats)
         mean = [stats[str(n)]["mean"] for n in ns]
@@ -141,7 +147,7 @@ def make_chart(study: dict, path: str):
         p_hat = mean[-1]  # best estimate of true p from the largest nSim
         an_lo = [p_hat - 1.96 * analytic_se(p_hat, n) for n in ns]
         an_hi = [p_hat + 1.96 * analytic_se(p_hat, n) for n in ns]
-        c = colors.get(fr, "limegreen")
+        c = palette[i % len(palette)]
         ax.fill_between(ns, lo, hi, color=c, alpha=0.45,
                         label="empirical 2.5–97.5% band (LHS engine)")
         ax.plot(ns, mean, "k--", lw=1.2, label="mean of K repeats")
@@ -157,7 +163,8 @@ def make_chart(study: dict, path: str):
         ax.legend(loc="best", fontsize=8)
         ax.grid(True, which="both", alpha=0.25)
     fig.suptitle("Monte Carlo TEQ reliability — convergence study "
-                 f"(Panattoni scenario, base seed {study['base_seed']})", y=0.995)
+                 f"({study.get('occupancy', 'Office')}, Panattoni geometry, "
+                 f"base seed {study['base_seed']})", y=0.995)
     fig.tight_layout()
     fig.savefig(path, dpi=300)
     plt.close(fig)
@@ -209,13 +216,22 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--quick", action="store_true", help="smoke run (~1 min)")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--occupancy", default=DEFAULT_OCCUPANCY,
+                    help="fire-load distribution to sample (PD 7974 Table A.5 name)")
+    ap.add_argument("--fr-periods", type=int, nargs="+", default=FR_PERIODS,
+                    help="FR periods (min) spanning mid and high reliability bands")
     args = ap.parse_args()
 
     schedule = QUICK_SCHEDULE if args.quick else FULL_SCHEDULE
-    study = run_study(FR_PERIODS, schedule, args.seed, log=print)
+    study = run_study(args.fr_periods, schedule, args.seed, log=print,
+                      occupancy=args.occupancy)
 
     os.makedirs(OUT_DIR, exist_ok=True)
     tag = "quick" if args.quick else "full"
+    if args.occupancy != DEFAULT_OCCUPANCY:
+        tag += "_" + args.occupancy.lower().replace(" ", "_")
+    if args.fr_periods != FR_PERIODS:
+        tag += "_fr" + "-".join(str(f) for f in args.fr_periods)
     json_path = os.path.join(OUT_DIR, f"convergence_{tag}.json")
     chart_path = os.path.join(OUT_DIR, f"convergence_{tag}.png")
     md_path = os.path.join(OUT_DIR, f"convergence_{tag}.md")

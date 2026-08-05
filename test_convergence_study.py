@@ -116,3 +116,12 @@ class TestRunStudy:
         assert out["schedule"] == {"100": 1}
         assert out["base_seed"] == 7
         assert "runtime_s" in out
+
+    def test_occupancy_defaults_to_office_and_is_recorded(self):
+        out = cs.run_study(fr_periods=[60], schedule={100: 1}, base_seed=7,
+                           engine=self._stub_engine([]))
+        assert out["occupancy"] == "Office"
+        out2 = cs.run_study(fr_periods=[60], schedule={100: 1}, base_seed=7,
+                            engine=self._stub_engine([]), occupancy="Restaurant")
+        assert out2["occupancy"] == "Restaurant"
+        assert "Restaurant" in out2["scenario"]
