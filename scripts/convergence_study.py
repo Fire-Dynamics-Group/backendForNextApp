@@ -153,8 +153,7 @@ def make_chart(study: dict, path: str):
         ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: f"{int(v):,}"))
         ax.set_xlabel("Number of simulations (nSim)")
         ax.set_ylabel("Reliability estimate")
-        ax.set_title(f"FR {fr} min — spread of reliability estimate vs nSim "
-                     f"(K per point: {study['schedule']})")
+        ax.set_title(f"FR {fr} min — spread of reliability estimate vs nSim")
         ax.legend(loc="best", fontsize=8)
         ax.grid(True, which="both", alpha=0.25)
     fig.suptitle("Monte Carlo TEQ reliability — convergence study "
