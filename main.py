@@ -51,6 +51,54 @@ if _MCP_AVAILABLE:
 def mcp_status():
     return {"available": _MCP_AVAILABLE, "import_error": _MCP_IMPORT_ERROR}
 
+
+@app.get("/health")
+async def health():
+    """Deep health: API, Postgres, required tables, and the S3/MinIO bucket.
+
+    Read by the daily sweep in ops/daily.py. `/docs` answering 200 says nothing
+    about the database or the bucket, and every FD tool posts here - so this
+    endpoint exists to make a dependency outage visible to monitoring instead
+    of to users.
+
+    Always returns 200 with a status field. A health check that 500s when a
+    dependency is down cannot report *which* dependency is down.
+    """
+    from sqlalchemy import inspect, text
+
+    from database import engine
+    from services.health_service import REQUIRED_TABLES, build_health
+    from services.s3_service import storage_available
+
+    database = False
+    database_error = None
+    tables: dict[str, bool] = {}
+
+    if engine is None:
+        database_error = "DATABASE_URL is not configured"
+    else:
+        try:
+            async with engine.connect() as conn:
+                await conn.execute(text("SELECT 1"))
+                database = True
+                names = set(
+                    await conn.run_sync(
+                        lambda sync_conn: inspect(sync_conn).get_table_names()
+                    )
+                )
+                tables = {name: name in names for name in REQUIRED_TABLES}
+        except Exception as e:  # noqa: BLE001 - report it, never raise it
+            database_error = f"{type(e).__name__}: {e}"
+
+    # storage_available() is documented never to raise.
+    return build_health(
+        database=database,
+        tables=tables,
+        storage=storage_available(),
+        database_error=database_error,
+        storage_error=None,
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
@@ -83,7 +131,9 @@ class Element(BaseModel):
     comments: str
     id: int
     points: List[Point]
-    type: str 
+    type: str
+    zoneName: Optional[str] = None
+    fsaDistance: Optional[float] = None
 
 class ElementsData(BaseModel):
     elementList: List[Element]
@@ -100,6 +150,7 @@ class ElementsData(BaseModel):
     include_sensors: Optional[bool] = True
     corridor_sensor_heights: Optional[List[float]] = [2.0]
     stair_sensor_heights: Optional[List[float]] = [0.5, 1.0, 1.5, 2.0]
+    fsa_sensor_heights: Optional[List[float]] = [1.5]
     is_sprinklered: Optional[bool] = True
     door_leakages_enabled: Optional[bool] = True
     door_leakage_config: Optional[dict] = {}
@@ -110,7 +161,19 @@ class ElementsData(BaseModel):
     obstruction_transparency: Optional[dict] = {}
     aov_mode: Optional[str] = "always_open"
     aov_activation_time: Optional[float] = None
+    aov_type: Optional[str] = "hole"
     stair_style: Optional[str] = "overlapping"
+    extract_config: Optional[dict] = {}
+    inlet_config: Optional[dict] = {}
+    zone_config: Optional[dict] = {}
+    fire_hrr: Optional[float] = 1000.0
+    fire_dimension: Optional[float] = 1.4
+    fire_height_above_floor: Optional[float] = 0.5
+    fire_base: Optional[float] = 0.0
+    fire_type: Optional[str] = "growing"  # "growing" or "steady_state"
+    fire_growth_rate: Optional[str] = "medium"  # "slow", "medium", "fast", "ultra_fast", "custom"
+    fire_custom_alpha: Optional[float] = None
+    slice_z_height: Optional[float] = 2.0
 
 class ConvertedElement(BaseModel):
     id: int
@@ -150,7 +213,11 @@ async def read_elements(body: ElementsData):
 def _read_elements_impl(body: ElementsData):
     # LATER: should each obstruction and mesh -> send in cell_size and z1 & z2
     print("body: ",body)
-    elements = body.elementList
+    elements = [el.model_dump() for el in body.elementList]
+    sensor_els = [e for e in elements if e.get("comments") == "sensorTree"]
+    print(f"[FDS] sensorTree count: {len(sensor_els)}")
+    for s in sensor_els[:3]:
+        print(f"[FDS]   zoneName={s.get('zoneName')} keys={list(s.keys())}")
     z = body.z
     wall_height = body.wall_height 
     wall_thickness = body.wall_thickness # left as 0.2 for now
@@ -161,6 +228,10 @@ def _read_elements_impl(body: ElementsData):
     stair_enclosure_roof_z = body.stair_enclosure_roof_z
     scenario_type = body.scenario_type
     sim_end_time = body.sim_end_time
+    include_sensors = body.include_sensors
+    corridor_sensor_heights = body.corridor_sensor_heights
+    stair_sensor_heights = body.stair_sensor_heights
+    fsa_sensor_heights = body.fsa_sensor_heights
     door_leakages_enabled = body.door_leakages_enabled
     door_leakage_config = body.door_leakage_config
     door_openings = body.door_openings
@@ -170,7 +241,19 @@ def _read_elements_impl(body: ElementsData):
     obstruction_transparency = body.obstruction_transparency
     aov_mode = body.aov_mode
     aov_activation_time = body.aov_activation_time
+    aov_type = body.aov_type
     stair_style = body.stair_style
+    extract_config = body.extract_config
+    inlet_config = body.inlet_config
+    zone_config = body.zone_config
+    is_sprinklered = body.is_sprinklered
+    fire_hrr = body.fire_hrr
+    fire_dimension = body.fire_dimension
+    fire_height_above_floor = body.fire_height_above_floor
+    fire_base = body.fire_base
+    fire_type = body.fire_type
+    fire_growth_rate = body.fire_growth_rate
+    fire_custom_alpha = body.fire_custom_alpha
 
     output = testFunction(
                             elements,
@@ -193,7 +276,24 @@ def _read_elements_impl(body: ElementsData):
                             obstruction_transparency=obstruction_transparency,
                             aov_mode=aov_mode,
                             aov_activation_time=aov_activation_time,
+                            aov_type=aov_type,
                             stair_style=stair_style,
+                            extract_config=extract_config,
+                            inlet_config=inlet_config,
+                            zone_config=zone_config,
+                            is_sprinklered=is_sprinklered,
+                            include_sensors=include_sensors,
+                            corridor_sensor_heights=corridor_sensor_heights,
+                            stair_sensor_heights=stair_sensor_heights,
+                            fsa_sensor_heights=fsa_sensor_heights,
+                            fire_hrr=fire_hrr,
+                            fire_dimension=fire_dimension,
+                            fire_height_above_floor=fire_height_above_floor,
+                            fire_base=fire_base,
+                            fire_type=fire_type,
+                            fire_growth_rate=fire_growth_rate,
+                            fire_custom_alpha=fire_custom_alpha,
+                            slice_z_height=body.slice_z_height,
                             )
     print("output: ", output)
     return output

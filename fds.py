@@ -140,13 +140,92 @@ def create_fds_mesh_lines(points, cell_size, z1, z2, px_per_m, comments, idx, fd
     return line
 
 
-def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5, z2_override=None):
+def create_mesh(comments, elements, cell_size, px_per_m, z, fds_array, wall_height=3.5, z2_override=None, inlets=None, inlet_config=None):
     meshes = [ f for f in elements if f["comments"] == comments]
     z_top = z2_override if z2_override is not None else z + wall_height
+
     for idx, mesh in enumerate(meshes):
         points = mesh["points"]
+
+        # Determine pushbacks only for inlets that touch THIS mesh
+        mesh_pushbacks = []
+        if inlets:
+            for inlet in inlets:
+                pb = find_inlet_mesh_pushback(points, inlet["points"])
+                # Only apply if the inlet is actually on this mesh's face
+                # (i.e. the inlet midpoint is within or very close to the mesh bounds)
+                inp = inlet["points"]
+                inlet_mid_x = (inp[0]["x"] + inp[1]["x"]) / 2
+                inlet_mid_y = (inp[0]["y"] + inp[1]["y"]) / 2
+                xs = [p["x"] for p in points]
+                ys = [p["y"] for p in points]
+                mx1, mx2 = min(xs), max(xs)
+                my1, my2 = min(ys), max(ys)
+                tolerance = 2.0  # metres tolerance for matching inlet to mesh
+                if (mx1 - tolerance <= inlet_mid_x <= mx2 + tolerance and
+                    my1 - tolerance <= inlet_mid_y <= my2 + tolerance):
+                    # Attach per-inlet config so we know if it's mechanical
+                    inlet_id = str(inlet.get("id", ""))
+                    pb["inlet_config"] = inlet_config.get(inlet_id, {}) if inlet_config else {}
+                    pb["inlet_number"] = len(mesh_pushbacks) + 1
+                    mesh_pushbacks.append(pb)
+
+        # Apply pushback to a copy of the points
+        if mesh_pushbacks:
+            xs = [p["x"] for p in points]
+            ys = [p["y"] for p in points]
+            xmin, xmax = min(xs), max(xs)
+            ymin, ymax = min(ys), max(ys)
+
+            for pb in mesh_pushbacks:
+                face = pb["face"]
+                dist = pb["distance"]
+                if face == "xmin":
+                    xmin -= dist
+                elif face == "xmax":
+                    xmax += dist
+                elif face == "ymin":
+                    ymin -= dist
+                elif face == "ymax":
+                    ymax += dist
+
+            points = [{"x": xmin, "y": ymin}, {"x": xmax, "y": ymax}]
+
         line = create_fds_mesh_lines(points, cell_size, z, z_top, px_per_m, comments, idx, fds_array, is_stair=False)
         fds_array.append(line)
+
+        # Create OPEN vents on pushed-back faces
+        if mesh_pushbacks:
+            xs = [p["x"] for p in points]
+            ys = [p["y"] for p in points]
+            x1, x2 = round(min(xs), 1), round(max(xs), 1)
+            y1, y2 = round(min(ys), 1), round(max(ys), 1)
+
+            for pb_idx, pb in enumerate(mesh_pushbacks):
+                face = pb["face"]
+                if face == "xmin":
+                    vent_xb = f"{x1},{x1},{y1},{y2},{z},{z_top}"
+                elif face == "xmax":
+                    vent_xb = f"{x2},{x2},{y1},{y2},{z},{z_top}"
+                elif face == "ymin":
+                    vent_xb = f"{x1},{x2},{y1},{y1},{z},{z_top}"
+                elif face == "ymax":
+                    vent_xb = f"{x1},{x2},{y2},{y2},{z},{z_top}"
+
+                icfg = pb.get("inlet_config", {})
+                inlet_type = icfg.get("type", "natural")
+                inlet_num = pb.get("inlet_number", pb_idx + 1)
+
+                if inlet_type == "mechanical":
+                    flow_rate = icfg.get("flowRate", 3.0)
+                    tau_v = icfg.get("tauV", None)
+                    tau_v_str = f", TAU_V={tau_v}" if tau_v is not None else ""
+                    supply_surf_id = f"Supply_{inlet_num}"
+                    fds_array.append(f"&SURF ID='{supply_surf_id}', VOLUME_FLOW=-{flow_rate}{tau_v_str}, RGB=26,204,26/")
+                    fds_array.append(f"&VENT ID='Supply Vent {inlet_num}', SURF_ID='{supply_surf_id}', XB={vent_xb}/")
+                else:
+                    fds_array.append(f"&VENT ID='Inlet Mesh Vent {pb_idx + 1}', SURF_ID='OPEN', XB={vent_xb}/")
+
     return fds_array
 
 
@@ -155,12 +234,224 @@ def snap_to_grid(val, grid=0.2):
     return round(round(val / grid) * grid, 1)
 
 
-def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array):
+def align_meshes(elements, cell_size=0.1):
+    """Port of EXE's prep_mesh_data — snap mesh boundaries so abutting faces align exactly.
+
+    Ensures no gaps between adjacent meshes and that boundaries fall on cell-size multiples.
+    Stair meshes are processed first and use 0.2m cell size; regular meshes use cell_size (0.1m).
+    Uses an increasing wiggle tolerance (starting 0.22m) until all meshes touch at least one other.
+    """
+    mesh_els = [el for el in elements if "mesh" in el["comments"].lower()]
+    if len(mesh_els) < 2:
+        return elements
+
+    stair_meshes = [el for el in mesh_els if "stair" in el["comments"].lower()]
+    other_meshes = [el for el in mesh_els if "stair" not in el["comments"].lower()]
+    ordered = stair_meshes + other_meshes
+
+    def get_bounds(el):
+        xs = [p["x"] for p in el["points"]]
+        ys = [p["y"] for p in el["points"]]
+        return {"xmin": min(xs), "xmax": max(xs), "ymin": min(ys), "ymax": max(ys)}
+
+    def set_bounds(el, bounds):
+        el["points"] = [
+            {"x": bounds["xmin"], "y": bounds["ymin"]},
+            {"x": bounds["xmax"], "y": bounds["ymax"]}
+        ]
+
+    def get_cell_size(el):
+        return 0.2 if "stair" in el["comments"].lower() else cell_size
+
+    wiggle = 0.22
+    max_iterations = 20
+
+    for iteration in range(max_iterations):
+        bounds = {id(el): get_bounds(el) for el in ordered}
+        coarse_locked = {}
+
+        for i, mesh_a in enumerate(ordered):
+            ba = bounds[id(mesh_a)]
+            cs_a = get_cell_size(mesh_a)
+
+            for j, mesh_b in enumerate(ordered):
+                if i >= j:
+                    continue
+                bb = bounds[id(mesh_b)]
+                cs_b = get_cell_size(mesh_b)
+                final_cs = max(cs_a, cs_b)
+
+                def snap_side(ba_key, bb_key):
+                    nonlocal final_cs
+                    lock_a = coarse_locked.get((id(mesh_a), ba_key))
+                    lock_b = coarse_locked.get((id(mesh_b), bb_key))
+                    effective_cs = max(final_cs, lock_a or 0, lock_b or 0)
+                    if lock_a and not lock_b:
+                        snapped = ba[ba_key]
+                    elif lock_b and not lock_a:
+                        snapped = bb[bb_key]
+                    else:
+                        avg = (ba[ba_key] + bb[bb_key]) / 2
+                        snapped = round(round(avg / effective_cs) * effective_cs, 2)
+                    ba[ba_key] = snapped
+                    bb[bb_key] = snapped
+                    if effective_cs > cell_size:
+                        coarse_locked[(id(mesh_a), ba_key)] = effective_cs
+                        coarse_locked[(id(mesh_b), bb_key)] = effective_cs
+
+                x_overlap = ba["xmin"] < bb["xmax"] and ba["xmax"] > bb["xmin"]
+                if x_overlap:
+                    if abs(ba["ymax"] - bb["ymin"]) <= wiggle:
+                        snap_side("ymax", "ymin")
+                    if abs(ba["ymin"] - bb["ymax"]) <= wiggle:
+                        snap_side("ymin", "ymax")
+
+                y_overlap = ba["ymin"] < bb["ymax"] and ba["ymax"] > bb["ymin"]
+                if y_overlap:
+                    if abs(ba["xmax"] - bb["xmin"]) <= wiggle:
+                        snap_side("xmax", "xmin")
+                    if abs(ba["xmin"] - bb["xmax"]) <= wiggle:
+                        snap_side("xmin", "xmax")
+
+        for el in ordered:
+            set_bounds(el, bounds[id(el)])
+
+        all_touch = True
+        for i, mesh_a in enumerate(ordered):
+            ba = get_bounds(mesh_a)
+            touches_any = False
+            for j, mesh_b in enumerate(ordered):
+                if i == j:
+                    continue
+                bb = get_bounds(mesh_b)
+                eps = 0.001
+                x_over = ba["xmin"] < bb["xmax"] - eps and ba["xmax"] > bb["xmin"] + eps
+                y_over = ba["ymin"] < bb["ymax"] - eps and ba["ymax"] > bb["ymin"] + eps
+                shares_x = abs(ba["xmax"] - bb["xmin"]) < eps or abs(ba["xmin"] - bb["xmax"]) < eps
+                shares_y = abs(ba["ymax"] - bb["ymin"]) < eps or abs(ba["ymin"] - bb["ymax"]) < eps
+                if (shares_x and y_over) or (shares_y and x_over):
+                    touches_any = True
+                    break
+            if not touches_any:
+                all_touch = False
+                break
+
+        if all_touch:
+            break
+        wiggle += 0.05
+
+    return elements
+
+
+def _snap_shaft_to_meshes(val, mesh_boundaries, threshold=0.5):
+    """Snap a shaft boundary to the nearest mesh boundary if within threshold."""
+    best = val
+    best_dist = threshold + 1
+    for b in mesh_boundaries:
+        d = abs(val - b)
+        if d < best_dist and d <= threshold:
+            best_dist = d
+            best = b
+    return best
+
+
+def trim_meshes_around_shafts(elements, extract_config, wall_thickness, cell_size=0.1):
+    """Trim corridor mesh elements so they abut extract shafts instead of overlapping.
+
+    FDS requires meshes to be either fully embedded or abutting — partial overlap
+    causes solver errors. The shaft runs full height and needs its own exclusive
+    mesh region. This trims any corridor mesh boundary that extends into the shaft
+    footprint, snapping it to the shaft boundary on the cell grid.
+    """
+    extracts = [f for f in elements if f["comments"] == "extract"]
+    meshes = [f for f in elements if f["comments"] == "mesh"]
+    if not extracts or not meshes:
+        return elements
+
+    for extract in extracts:
+        ext_id = str(extract.get("id", 0))
+        config = extract_config.get(ext_id, {})
+        shaft_type = config.get("type", "natural")
+        shaft_depth = config.get("shaftDepth", 0.9)
+        wt_offset = wall_thickness if shaft_type == "mechanical" else 0
+
+        pts = extract["points"]
+        ex1, ey1 = pts[0]["x"], pts[0]["y"]
+        ex2, ey2 = pts[1]["x"], pts[1]["y"]
+        edx = abs(ex2 - ex1)
+        edy = abs(ey2 - ey1)
+
+        if edx > edy:
+            sx1 = round(min(ex1, ex2), 2)
+            sx2 = round(max(ex1, ex2), 2)
+            sy1 = round(ey1 + wt_offset, 2)
+            sy2 = round(ey1 + wt_offset + shaft_depth, 2)
+        else:
+            sx1 = round(ex1 + wt_offset, 2)
+            sx2 = round(ex1 + wt_offset + shaft_depth, 2)
+            sy1 = round(min(ey1, ey2), 2)
+            sy2 = round(max(ey1, ey2), 2)
+
+        # Trim any corridor mesh that partially overlaps the shaft footprint
+        for mesh in meshes:
+            mp = mesh["points"]
+            mx1 = min(p["x"] for p in mp)
+            mx2 = max(p["x"] for p in mp)
+            my1 = min(p["y"] for p in mp)
+            my2 = max(p["y"] for p in mp)
+
+            # Check X/Y overlap
+            x_overlap = mx1 < sx2 and mx2 > sx1
+            y_overlap = my1 < sy2 and my2 > sy1
+            if not (x_overlap and y_overlap):
+                continue
+
+            # Don't trim if shaft is fully inside this mesh (would need splitting)
+            if sx1 >= mx1 and sx2 <= mx2 and sy1 >= my1 and sy2 <= my2:
+                continue
+
+            # Trim the mesh boundary that extends into the shaft
+            # Find which side of the mesh to trim (the one that partially enters the shaft)
+            trimmed = False
+            if mx2 > sx1 and mx1 < sx1:
+                # Mesh extends past shaft's left edge — trim mesh xmax to shaft xmin
+                new_x = round(round(sx1 / cell_size) * cell_size, 2)
+                for p in mp:
+                    if abs(p["x"] - mx2) < 0.01:
+                        p["x"] = new_x
+                trimmed = True
+            elif mx1 < sx2 and mx2 > sx2:
+                # Mesh extends past shaft's right edge — trim mesh xmin to shaft xmax
+                new_x = round(round(sx2 / cell_size) * cell_size, 2)
+                for p in mp:
+                    if abs(p["x"] - mx1) < 0.01:
+                        p["x"] = new_x
+                trimmed = True
+
+            if not trimmed:
+                if my2 > sy1 and my1 < sy1:
+                    new_y = round(round(sy1 / cell_size) * cell_size, 2)
+                    for p in mp:
+                        if abs(p["y"] - my2) < 0.01:
+                            p["y"] = new_y
+                elif my1 < sy2 and my2 > sy2:
+                    new_y = round(round(sy2 / cell_size) * cell_size, 2)
+                    for p in mp:
+                        if abs(p["y"] - my1) < 0.01:
+                            p["y"] = new_y
+
+    return elements
+
+
+def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array, aov_type="hole"):
     """Create up to 3 stair meshes: Lower (0.2m), Middle/fire floor (0.1m), Upper (0.2m).
 
     - Lower: 0 to z (below fire floor) — skipped if fire floor is at ground level
     - Middle: z to z+wall_height (fire floor) — 0.1m cell size
-    - Upper: z+wall_height to stair_enclosure_roof_z+0.4 — skipped if not enough height (<=2m)
+    - Upper: z+wall_height to the AOV headroom top — skipped if not enough height (<=2m)
+
+    The mesh top clears the AOV: a "shaft" AOV rises 3m above the roof, while a
+    hole-only AOV only needs 1m of headroom above the roof.
     """
     stair_meshes = [f for f in elements if f["comments"] == "stairMesh"]
     coarse_cell = 2 * cell_size  # 0.2m
@@ -176,36 +467,56 @@ def create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enc
         dx = round(x2 - x1, 3)
         dy = round(y2 - y1, 3)
 
-        # Lower mesh: 0 to z (below fire floor)
-        lower_z1 = snap_to_grid(0)
-        lower_z2 = snap_to_grid(z)
+        import math
+        # Ensure X/Y spans are multiples of coarse_cell so fine (0.1m) and
+        # coarse (0.2m) stair meshes share a clean 2:1 cell ratio on Z interfaces.
+        # Expand outward (away from corridor) to keep abutting boundaries intact.
+        ijk_x_coarse = math.ceil(dx / coarse_cell)
+        ijk_y_coarse = math.ceil(dy / coarse_cell)
+        x1 = round(x2 - ijk_x_coarse * coarse_cell, 1)
+        y1 = round(y2 - ijk_y_coarse * coarse_cell, 1)
+        dx = round(x2 - x1, 3)
+        dy = round(y2 - y1, 3)
+        ijk_x = ijk_x_coarse * 2
+        ijk_y = ijk_y_coarse * 2
+
+        # Middle mesh boundaries match fire floor exactly (snap to fine grid)
+        mid_z1 = snap_to_grid(z, cell_size)
+        mid_z2 = snap_to_grid(z + wall_height, cell_size)
+
+        # Lower mesh: 0 to fire floor Z (coarse 0.2m)
+        # Lower Z2 must match mid_z1 exactly; expand lower Z1 downward to fit coarse cells
+        lower_z2 = mid_z1
+        ijk_z_lower = math.ceil(lower_z2 / coarse_cell)
+        lower_z1 = round(lower_z2 - ijk_z_lower * coarse_cell, 1)
         if lower_z2 > lower_z1:
-            dz = round(lower_z2 - lower_z1, 3)
             fds_array.append(
-                f"&MESH ID='Stair Mesh_Lower{idx}', IJK={round(dx/coarse_cell)},{round(dy/coarse_cell)},{round(dz/coarse_cell)}, XB={x1},{x2},{y1},{y2},{lower_z1},{lower_z2}/"
+                f"&MESH ID='Stair Mesh_Lower{idx}', IJK={ijk_x_coarse},{ijk_y_coarse},{ijk_z_lower}, XB={x1},{x2},{y1},{y2},{lower_z1},{lower_z2}/"
             )
 
-        # Middle mesh: z to z+wall_height (fire floor — fine 0.1m mesh)
-        mid_z1 = snap_to_grid(z)
-        mid_z2 = snap_to_grid(z + wall_height)
-        upper_z_top = snap_to_grid(stair_enclosure_roof_z + 0.4)
-        has_upper = (upper_z_top - mid_z2) > 2
+        # Upper mesh top — clear the AOV (3m for a shaft, 1m for a hole-only AOV)
+        aov_headroom = 3.0 if aov_type == "shaft" else 1.0
+        upper_z_top_raw = stair_enclosure_roof_z + aov_headroom
+        has_upper = (upper_z_top_raw - mid_z2) > 2
 
         if not has_upper:
-            # No upper mesh — extend middle to the top
-            mid_z2 = upper_z_top
+            # No upper mesh — extend middle to the top, snap to fine grid
+            mid_z2 = snap_to_grid(upper_z_top_raw, cell_size)
 
-        dz = round(mid_z2 - mid_z1, 3)
+        # Middle mesh: fire floor Z range (fine 0.1m cells in all axes)
+        mid_dz = round(mid_z2 - mid_z1, 3)
         fds_array.append(
-            f"&MESH ID='Stair Mesh_Middle{idx}', IJK={round(dx/cell_size)},{round(dy/cell_size)},{round(dz/cell_size)}, XB={x1},{x2},{y1},{y2},{mid_z1},{mid_z2}/"
+            f"&MESH ID='Stair Mesh_Middle{idx}', IJK={ijk_x},{ijk_y},{round(mid_dz/cell_size)}, XB={x1},{x2},{y1},{y2},{mid_z1},{mid_z2}/"
         )
 
-        # Upper mesh: z+wall_height to stair_enclosure_roof_z+0.4 (coarse 0.2m)
+        # Upper mesh: above fire floor to top (coarse 0.2m)
+        # Upper Z1 must match mid_z2 exactly; expand upper Z top to fit coarse cells
         if has_upper:
             upper_z1 = mid_z2
-            dz = round(upper_z_top - upper_z1, 3)
+            ijk_z_upper = math.ceil((upper_z_top_raw - upper_z1) / coarse_cell)
+            upper_z_top = round(upper_z1 + ijk_z_upper * coarse_cell, 1)
             fds_array.append(
-                f"&MESH ID='Stair Mesh_Upper{idx}', IJK={round(dx/coarse_cell)},{round(dy/coarse_cell)},{round(dz/coarse_cell)}, XB={x1},{x2},{y1},{y2},{upper_z1},{upper_z_top}/"
+                f"&MESH ID='Stair Mesh_Upper{idx}', IJK={ijk_x_coarse},{ijk_y_coarse},{ijk_z_upper}, XB={x1},{x2},{y1},{y2},{upper_z1},{upper_z_top}/"
             )
 
         # Mesh vent at ZMAX of the topmost stair mesh
@@ -246,9 +557,15 @@ def add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, d
     for idx, door in enumerate(doors):
         points = door["points"]
         door_id = str(door.get("id", idx))
+
+        # Skip leakage-only doors — they don't get holes
+        role = door_roles.get(door_id, "")
+        if role == "leakage":
+            continue
+
         deltaX = abs(points[1]["x"] - points[0]["x"])
         deltaY = abs(points[1]["y"] - points[0]["y"])
-        z1 = z
+        z1 = z - 0.001  # offset from mesh ZMIN boundary
         z2 = z + door_height
         x1 = min(points[0]["x"], points[0]["x"])
         x2 = max(points[1]["x"], points[1]["x"])
@@ -262,15 +579,65 @@ def add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, d
             y2 += depth
 
         # Use door role to determine CTRL_ID
-        role = door_roles.get(door_id, "")
         ctrl_suffix = ""
         if scenario_type != "none" and role in ROLE_TO_CTRL_ID:
             ctrl_suffix = f", CTRL_ID='{ROLE_TO_CTRL_ID[role]}'"
 
-        role_label = role.capitalize() if role else f"door{idx}"
+        role_label = "Always Open" if role == "always_open" else (role.capitalize() if role else f"door{idx}")
         fds_line = f"&HOLE ID='{role_label} Door Hole', XB ={x1},{x2},{y1},{y2},{z1},{z2}{ctrl_suffix}/"
         line_array.append(fds_line)
     return line_array
+
+
+def generate_door_leakage_vents(door, door_index, z, door_height=2.1, cell_size=0.1, seal_type="non-smoke-sealed", wall_thickness=0.2):
+    """Generate &VENT + &HVAC LEAK lines for a leakage-only door.
+
+    Crown Wharf pattern: single bottom vent on one face, leaking to AMBIENT.
+    Fixed areas: single smoke sealed 0.01, double smoke sealed 0.03, lift 0.06.
+    Non-smoke-sealed doors also use 0.01 (same as single smoke sealed).
+    """
+    points = door["points"]
+    x1 = points[0]["x"]
+    x2 = points[1]["x"]
+    y1 = points[0]["y"]
+    y2 = points[1]["y"]
+    z1 = z
+
+    x_delta = abs(x2 - x1)
+    y_delta = abs(y2 - y1)
+
+    # Fixed areas matching Crown Wharf reference
+    # Accept both frontend format (single_smoke_sealed) and backend format (smoke-sealed)
+    if seal_type == "lift":
+        area = 0.06
+        prefix = "lift"
+    elif seal_type in ("double-smoke-sealed", "double_smoke_sealed"):
+        area = 0.03
+        prefix = "smoke_sealed_double"
+    elif seal_type in ("smoke-sealed", "single_smoke_sealed"):
+        area = 0.01
+        prefix = "smoke_sealed_single"
+    else:
+        area = 0.01
+        prefix = "smoke_sealed_single" if seal_type == "smoke-sealed" else "nonsmoke_sealed"
+
+    door_name = f"{prefix}_door{door_index}"
+
+    # Single bottom vent on one face of the wall
+    if x_delta > y_delta:
+        # Door extends in X — vent on Y face
+        bottom_coords = f"{x1},{x2},{y1},{y1},{z1},{round(z1 + cell_size, 5)}"
+    else:
+        # Door extends in Y — vent on X face
+        bottom_coords = f"{x1},{x1},{y1},{y2},{z1},{round(z1 + cell_size, 5)}"
+
+    vent_id = f"Door_{door_name}bottom vent 1"
+
+    lines = []
+    lines.append(f"&VENT ID='{vent_id}', SURF_ID='INERT', XB={bottom_coords}, RGB=200,200,200/")
+    lines.append(f"&HVAC ID='{door_name}bottom leak', TYPE_ID='LEAK', VENT_ID='{vent_id}', VENT2_ID='AMBIENT', AREA={area}, LEAK_ENTHALPY=.TRUE./")
+
+    return lines
 
 
 def add_obstruction_to_fds(comments, elements, z, wall_height, wall_thickness, stair_enclosure_roof_z, px_per_m, fds_array, transparency=None):
@@ -341,12 +708,18 @@ def makeElementsRelativeToOrigin(elements, origin):
                 'x': _get_attr(point, 'x') - origin[0],
                 'y': _get_attr(point, 'y') - origin[1],
             })
-        new_elements.append({
+        new_el = {
             'comments': _get_attr(element, 'comments'),
             'id': _get_attr(element, 'id'),
             'points': new_points,
             'type': _get_attr(element, 'type')
-        })
+        }
+        # Preserve extra fields (zoneName, fsaDistance, etc.)
+        for key in ('zoneName', 'fsaDistance'):
+            val = element.get(key) if isinstance(element, dict) else getattr(element, key, None)
+            if val is not None:
+                new_el[key] = val
+        new_elements.append(new_el)
     return new_elements
 
 def convertElPointsToCoords(elements, px_per_m):
@@ -369,30 +742,64 @@ def fire_surface(hrr_kw, fire_area, is_steady_state=False):
         "      TMP_FRONT=300.0/"]
     return array
 
+def fire_ramp(growth_rate_name="medium", custom_alpha=None, hrr_kw=1000.0, sim_end_time=300):
+    """Generate t-squared fire ramp lines.
+
+    Growth rate alpha values (kW/s^2):
+    - slow: 0.00293
+    - medium: 0.01172
+    - fast: 0.04689
+    - ultra_fast: 0.1876
+    """
+    alpha_map = {
+        "slow": 0.00293,
+        "medium": 0.01172,
+        "fast": 0.04689,
+        "ultra_fast": 0.1876,
+    }
+    alpha = custom_alpha if custom_alpha else alpha_map.get(growth_rate_name, 0.01172)
+
+    # Time to reach max HRR: Q = alpha * t^2, so t = sqrt(Q/alpha)
+    import math
+    t_max = math.sqrt(hrr_kw / alpha)
+
+    # Generate ramp points: t-squared growth from 0 to t_max
+    ramp_lines = []
+    # Start at t=0, F=0
+    ramp_lines.append(f"&RAMP ID='Fire_RAMP_Q', T=0.0, F=0.0/")
+
+    # Generate intermediate points every 10 seconds during growth
+    t = 10.0
+    while t < t_max:
+        f_val = round((alpha * t * t) / hrr_kw, 4)
+        ramp_lines.append(f"&RAMP ID='Fire_RAMP_Q', T={round(t, 1)}, F={f_val}/")
+        t += 10.0
+
+    # At t_max, F=1.0 (full power)
+    ramp_lines.append(f"&RAMP ID='Fire_RAMP_Q', T={round(t_max, 1)}, F=1.0/")
+    # Maintain full power until end
+    ramp_lines.append(f"&RAMP ID='Fire_RAMP_Q', T={round(float(sim_end_time), 1)}, F=1.0/")
+
+    return ramp_lines
+
 def fuel_reaction(Soot_Yield, Heat_of_Combustion):
     return [
+        "&SPEC ID='REAC_FUEL', FORMULA='C6.3H7.1O2.1N1.0', SPECIFIC_HEAT=1.0/",
         "&REAC ID='POLYURETHANE',",
         "      FYI='NFPA Babrauskas',",
         "      FUEL = 'REAC_FUEL',",
-        "      C=6.3,",
-        "      H=7.1,",
-        "      O=2.1,",
-        "      N=1.0,",
         f"      SOOT_YIELD = {Soot_Yield},",
         f"      HEAT_OF_COMBUSTION = {Heat_of_Combustion}/",
     ]
 
-def find_fire_obstruction(elements, z):
+def find_fire_obstruction(elements, z, fire_dimension=1.4, fire_height_above_floor=0.5, fire_base=0.0):
     fires = [ f for f in elements if f["comments"] == "fire"]
     array = []
     for fire in fires:
         points = fire['points'][0]
         fire_x = points["x"]
         fire_y = points["y"]
-        fire_D = 2
-        fire_H = 0.2
-        fire_B = 0.1
-        array.append('/n'.join(Fire_Obstruction(fire_D, fire_H, fire_B, fire_x, fire_y, z)))
+        array.append('/n'.join(Fire_Obstruction(fire_dimension, fire_height_above_floor, fire_base, fire_x, fire_y, z)))
     return array
 
 def Fire_Obstruction(Fire_D, Fire_H, Fire_B, fire_x, fire_y, z):## Create a Function that generates the fire obstruction 
@@ -433,8 +840,15 @@ def create_stair_roof(elements, stair_enclosure_roof_z, transparency=None):
     return [f"&OBST ID='Stair Roof', XB={x_min},{x_max},{y_min},{y_max},{z1},{z2}, SURF_ID='Plasterboard'{transparency_str}/"]
 
 
-def create_stair_aov(elements, stair_enclosure_roof_z, aov_mode="always_open", cell_size=0.2):
-    """Create a 1m x 1m roof vent hole centred on the landing midpoint."""
+def create_stair_aov(elements, stair_enclosure_roof_z, aov_mode="always_open", cell_size=0.2, aov_type="hole"):
+    """Create a 1m x 1m roof vent centred on the landing midpoint.
+
+    aov_type:
+      - "hole" (default): just a hole through the roof slab (0.4m above/below roof),
+        no shaft. Covers ~95% of scenarios.
+      - "shaft": a 1.4m x 1.4m plasterboard shaft rising 2m above the roof, with
+        the hole extending 3m above the roof (1m above the shaft top).
+    """
     landings = [f for f in elements if f["comments"] == "landing"]
     if not landings:
         return []
@@ -459,15 +873,38 @@ def create_stair_aov(elements, stair_enclosure_roof_z, aov_mode="always_open", c
     x2 = round(cx + 0.5, 2)
     y1 = round(cy - 0.5, 2)
     y2 = round(cy + 0.5, 2)
-    z1 = round(stair_enclosure_roof_z - 0.4, 2)
-    z2 = round(stair_enclosure_roof_z + 0.4, 2)
 
     ctrl_suffix = ""
     if aov_mode in ("timed", "sprinkler"):
         ctrl_id = f'{Control_ID_Extract}1'
         ctrl_suffix = f", CTRL_ID='{ctrl_id}'"
 
-    return [f"&HOLE ID='AOV', XB = {x1}, {x2}, {y1}, {y2}, {z1}, {z2}{ctrl_suffix}/"]
+    if aov_type == "shaft":
+        # Shaft OBST: 1.4m x 1.4m solid block 2m above roof
+        shaft_x1 = round(cx - 0.7, 2)
+        shaft_x2 = round(cx + 0.7, 2)
+        shaft_y1 = round(cy - 0.7, 2)
+        shaft_y2 = round(cy + 0.7, 2)
+        shaft_z1 = round(stair_enclosure_roof_z, 2)
+        shaft_z2 = round(stair_enclosure_roof_z + 2.0, 2)
+
+        # AOV HOLE: 1.0m x 1.0m through roof and shaft, extending 1m above shaft
+        hole_z1 = round(stair_enclosure_roof_z - cell_size, 2)
+        hole_z2 = round(stair_enclosure_roof_z + 3.0, 2)
+
+        return [
+            f"&OBST ID='AOV Shaft', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}, SURF_ID='Plasterboard'/",
+            f"&HOLE ID='AOV', XB={x1},{x2},{y1},{y2},{hole_z1},{hole_z2}{ctrl_suffix}/",
+        ]
+
+    # Hole-only AOV (default): 1.0m x 1.0m opening through the roof slab, no shaft.
+    # Hole spans 0.4m above and below the roof.
+    hole_z1 = round(stair_enclosure_roof_z - 0.4, 2)
+    hole_z2 = round(stair_enclosure_roof_z + 0.4, 2)
+
+    return [
+        f"&HOLE ID='AOV', XB={x1},{x2},{y1},{y2},{hole_z1},{hole_z2}{ctrl_suffix}/",
+    ]
 
 
 def create_aov_sprinkler_devc(elements, stair_enclosure_roof_z):
@@ -496,10 +933,647 @@ def create_aov_sprinkler_devc(elements, stair_enclosure_roof_z):
     ]
 
 
+def find_inlet_mesh_pushback(mesh_points, inlet_points, pushback_distance=1.0):
+    """Determine which mesh face to push back for an inlet opening.
+
+    Matches the exe logic: determines inlet orientation (which axis it spans),
+    then only considers mesh faces perpendicular to the inlet. Pushes back
+    the nearest perpendicular face by pushback_distance.
+
+    Args:
+        mesh_points: two corner points of the mesh rect [{"x","y"}, {"x","y"}]
+        inlet_points: two points of the inlet line [{"x","y"}, {"x","y"}]
+        pushback_distance: how far to push back the mesh face (default 1.0m)
+
+    Returns:
+        dict with "face" (xmin/xmax/ymin/ymax) and "distance"
+    """
+    xs = [p["x"] for p in mesh_points]
+    ys = [p["y"] for p in mesh_points]
+    xmin, xmax = min(xs), max(xs)
+    ymin, ymax = min(ys), max(ys)
+
+    inlet_mid_x = (inlet_points[0]["x"] + inlet_points[1]["x"]) / 2
+    inlet_mid_y = (inlet_points[0]["y"] + inlet_points[1]["y"]) / 2
+
+    # Determine inlet orientation: which axis does it span?
+    inlet_dx = abs(inlet_points[1]["x"] - inlet_points[0]["x"])
+    inlet_dy = abs(inlet_points[1]["y"] - inlet_points[0]["y"])
+
+    if inlet_dx > inlet_dy:
+        # Inlet spans X (horizontal) → push perpendicular Y faces
+        distances = {
+            "ymin": abs(inlet_mid_y - ymin),
+            "ymax": abs(inlet_mid_y - ymax),
+        }
+    else:
+        # Inlet spans Y (vertical) → push perpendicular X faces
+        distances = {
+            "xmin": abs(inlet_mid_x - xmin),
+            "xmax": abs(inlet_mid_x - xmax),
+        }
+
+    closest_face = min(distances, key=distances.get)
+    return {"face": closest_face, "distance": pushback_distance}
+
+
+def create_inlet_opening(inlet_element, config, z, wall_height, wall_thickness, inlet_number=1):
+    """Generate a HOLE for an inlet opening at fire floor level.
+
+    The inlet opening is centered on the inlet line midpoint with configurable
+    width and height. Defaults match the original exe: 1.8m wide, 0.8m high.
+    """
+    points = inlet_element["points"]
+    x1 = points[0]["x"]
+    y1 = points[0]["y"]
+    x2 = points[1]["x"]
+    y2 = points[1]["y"]
+
+    opening_width = config.get("openingWidth", 1.8)
+    opening_height = config.get("openingHeight", 0.8)
+    opening_base = config.get("openingBase", 0.0)
+
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+
+    # Inlet midpoint
+    mid_x = (x1 + x2) / 2
+    mid_y = (y1 + y2) / 2
+    half_w = opening_width / 2
+
+    # Offset Z from mesh boundaries facing ambient (FDS requirement)
+    hole_z1 = round(z + opening_base, 4)
+    hole_z2 = round(z + opening_base + opening_height, 4)
+    if opening_base == 0:
+        hole_z1 = round(hole_z1 - 0.001, 4)  # offset from mesh ZMIN
+    if abs((opening_base + opening_height) - wall_height) < 0.01:
+        hole_z2 = round(hole_z2 + 0.001, 4)  # offset from mesh ZMAX
+
+    # HOLE cuts through the wall, centered on inlet midpoint
+    if dx > dy:
+        # Horizontal inlet: width along X, depth through wall in Y
+        hole_xb = f"{round(mid_x - half_w, 2)},{round(mid_x + half_w, 2)},{round(mid_y - 0.2, 2)},{round(mid_y + 0.2, 2)},{hole_z1},{hole_z2}"
+    else:
+        # Vertical inlet: width along Y, depth through wall in X
+        hole_xb = f"{round(mid_x - 0.2, 2)},{round(mid_x + 0.2, 2)},{round(mid_y - half_w, 2)},{round(mid_y + half_w, 2)},{hole_z1},{hole_z2}"
+
+    return [f"&HOLE ID='Inlet Opening {inlet_number}', XB={hole_xb}/"]
+
+
+def _point_in_polygon(px, py, polygon):
+    """Ray casting point-in-polygon test."""
+    n = len(polygon)
+    inside = False
+    j = n - 1
+    for i in range(n):
+        xi, yi = polygon[i]
+        xj, yj = polygon[j]
+        if ((yi > py) != (yj > py)) and (px < (xj - xi) * (py - yi) / (yj - yi) + xi):
+            inside = not inside
+        j = i
+    return inside
+
+
+def _min_distance_to_polygon(px, py, polygon):
+    """Minimum distance from point to any edge of the polygon."""
+    min_dist = float('inf')
+    n = len(polygon)
+    for i in range(n):
+        x1, y1 = polygon[i]
+        x2, y2 = polygon[(i + 1) % n]
+        # Distance from point to line segment
+        dx, dy = x2 - x1, y2 - y1
+        seg_len_sq = dx * dx + dy * dy
+        if seg_len_sq == 0:
+            dist = ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+        else:
+            t = max(0, min(1, ((px - x1) * dx + (py - y1) * dy) / seg_len_sq))
+            proj_x = x1 + t * dx
+            proj_y = y1 + t * dy
+            dist = ((px - proj_x) ** 2 + (py - proj_y) ** 2) ** 0.5
+        min_dist = min(min_dist, dist)
+    return min_dist
+
+
+def _find_enclosing_polygon(fire_x, fire_y, elements):
+    """Find the obstruction polygon that contains the fire point."""
+    obstructions = [f for f in elements if f["comments"] == "obstruction"]
+    for obs in obstructions:
+        pts = obs["points"]
+        polygon = [(p["x"], p["y"]) for p in pts]
+        if _point_in_polygon(fire_x, fire_y, polygon):
+            return polygon
+    return None
+
+
+def generate_slice_lines(elements, z, wall_height, door_roles=None, zone_config=None, slice_z_height=2.0):
+    """Generate SLCF lines for FDS output.
+
+    Places slice planes through:
+    - Fire centre (X and Y)
+    - Zone centres (for zones with slices=True): corridor, lobby, fire_room, internal_corridor
+    - Door centres (perpendicular axis) for stair and apartment doors
+    - Extract/AOV midpoints (X and Y)
+    - Z slice at fire floor + slice_z_height
+
+    Args:
+        elements: List of element dicts with comments, points, id.
+        z: Fire floor Z height (m).
+        wall_height: Wall height (m).
+        door_roles: Dict mapping door id -> role (stair, apartment, lobby, leakage).
+        zone_config: Dict mapping zone id -> {type, name, slices, sensors, points}.
+        slice_z_height: Height above fire floor for Z slice (default 2.0m).
+
+    Returns:
+        List of SLCF FDS lines.
+    """
+    if door_roles is None:
+        door_roles = {}
+    if zone_config is None:
+        zone_config = {}
+
+    quantities = ['TEMPERATURE', 'VISIBILITY', 'VELOCITY', 'PRESSURE']
+    slices = {'X': set(), 'Y': set(), 'Z': set()}
+
+    # 1. Z slice at fire floor + height
+    slices['Z'].add(round(z + slice_z_height, 2))
+
+    # 2. Fire centre (X and Y slices)
+    fires = [f for f in elements if f["comments"] == "fire"]
+    for fire in fires:
+        pts = fire["points"]
+        fx = round(pts[0]["x"], 2)
+        fy = round(pts[0]["y"], 2)
+        slices['X'].add(fx)
+        slices['Y'].add(fy)
+
+    # 3. Zone centre slices (only for zones with slices=True)
+    for el_id, config in zone_config.items():
+        if not config.get("slices", False):
+            continue
+
+        pts = config.get("points", None)
+        if not pts:
+            continue
+
+        xs = [p["x"] if isinstance(p, dict) else p[0] for p in pts]
+        ys = [p["y"] if isinstance(p, dict) else p[1] for p in pts]
+        mid_x = round((min(xs) + max(xs)) / 2, 2)
+        mid_y = round((min(ys) + max(ys)) / 2, 2)
+        slices['X'].add(mid_x)
+        slices['Y'].add(mid_y)
+
+    # 4. Door centre slices (perpendicular to door orientation)
+    doors = [f for f in elements if "door" in f["comments"]]
+    for door in doors:
+        door_id = str(door.get("id", ""))
+        role = door_roles.get(door_id, "")
+        if role not in ("stair", "apartment", "lobby"):
+            continue
+
+        pts = door["points"]
+        if len(pts) < 2:
+            continue
+        x1, y1 = pts[0]["x"], pts[0]["y"]
+        x2, y2 = pts[1]["x"], pts[1]["y"]
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        mid_x = round((x1 + x2) / 2, 2)
+        mid_y = round((y1 + y2) / 2, 2)
+
+        if dy > dx:
+            # Door extends vertically -> slice perpendicular = PBX
+            slices['X'].add(mid_x)
+        else:
+            # Door extends horizontally -> slice perpendicular = PBY
+            slices['Y'].add(mid_y)
+
+    # 5. Extract/AOV midpoint slices (X and Y)
+    extracts = [f for f in elements if f["comments"] == "extract"]
+    for ext in extracts:
+        pts = ext["points"]
+        if len(pts) < 2:
+            continue
+        mid_x = round((pts[0]["x"] + pts[1]["x"]) / 2, 2)
+        mid_y = round((pts[0]["y"] + pts[1]["y"]) / 2, 2)
+        slices['X'].add(mid_x)
+        slices['Y'].add(mid_y)
+
+    # If nothing to slice, return empty
+    if not slices['X'] and not slices['Y'] and not slices['Z']:
+        return []
+
+    # Generate SLCF lines: 4 quantities per unique position
+    lines = []
+    axis_map = {'X': 'PBX', 'Y': 'PBY', 'Z': 'PBZ'}
+    for axis in ('X', 'Y', 'Z'):
+        for pos in sorted(slices[axis]):
+            pb = axis_map[axis]
+            for q in quantities:
+                vector_str = ", VECTOR=.TRUE." if q == "VELOCITY" else ""
+                lines.append(f"&SLCF QUANTITY='{q}'{vector_str}, {pb}={pos}/")
+
+    return lines
+
+
+def generate_zone_sensors(elements, z, zone_config, sensor_heights=None, spacing=0.5):
+    """Generate centerline sensors for each assigned zone.
+
+    For each zone, finds the obstruction polygon, computes centerline,
+    and places sensors along it with zone-specific naming.
+    """
+    if not zone_config:
+        return []
+    if sensor_heights is None:
+        sensor_heights = [2.0]
+
+    quantities = ['TEMPERATURE', 'VISIBILITY', 'VELOCITY', 'PRESSURE']
+    q_short = {'TEMPERATURE': 'temp', 'VISIBILITY': 'vis', 'VELOCITY': 'vel', 'PRESSURE': 'pres'}
+
+    lines = []
+    for el_id, config in zone_config.items():
+        # Skip zones with sensors explicitly disabled
+        if not config.get("sensors", True):
+            continue
+
+        zone_name = config.get("name", "Zone")
+        zone_prefix = zone_name.lower().replace(" ", "_")
+
+        # Zone points can come from detected regions (in config) or from element lookup
+        pts = config.get("points", None)
+        if not pts:
+            # Fall back to finding obstruction element by ID
+            obs = None
+            for el in elements:
+                if str(el.get("id", "")) == str(el_id) and el["comments"] == "obstruction":
+                    obs = el
+                    break
+            if not obs:
+                continue
+            pts = obs["points"]
+
+        xs = [p["x"] if isinstance(p, dict) else p[0] for p in pts]
+        ys = [p["y"] if isinstance(p, dict) else p[1] for p in pts]
+        xmin, xmax = min(xs), max(xs)
+        ymin, ymax = min(ys), max(ys)
+        delta_x = xmax - xmin
+        delta_y = ymax - ymin
+        inset = 0.3
+
+        centre_points = []
+        if delta_x > delta_y:
+            # Long in X — centerline at mid-Y
+            y_mid = round((ymin + ymax) / 2, 2)
+            x_start = round(xmin + inset, 2)
+            x_end = round(xmax - inset, 2)
+            num_points = max(1, int((x_end - x_start) / spacing) + 1)
+            for i in range(num_points):
+                x = round(x_start + i * spacing, 2)
+                if x <= x_end:
+                    centre_points.append((x, y_mid))
+        else:
+            # Long in Y — centerline at mid-X
+            x_mid = round((xmin + xmax) / 2, 2)
+            y_start = round(ymin + inset, 2)
+            y_end = round(ymax - inset, 2)
+            num_points = max(1, int((y_end - y_start) / spacing) + 1)
+            for i in range(num_points):
+                y = round(y_start + i * spacing, 2)
+                if y <= y_end:
+                    centre_points.append((x_mid, y))
+
+        # Group by quantity (outer) then point (inner) to match EXE ordering
+        for quantity in quantities:
+            prefix = q_short[quantity]
+            for pt_idx, (x, y) in enumerate(centre_points, start=1):
+                for height in sensor_heights:
+                    sensor_z = round(z + height, 2)
+                    devc_id = f"{zone_prefix}_{prefix}_{pt_idx}"
+                    lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
+
+    return lines
+
+
+def generate_sprinkler_lines(elements, z, wall_height):
+    """Generate sprinkler DEVC + PROP lines from sprinkler elements.
+
+    Sprinkler positions are computed on the frontend and passed as
+    elements with comments='sprinkler'. The backend only converts
+    coordinates and writes FDS lines — no auto-placement here.
+    """
+    sprk_z = round(z + wall_height - 0.2, 2)
+
+    sprinkler_elements = [f for f in elements if f["comments"] == "sprinkler"]
+    if not sprinkler_elements:
+        return []
+
+    sprinklers = []
+    for s in sprinkler_elements:
+        pts = s["points"]
+        if isinstance(pts, list):
+            sprinklers.append((round(pts[0]["x"], 2), round(pts[0]["y"], 2)))
+        else:
+            sprinklers.append((round(pts["x"], 2), round(pts["y"], 2)))
+
+    lines = [
+        "&SPEC ID='WATER VAPOR'/",
+        "&PART ID='Water01',",
+        "      SPEC_ID='WATER VAPOR',",
+        "      DIAMETER=500.0,",
+        "      MONODISPERSE=.TRUE.,",
+        "      AGE=10.0,",
+        "      SAMPLING_FACTOR=1/",
+        "&PROP ID='Residential Link BS 9251',",
+        "      PART_ID='Water01',",
+        "      K_FACTOR=40.0,",
+        "      OPERATING_PRESSURE=0.5,",
+        "      PARTICLE_VELOCITY=5.0,",
+        "      SPRAY_ANGLE=60.0,75.0/",
+    ]
+
+    for i, (sx, sy) in enumerate(sprinklers):
+        lines.append(f"&DEVC ID='SPRK{i+1}', PROP_ID='Residential Link BS 9251', XYZ={sx},{sy},{sprk_z}, QUANTITY='TIME', SETPOINT=0.0/")
+
+    return lines
+
+
+def create_extract_shaft(extract_element, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, cell_size=0.1, extract_number=1):
+    """Generate FDS lines for an extract shaft.
+
+    Mechanical: Crown Wharf pattern — fan SURF at ZMAX, damper OBSTs at corridor wall.
+    Natural: OPEN vent at corridor level + OPEN at ZMAX.
+    """
+    points = extract_element["points"]
+    x1 = points[0]["x"]
+    y1 = points[0]["y"]
+    x2 = points[1]["x"]
+    y2 = points[1]["y"]
+
+    shaft_type = config.get("type", "natural")
+    shaft_width = config.get("shaftWidth", 0.9)
+    shaft_depth = config.get("shaftDepth", 0.9)
+    flow_rate = config.get("flowRate", 3.0)
+    activation = config.get("activation", "always_open")
+    activation_time = config.get("activationTime", None)
+    opening_height = config.get("openingHeight", 1.3)  # Crown Wharf default: 1.3m
+    opening_base = config.get("openingBase", 0.9)  # Crown Wharf default: 0.9m above floor
+    tau_v = config.get("tauV", None)
+
+    dx = abs(x2 - x1)
+    dy = abs(y2 - y1)
+
+    lines = []
+
+    # Determine shaft position extending perpendicular from the opening
+    # For mechanical: offset by wall_thickness so shaft abuts corridor mesh (Crown Wharf pattern)
+    wt_offset = wall_thickness if shaft_type == "mechanical" else 0
+    if dx > dy:
+        # Horizontal opening: shaft extends in Y
+        shaft_x1 = round(min(x1, x2), 2)
+        shaft_x2 = round(max(x1, x2), 2)
+        shaft_y1 = round(y1 + wt_offset, 2)
+        shaft_y2 = round(y1 + wt_offset + shaft_depth, 2)
+    else:
+        # Vertical opening: shaft extends in X
+        shaft_x1 = round(x1 + wt_offset, 2)
+        shaft_x2 = round(x1 + wt_offset + shaft_depth, 2)
+        shaft_y1 = round(min(y1, y2), 2)
+        shaft_y2 = round(max(y1, y2), 2)
+
+    # Shaft goes from ground to stair roof level
+    shaft_z1 = 0
+    shaft_z2 = round(stair_enclosure_roof_z, 1)
+
+    # MESH for the shaft
+    ijk_x = max(1, round((shaft_x2 - shaft_x1) / cell_size))
+    ijk_y = max(1, round((shaft_y2 - shaft_y1) / cell_size))
+    ijk_z = max(1, round((shaft_z2 - shaft_z1) / cell_size))
+    shaft_id = f"Extract_Shaft_{extract_number}"
+    lines.append(f"&MESH ID='{shaft_id}', IJK={ijk_x},{ijk_y},{ijk_z}, XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z1},{shaft_z2}/")
+
+    vent_z1 = round(z + opening_base, 2)
+    vent_z2 = round(z + opening_base + opening_height, 2)
+    ceiling_z = round(z + wall_height, 2)
+
+    if shaft_type == "mechanical":
+        # --- MECHANICAL: Crown Wharf pattern ---
+        extract_surf_id = f"Extract_{extract_number}"
+        tau_v_str = f", TAU_V={tau_v}" if tau_v is not None else ""
+        lines.append(f"&SURF ID='{extract_surf_id}', VOLUME_FLOW={flow_rate}{tau_v_str}, HEAT_TRANSFER_COEFFICIENT=0.0, RGB=26,128,26/")
+
+        devc_suffix = ""
+        if activation == "timed":
+            devc_suffix = f", DEVC_ID='Extract_Timer_{extract_number}'"
+        elif activation == "sprinkler":
+            devc_suffix = f", DEVC_ID='Extract_Sprinkler_{extract_number}'"
+        lines.append(f"&VENT ID='Extract_{extract_number}', SURF_ID='{extract_surf_id}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}{devc_suffix}/")
+
+        if dx > dy:
+            hole_xb = f"{shaft_x1},{shaft_x2},{round(y1 - 0.2, 2)},{round(y1 + wall_thickness + 0.2, 2)},{vent_z1},{vent_z2}"
+        else:
+            hole_xb = f"{round(x1 - 0.2, 2)},{round(x1 + wall_thickness + 0.2, 2)},{shaft_y1},{shaft_y2},{vent_z1},{vent_z2}"
+        lines.append(f"&HOLE ID='Extract Wall Hole {extract_number}', XB={hole_xb}/")
+
+        if dx > dy:
+            wall_x1, wall_x2 = shaft_x1, shaft_x2
+            wall_y1 = round(y1, 2)
+            wall_y2 = round(y1 + wall_thickness, 2)
+        else:
+            wall_x1 = round(x1, 2)
+            wall_x2 = round(x1 + wall_thickness, 2)
+            wall_y1, wall_y2 = shaft_y1, shaft_y2
+
+        ctrl_id = f"Extract_CTRL_{extract_number}"
+        if activation != "always_open":
+            lines.append(f"&OBST ID='Shaft Damper {extract_number}', XB={wall_x1},{wall_x2},{wall_y1},{wall_y2},{vent_z1},{vent_z2}, SURF_ID='Plasterboard', CTRL_ID='{ctrl_id}'/")
+
+        if activation == "timed" and activation_time is not None:
+            devc_id = f"Extract_Timer_{extract_number}"
+            lines.append(f"&CTRL ID='{ctrl_id}', FUNCTION_TYPE='ALL', LATCH=.FALSE., INITIAL_STATE=.TRUE., INPUT_ID='{devc_id}'/")
+            lines.append(f"&DEVC ID='{devc_id}', QUANTITY='TIME', XYZ=0,0,0, SETPOINT={float(activation_time)}/")
+        elif activation == "sprinkler":
+            devc_id = f"Extract_Sprinkler_{extract_number}"
+            mid_x = round((shaft_x1 + shaft_x2) / 2, 2)
+            mid_y = round((shaft_y1 + shaft_y2) / 2, 2)
+            lines.append(f"&CTRL ID='{ctrl_id}', FUNCTION_TYPE='ALL', LATCH=.FALSE., INITIAL_STATE=.TRUE., INPUT_ID='{devc_id}'/")
+            lines.append(f"&DEVC ID='{devc_id}', PROP_ID='Extract_Link_{extract_number}', XYZ={mid_x},{mid_y},{round(z + wall_height - 0.1, 2)}/")
+            lines.append(f"&PROP ID='Extract_Link_{extract_number}', QUANTITY='LINK TEMPERATURE', RTI=50, ACTIVATION_TEMPERATURE=68.0/")
+
+    else:
+        # --- NATURAL: unchanged ---
+        ctrl_suffix = ""
+        if activation == "timed":
+            ctrl_suffix = f", DEVC_ID='Extract_Timer_{extract_number}'"
+        elif activation == "sprinkler":
+            ctrl_suffix = f", DEVC_ID='Extract_Sprinkler_{extract_number}'"
+
+        if dx > dy:
+            vent_xb = f"{shaft_x1},{shaft_x2},{shaft_y1},{shaft_y1},{vent_z1},{vent_z2}"
+        else:
+            vent_xb = f"{shaft_x1},{shaft_x1},{shaft_y1},{shaft_y2},{vent_z1},{vent_z2}"
+
+        lines.append(f"&VENT ID='Extract Opening {extract_number}', SURF_ID='OPEN', XB={vent_xb}{ctrl_suffix}/")
+
+        roof_z = round(stair_enclosure_roof_z, 2)
+        lines.append(f"&HOLE ID='Extract Roof Opening {extract_number}', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{round(roof_z - 0.4, 2)},{round(roof_z + 0.4, 2)}/")
+        lines.append(f"&VENT ID='Mesh Vent: {shaft_id} [ZMAX]', SURF_ID='OPEN', XB={shaft_x1},{shaft_x2},{shaft_y1},{shaft_y2},{shaft_z2},{shaft_z2}/")
+
+        if activation == "timed" and activation_time is not None:
+            t = float(activation_time)
+            lines.append(f"&DEVC ID='Extract_Timer_{extract_number}', QUANTITY='TIME', XYZ=0,0,0, SETPOINT={t}/")
+        elif activation == "sprinkler":
+            mid_x = round((shaft_x1 + shaft_x2) / 2, 2)
+            mid_y = round((shaft_y1 + shaft_y2) / 2, 2)
+            lines.append(f"&DEVC ID='Extract_Sprinkler_{extract_number}', PROP_ID='Extract_Link_{extract_number}', XYZ={mid_x},{mid_y},{round(z + wall_height - 0.1, 2)}/")
+            lines.append(f"&PROP ID='Extract_Link_{extract_number}', QUANTITY='LINK TEMPERATURE', RTI=50, ACTIVATION_TEMPERATURE=68.0/")
+
+    return lines
+
+
+def compute_corridor_centerline(obstruction_points, spacing=0.5, inset=0.4):
+    """Compute centerline points along the corridor obstruction polygon.
+
+    For a simple rectangular-ish corridor, finds the long axis and places
+    points at `spacing` intervals, inset from walls by `inset` metres.
+    Returns list of [x, y] points.
+    """
+    xs = [p["x"] for p in obstruction_points]
+    ys = [p["y"] for p in obstruction_points]
+
+    xmin, xmax = min(xs), max(xs)
+    ymin, ymax = min(ys), max(ys)
+
+    delta_x = xmax - xmin
+    delta_y = ymax - ymin
+
+    centre_points = []
+    if delta_x > delta_y:
+        # Long corridor along X — centerline at mid-Y
+        y_mid = round((ymin + ymax) / 2, 2)
+        x_start = round(xmin + inset, 2)
+        x_end = round(xmax - inset, 2)
+        num_points = max(1, int((x_end - x_start) / spacing) + 1)
+        for i in range(num_points):
+            x = round(x_start + i * spacing, 2)
+            if x <= x_end:
+                centre_points.append([x, y_mid])
+    else:
+        # Long corridor along Y — centerline at mid-X
+        x_mid = round((xmin + xmax) / 2, 2)
+        y_start = round(ymin + inset, 2)
+        y_end = round(ymax - inset, 2)
+        num_points = max(1, int((y_end - y_start) / spacing) + 1)
+        for i in range(num_points):
+            y = round(y_start + i * spacing, 2)
+            if y <= y_end:
+                centre_points.append([x_mid, y])
+
+    return centre_points
+
+
+def generate_corridor_sensor_devcs(elements, z, sensor_heights):
+    """Generate DEVC lines from sensorTree elements placed by the frontend.
+
+    The frontend computes centerline positions and stores them as sensorTree
+    elements. This function reads those positions and generates FDS DEVC lines.
+    """
+    quantities = ["TEMPERATURE", "PRESSURE", "VISIBILITY", "VELOCITY"]
+    q_short = {"TEMPERATURE": "temp", "PRESSURE": "pres", "VISIBILITY": "vis", "VELOCITY": "vel"}
+
+    lines = []
+
+    sensor_trees = [el for el in elements if el.get("comments") == "sensorTree"]
+    print(f"[SENSOR] Found {len(sensor_trees)} sensorTree elements")
+    for i, st in enumerate(sensor_trees[:5]):
+        print(f"[SENSOR]   {i}: zoneName={st.get('zoneName', 'MISSING')} keys={list(st.keys())}")
+    if not sensor_trees:
+        return lines
+
+    # Group sensors by zone name to reset numbering per zone
+    zone_groups = {}
+    for tree in sensor_trees:
+        raw_zone = tree.get("zoneName")
+        zone_name = raw_zone if raw_zone else "corridor"
+        print(f"[SENSOR-GROUP] raw={raw_zone} resolved={zone_name}")
+        zone_key = zone_name.lower().replace(" ", "_")
+        if zone_key not in zone_groups:
+            zone_groups[zone_key] = []
+        zone_groups[zone_key].append(tree)
+
+    # Group by quantity (outer) then zone/point (inner) to match EXE ordering
+    # This makes spreadsheet analysis easier — all TEMPERATURE together, etc.
+    for quantity in quantities:
+        prefix = q_short[quantity]
+        for zone_key, trees in zone_groups.items():
+            for pt_idx, tree in enumerate(trees, start=1):
+                point = tree["points"][0]
+                x = round(point["x"], 2)
+                y = round(point["y"], 2)
+                for height in sensor_heights:
+                    sensor_z = round(z + height, 2)
+                    devc_id = f"{zone_key}_{prefix}_{pt_idx}"
+                    lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
+
+    return lines
+
+
+def generate_fsa_sensor_devcs(elements, z, fsa_sensor_heights):
+    """Generate DEVC lines from fsaSensor elements placed by the frontend.
+
+    FSA sensors are placed at specific distances (2m, 4m, 15m) along the walking
+    route from apartment door to stair door. All 4 sensor types are generated.
+    """
+    quantities = ["TEMPERATURE", "PRESSURE", "VISIBILITY", "VELOCITY"]
+    q_short = {"TEMPERATURE": "temp", "PRESSURE": "pres", "VISIBILITY": "vis", "VELOCITY": "vel"}
+
+    lines = []
+
+    fsa_sensors = [el for el in elements if el.get("comments") == "fsaSensor"]
+    print(f"[FSA SENSOR] Found {len(fsa_sensors)} fsaSensor elements")
+    if not fsa_sensors:
+        return lines
+
+    # Group by quantity (outer) then sensor/height (inner) to match EXE ordering
+    for quantity in quantities:
+        prefix = q_short[quantity]
+        for sensor in fsa_sensors:
+            point = sensor["points"][0]
+            x = round(point["x"], 2)
+            y = round(point["y"], 2)
+            raw_dist = sensor.get("fsaDistance", "?")
+            fsa_distance = int(raw_dist) if isinstance(raw_dist, (int, float)) and raw_dist == int(raw_dist) else raw_dist
+
+            for height in fsa_sensor_heights:
+                sensor_z = round(z + height, 2)
+                devc_id = f"FSA_{fsa_distance}m_{prefix}"
+                if len(fsa_sensor_heights) > 1:
+                    devc_id += f"_h{height}"
+                lines.append(f"&DEVC ID='{devc_id}', QUANTITY='{quantity}', XYZ={x},{y},{sensor_z}/")
+
+    return lines
+
+
+def generate_sensor_devcs_from_elements(elements, z, sensor_heights, fsa_sensor_heights=None):
+    """Generate all DEVC lines from frontend-placed sensor elements.
+
+    Combines sensorTree (corridor/zone centerline) and fsaSensor (FSA path)
+    elements. Positions are already in the correct coordinate space after
+    the element pipeline transforms them.
+    """
+    lines = generate_corridor_sensor_devcs(elements, z, sensor_heights)
+    fsa_heights = fsa_sensor_heights if fsa_sensor_heights else [1.5]
+    lines += generate_fsa_sensor_devcs(elements, z, fsa_heights)
+    return lines
+
+
 def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_m, fire_floor, total_floors, stair_enclosure_roof_z,
                  scenario_type="MOE", sim_end_time=300, door_openings=None, door_leakages_enabled=False, door_leakage_config=None, door_roles=None,
                  landing_roles=None, landing_up_side=None, obstruction_transparency=None,
-                 aov_mode="always_open", aov_activation_time=None, stair_style="overlapping"):
+                 aov_mode="always_open", aov_activation_time=None, aov_type="hole", stair_style="overlapping", extract_config=None, inlet_config=None,
+                 zone_config=None, include_sensors=True, corridor_sensor_heights=None, stair_sensor_heights=None, fsa_sensor_heights=None, is_sprinklered=True,
+                 fire_hrr=1000.0, fire_dimension=1.4, fire_height_above_floor=0.5, fire_base=0.0,
+                 fire_type="growing", fire_growth_rate="medium", fire_custom_alpha=None,
+                 slice_z_height=2.0):
     if door_openings is None:
         door_openings = {}
     if door_leakage_config is None:
@@ -508,6 +1582,12 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         door_roles = {}
     if obstruction_transparency is None:
         obstruction_transparency = {}
+    if extract_config is None:
+        extract_config = {}
+    if inlet_config is None:
+        inlet_config = {}
+    if zone_config is None:
+        zone_config = {}
 
     # 1. Simulation header
     header_lines = sim_header(chid='model', sim_end_time=sim_end_time)
@@ -522,11 +1602,25 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     elements = makeElementsRelativeToOrigin(elements, origin)
     elements = convertElPointsToCoords(elements, px_per_m)
 
-    # 3. Meshes
-    fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array)
+    # Flip Y axis: canvas Y=0 is top, FDS Y=0 is bottom
+    all_ys = [p["y"] for el in elements for p in el["points"]]
+    max_y = max(all_ys) if all_ys else 0
+    for el in elements:
+        for p in el["points"]:
+            p["y"] = round(max_y - p["y"], 5)
+
+    # 2a. Align meshes — snap abutting boundaries so no gaps (EXE prep_mesh_data pattern)
+    elements = align_meshes(elements, cell_size)
+
+    # 2b. Trim corridor meshes around extract shafts so they abut instead of overlap
+    elements = trim_meshes_around_shafts(elements, extract_config, wall_thickness, cell_size)
+
+    # 3. Meshes (with inlet pushback if inlets present)
+    inlets = [f for f in elements if f["comments"] == "inlet"]
+    fds_array = create_mesh(comments='mesh', elements=elements, cell_size=cell_size, px_per_m=px_per_m, z=z, fds_array=fds_array, wall_height=wall_height, inlets=inlets if inlets else None, inlet_config=inlet_config)
 
     # 3a. Stair meshes (Lower 0.2m / Middle 0.1m / Upper 0.2m) + mesh vent at ZMAX
-    fds_array = create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array)
+    fds_array = create_stair_meshes(elements, cell_size, px_per_m, z, wall_height, stair_enclosure_roof_z, fds_array, aov_type=aov_type)
 
     # 4. Obstructions
     fire_wall_transparency = obstruction_transparency.get("fireFloorWalls", 0.0)
@@ -541,15 +1635,42 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         control_lines = generate_door_controls(scenario_type, door_openings)
         fds_array = add_array_to_fds_array(control_lines, fds_array)
 
-    # 6. Door holes (with CTRL_ID when scenario_type is set)
+    # 6. Door holes (with CTRL_ID when scenario_type is set) — skips leakage doors
     door_scenario = scenario_type if scenario_type else "none"
     door_array = add_door_holes_to_fds(elements, z, wall_height, wall_thickness, fds_array, door_height=2.1, scenario_type=door_scenario, door_roles=door_roles)
     fds_array = add_array_to_fds_array(door_array, fds_array)
 
+    # 6a. Door leakage: generate VENT + HVAC LEAK lines
+    # Leakage-only doors always get leakage. Other doors (stair, apartment, lobby)
+    # get leakage when doorLeakageConfig[id].enabled is true.
+    doors = [f for f in elements if "door" in f["comments"]]
+    for idx, door in enumerate(doors):
+        door_id = str(door.get("id", idx))
+        role = door_roles.get(door_id, "")
+        config = door_leakage_config.get(door_id, {})
+        # Leakage-only doors always leak. Other assigned doors (stair, apartment, lobby)
+        # leak by default unless explicitly disabled (frontend checkbox defaults to checked)
+        has_role = role in ("stair", "apartment", "lobby")
+        should_leak = (role == "leakage") or (has_role and config.get("enabled") is not False)
+        if should_leak:
+            seal = config.get("sealType", None) or config.get("doorType", "non-smoke-sealed")
+            leakage_lines = generate_door_leakage_vents(door, door_index=idx, z=z, door_height=2.1, cell_size=0.1, seal_type=seal, wall_thickness=wall_thickness)
+            fds_array = add_array_to_fds_array(leakage_lines, fds_array)
+
     # 7. Fire obstruction & surface
-    fire_surface_array = fire_surface(hrr_kw=1000, fire_area=10, is_steady_state=False)
-    fds_array = add_array_to_fds_array(find_fire_obstruction(elements, z), fds_array)
+    fire_area = fire_dimension * fire_dimension
+    is_steady = (fire_type == "steady_state")
+    fire_surface_array = fire_surface(hrr_kw=fire_hrr, fire_area=fire_area, is_steady_state=is_steady)
     fds_array = add_array_to_fds_array(fire_surface_array, fds_array)
+    fds_array = add_array_to_fds_array(find_fire_obstruction(elements, z, fire_dimension, fire_height_above_floor, fire_base), fds_array)
+    if not is_steady:
+        ramp_lines = fire_ramp(growth_rate_name=fire_growth_rate, custom_alpha=fire_custom_alpha, hrr_kw=fire_hrr, sim_end_time=sim_end_time)
+        fds_array = add_array_to_fds_array(ramp_lines, fds_array)
+
+    # 7a. Sprinklers
+    if is_sprinklered:
+        sprinkler_lines = generate_sprinkler_lines(elements, z, wall_height)
+        fds_array = add_array_to_fds_array(sprinkler_lines, fds_array)
 
     # 8. Reaction chemistry
     reaction_array = fuel_reaction(0.07, 25000)
@@ -564,7 +1685,7 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
     fds_array = add_array_to_fds_array(roof_lines, fds_array)
 
     # 9b. AOV (roof vent hole)
-    aov_lines = create_stair_aov(elements, stair_enclosure_roof_z, aov_mode=aov_mode)
+    aov_lines = create_stair_aov(elements, stair_enclosure_roof_z, aov_mode=aov_mode, aov_type=aov_type)
     fds_array = add_array_to_fds_array(aov_lines, fds_array)
 
     # 9c. AOV controls (only when mode is timed or sprinkler)
@@ -576,7 +1697,49 @@ def testFunction(elements, z, wall_height, wall_thickness, stair_height, px_per_
         sprinkler_lines = create_aov_sprinkler_devc(elements, stair_enclosure_roof_z)
         fds_array = add_array_to_fds_array(sprinkler_lines, fds_array)
 
-    # 10. TAIL
+    # 9d. Extract shafts
+    extracts = [f for f in elements if f["comments"] == "extract"]
+    for idx, extract in enumerate(extracts):
+        ext_id = str(extract.get("id", idx))
+        config = extract_config.get(ext_id, {})
+        shaft_lines = create_extract_shaft(extract, config, z, wall_height, stair_enclosure_roof_z, wall_thickness, extract_number=idx + 1)
+        fds_array = add_array_to_fds_array(shaft_lines, fds_array)
+
+    # 9e. Inlet openings
+    inlets = [f for f in elements if f["comments"] == "inlet"]
+    for idx, inlet in enumerate(inlets):
+        inlet_id = str(inlet.get("id", idx))
+        config = inlet_config.get(inlet_id, {})
+        inlet_lines = create_inlet_opening(inlet, config, z, wall_height, wall_thickness, inlet_number=idx + 1)
+        fds_array = add_array_to_fds_array(inlet_lines, fds_array)
+
+    # 10. Sensors — positions are computed on the frontend and sent as
+    #     sensorTree / fsaSensor elements.  The backend only converts their
+    #     pixel coordinates to metres and writes the DEVC lines.
+    #     Do NOT recompute positions here (coordinate-system divergence).
+    has_frontend_sensors = any(f["comments"] in ("sensorTree", "fsaSensor") for f in elements)
+    if include_sensors and has_frontend_sensors:
+        sensor_heights = corridor_sensor_heights if corridor_sensor_heights else [2.0]
+        sensor_lines = generate_sensor_devcs_from_elements(elements, z, sensor_heights, fsa_sensor_heights=fsa_sensor_heights)
+        fds_array = add_array_to_fds_array(sensor_lines, fds_array)
+    elif include_sensors:
+        # Fallback: no frontend sensors sent — use legacy backend computation
+        sensor_heights = corridor_sensor_heights if corridor_sensor_heights else [2.0]
+        sensor_lines = generate_corridor_sensor_devcs(elements, z, sensor_heights)
+        fds_array = add_array_to_fds_array(sensor_lines, fds_array)
+        if zone_config:
+            zone_sensor_lines = generate_zone_sensors(elements, z, zone_config, sensor_heights=corridor_sensor_heights or [2.0])
+            fds_array = add_array_to_fds_array(zone_sensor_lines, fds_array)
+        fsa_heights = fsa_sensor_heights if fsa_sensor_heights else [1.5]
+        fsa_lines = generate_fsa_sensor_devcs(elements, z, fsa_heights)
+        fds_array = add_array_to_fds_array(fsa_lines, fds_array)
+
+    # 11. Slice planes (SLCF)
+    slice_lines = generate_slice_lines(elements, z, wall_height, door_roles=door_roles,
+                                        zone_config=zone_config, slice_z_height=slice_z_height)
+    fds_array = add_array_to_fds_array(slice_lines, fds_array)
+
+    # 12. TAIL
     fds_array.append("&TAIL/")
 
     final = array_to_str(fds_array)

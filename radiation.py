@@ -9,8 +9,6 @@ from docx import Document
 from docx.shared import Pt, RGBColor
 from constants import font_name_light
 
-
-
 document_name = "Oil Pan Fire Appendix - Template.docx"
 document_path = Path(__file__).parent /"Word Templates"/document_name
 doc = DocxTemplate(document_path)

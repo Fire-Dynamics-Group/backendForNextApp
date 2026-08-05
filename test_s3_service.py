@@ -56,3 +56,56 @@ def test_delete_pdf():
             conn.get_object(Bucket=MOCK_BUCKET, Key="projects/p/floors/f/plan.pdf")
     finally:
         _restore_s3_module(s3_mod, orig_client, orig_bucket)
+
+
+# --- storage_available: the read-only probe behind /health -------------------
+# The mobile app's bucket went down while its API kept answering 200. This is
+# the check that lets /health see that failure, so it must never create or
+# mutate anything - a probe that repairs the fault it is meant to report is
+# worse than no probe.
+
+
+@mock_aws
+def test_storage_available_true_when_bucket_reachable():
+    conn = boto3.client("s3", region_name="us-east-1")
+    conn.create_bucket(Bucket=MOCK_BUCKET)
+
+    import services.s3_service as s3_mod
+    orig_client, orig_bucket = _patch_s3_module(s3_mod)
+
+    try:
+        assert s3_mod.storage_available() is True
+    finally:
+        _restore_s3_module(s3_mod, orig_client, orig_bucket)
+
+
+@mock_aws
+def test_storage_available_false_when_bucket_missing_and_does_not_create_it():
+    conn = boto3.client("s3", region_name="us-east-1")
+
+    import services.s3_service as s3_mod
+    orig_client, orig_bucket = _patch_s3_module(s3_mod)
+
+    try:
+        assert s3_mod.storage_available() is False
+        buckets = [b["Name"] for b in conn.list_buckets()["Buckets"]]
+        assert MOCK_BUCKET not in buckets, "the probe must not create the bucket"
+    finally:
+        _restore_s3_module(s3_mod, orig_client, orig_bucket)
+
+
+def test_storage_available_false_when_credentials_are_unconfigured():
+    """_get_client raises when env vars are missing; that is 'not available',
+    not a 500 on the health endpoint."""
+    import services.s3_service as s3_mod
+
+    original = s3_mod._get_client
+
+    def boom():
+        raise RuntimeError("S3 credentials are not configured")
+
+    s3_mod._get_client = boom
+    try:
+        assert s3_mod.storage_available() is False
+    finally:
+        s3_mod._get_client = original
