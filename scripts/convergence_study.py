@@ -39,8 +39,8 @@ PANATTONI = dict(
 
 DEFAULT_OCCUPANCY = "Office"
 
-# FR periods spanning a mid (~0.9) and high (~0.97) reliability band
-FR_PERIODS = [35, 60]
+# FR periods spanning mid (~0.9), high (~0.97) and very-high (~0.99) reliability bands
+FR_PERIODS = [35, 60, 90]
 
 # nSim -> K seeded repeats. K tapers at large nSim to keep the sweep ~1 h;
 # the flattening story is told by the smaller nSim anyway.
