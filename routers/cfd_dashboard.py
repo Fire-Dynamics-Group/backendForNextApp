@@ -32,6 +32,7 @@ async def _upsert_runner(
     db: AsyncSession,
     status: str,
     pending_files: Optional[List[str]] = None,
+    machine_name: Optional[str] = None,
 ) -> None:
     result = await db.execute(select(CfdRunnerState).where(CfdRunnerState.id == 1))
     runner = result.scalar_one_or_none()
@@ -41,6 +42,7 @@ async def _upsert_runner(
             id=1,
             status=status,
             pending_files=pending_files,
+            machine_name=machine_name,
             last_heartbeat=now,
         )
         db.add(runner)
@@ -48,6 +50,8 @@ async def _upsert_runner(
         runner.status = status
         if pending_files is not None:
             runner.pending_files = pending_files
+        if machine_name is not None:
+            runner.machine_name = machine_name
         runner.last_heartbeat = now
     await db.flush()
 
@@ -70,9 +74,11 @@ async def post_status(
     data = body.data
     now = datetime.now(timezone.utc)
 
+    machine_name = data.get("machine_name")
+
     if event == "runner_started":
         pending = data.get("pending_files", [])
-        await _upsert_runner(db, status="online", pending_files=pending)
+        await _upsert_runner(db, status="online", pending_files=pending, machine_name=machine_name)
         # Insert queued simulations for pending files
         for filename in pending:
             # Check if simulation already exists
@@ -101,6 +107,7 @@ async def post_status(
                 status="running",
                 meshes=meshes,
                 t_end=t_end,
+                machine_name=machine_name,
                 started_at=now,
             )
             db.add(sim)
@@ -108,6 +115,7 @@ async def post_status(
             sim.status = "running"
             sim.meshes = meshes
             sim.t_end = t_end
+            sim.machine_name = machine_name
             sim.started_at = now
         await _update_runner_heartbeat(db)
         await db.commit()
@@ -157,7 +165,7 @@ async def post_status(
         return {"ok": True}
 
     elif event == "runner_idle":
-        await _upsert_runner(db, status="idle", pending_files=[])
+        await _upsert_runner(db, status="idle", pending_files=[], machine_name=machine_name)
         await db.commit()
         return {"ok": True}
 
@@ -173,7 +181,7 @@ async def get_state(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(CfdRunnerState).where(CfdRunnerState.id == 1))
     runner_row = result.scalar_one_or_none()
     if runner_row is None:
-        runner_info = {"status": "offline", "last_heartbeat": None}
+        runner_info = {"status": "offline", "last_heartbeat": None, "machine_name": None}
     else:
         heartbeat = runner_row.last_heartbeat
         # SQLite returns strings; Postgres returns datetime objects
@@ -186,6 +194,7 @@ async def get_state(db: AsyncSession = Depends(get_db)):
         runner_info = {
             "status": status,
             "last_heartbeat": heartbeat.isoformat(),
+            "machine_name": runner_row.machine_name,
         }
 
     # Current running simulation
@@ -232,6 +241,7 @@ async def get_state(db: AsyncSession = Depends(get_db)):
             "started_at": s.started_at.isoformat() if s.started_at else None,
             "completed_at": s.completed_at.isoformat() if s.completed_at else None,
             "error_msg": s.error_msg,
+            "machine_name": s.machine_name,
             "updated_at": s.updated_at.isoformat() if s.updated_at else None,
         }
 

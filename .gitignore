@@ -2,6 +2,12 @@
 .vercel
 output-models
 .env
+
+# Python
 __pycache__/
+*.py[cod]
 *.pyc
+.venv/
+venv/
 env/
+.pytest_cache/
