@@ -171,11 +171,11 @@ def make_chart(study: dict, path: str):
         tol = study["tolerance"]
         ax.axhline(p_hat + tol, color="crimson", ls="--", lw=1.0, alpha=0.7)
         ax.axhline(p_hat - tol, color="crimson", ls="--", lw=1.0, alpha=0.7,
-                   label=f"tolerance $\\pm${tol * 100:.1f} pp")
+                   label=f"tolerance $\\pm${tol * 100:.1f}%")
         rec = recommend_n({n: stats[str(n)] for n in ns}, tol)
         if rec is not None:
             ax.axvline(rec, color="crimson", ls="-", lw=1.2, alpha=0.8)
-            ax.annotate(f"envelope $\\leq\\pm${tol * 100:.1f} pp\nfrom N = {rec:,}",
+            ax.annotate(f"envelope $\\leq\\pm${tol * 100:.1f}%\nfrom N = {rec:,}",
                         xy=(rec, p_hat), xytext=(6, 18), textcoords="offset points",
                         fontsize=8, color="crimson")
         ax.set_xscale("log")
@@ -214,8 +214,8 @@ def make_writeup(study: dict, chart_name: str) -> str:
         "",
         f"![convergence chart]({chart_name})",
         "",
-        f"Tolerance used: envelope half-width ≤ ±{study['tolerance'] * 100:.1f} "
-        "percentage points.",
+        f"Tolerance used: envelope half-width ≤ ±{study['tolerance'] * 100:.1f}% "
+        "(all ± values are absolute differences in the reliability percentage).",
         "",
         "| FR (min) | nSim | K | mean | min–max half-width | 95% band half-width "
         "| analytic 1.96·SE |",
@@ -228,9 +228,10 @@ def make_writeup(study: dict, chart_name: str) -> str:
         for n in sorted(stats):
             s = stats[n]
             lines.append(
-                f"| {fr} | {n:,} | {s['k']} | {s['mean']:.4f} "
-                f"| ±{envelope_half_width(s):.4f} | ±{s['band_half_width']:.4f} "
-                f"| ±{1.96 * analytic_se(p_hat, n):.4f} |")
+                f"| {fr} | {n:,} | {s['k']} | {s['mean'] * 100:.2f}% "
+                f"| ±{envelope_half_width(s) * 100:.2f}% "
+                f"| ±{s['band_half_width'] * 100:.2f}% "
+                f"| ±{1.96 * analytic_se(p_hat, n) * 100:.2f}% |")
         recs[fr] = recommend_n(stats, study["tolerance"])
     lines.append("")
     lines.append("## Recommendation")
@@ -238,7 +239,7 @@ def make_writeup(study: dict, chart_name: str) -> str:
     for fr, rec in recs.items():
         rec_txt = f"nSim = {rec:,}" if rec else "not reached within the sweep"
         lines.append(f"- FR {fr} min: min–max envelope half-width first within "
-                     f"±{study['tolerance'] * 100:.1f} pp at **{rec_txt}**.")
+                     f"±{study['tolerance'] * 100:.1f}% at **{rec_txt}**.")
     return "\n".join(lines) + "\n"
 
 
