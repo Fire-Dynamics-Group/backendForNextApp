@@ -68,6 +68,7 @@ def summarize(values) -> dict:
         "p2_5": float(lo),
         "p97_5": float(hi),
         "band_half_width": float((hi - lo) / 2),
+        "envelope_half_width": float((v.max() - v.min()) / 2),
     }
 
 
@@ -81,10 +82,22 @@ def seed_for(base_seed: int, n_sim: int, k: int) -> int:
     return base_seed + n_sim * 1000 + k
 
 
+def envelope_half_width(s: dict) -> float:
+    """Min-max envelope half-width; derived from min/max for pre-envelope JSONs."""
+    if "envelope_half_width" in s:
+        return s["envelope_half_width"]
+    return (s["max"] - s["min"]) / 2
+
+
 def recommend_n(stats_by_n: dict, tol: float):
-    """Smallest nSim whose 95% percentile band half-width is within tol, else None."""
+    """Smallest nSim whose min-max envelope half-width is within tol, else None.
+
+    The envelope is the measure the precedent CFDOpenPlan appendix study used
+    (and passed authorities with); it is wider than the 95% percentile band,
+    so recommendations are conservative relative to a percentile rule.
+    """
     for n in sorted(stats_by_n):
-        if stats_by_n[n]["band_half_width"] <= tol:
+        if envelope_half_width(stats_by_n[n]) <= tol:
             return n
     return None
 
@@ -143,18 +156,28 @@ def make_chart(study: dict, path: str):
         stats = study["results"][fr]
         ns = sorted(int(n) for n in stats)
         mean = [stats[str(n)]["mean"] for n in ns]
-        lo = [stats[str(n)]["p2_5"] for n in ns]
-        hi = [stats[str(n)]["p97_5"] for n in ns]
+        lo = [stats[str(n)]["min"] for n in ns]
+        hi = [stats[str(n)]["max"] for n in ns]
         p_hat = mean[-1]  # best estimate of true p from the largest nSim
         an_lo = [p_hat - 1.96 * analytic_se(p_hat, n) for n in ns]
         an_hi = [p_hat + 1.96 * analytic_se(p_hat, n) for n in ns]
         c = palette[i % len(palette)]
         ax.fill_between(ns, lo, hi, color=c, alpha=0.45,
-                        label="empirical 2.5–97.5% band (LHS engine)")
+                        label="empirical min–max envelope (LHS engine)")
         ax.plot(ns, mean, "k--", lw=1.2, label="mean of K repeats")
         ax.plot(ns, an_lo, color="dimgray", ls=":", lw=1.5)
         ax.plot(ns, an_hi, color="dimgray", ls=":", lw=1.5,
                 label="analytic plain-MC 95% ($\\pm1.96\\sqrt{p(1-p)/N}$)")
+        tol = study["tolerance"]
+        ax.axhline(p_hat + tol, color="crimson", ls="--", lw=1.0, alpha=0.7)
+        ax.axhline(p_hat - tol, color="crimson", ls="--", lw=1.0, alpha=0.7,
+                   label=f"tolerance $\\pm${tol * 100:.1f} pp")
+        rec = recommend_n({n: stats[str(n)] for n in ns}, tol)
+        if rec is not None:
+            ax.axvline(rec, color="crimson", ls="-", lw=1.2, alpha=0.8)
+            ax.annotate(f"envelope $\\leq\\pm${tol * 100:.1f} pp\nfrom N = {rec:,}",
+                        xy=(rec, p_hat), xytext=(6, 18), textcoords="offset points",
+                        fontsize=8, color="crimson")
         ax.set_xscale("log")
         ax.set_xticks(ns)
         ax.get_xaxis().set_major_formatter(plt.FuncFormatter(lambda v, _: f"{int(v):,}"))
@@ -181,17 +204,22 @@ def make_writeup(study: dict, chart_name: str) -> str:
         "",
         "For each nSim the full reliability run was repeated K times with independent",
         "seeds; the spread of the K estimates measures run-to-run variability at that",
-        "nSim. The chart shows the empirical 2.5–97.5 % band beside the analytic",
+        "nSim. The chart shows the empirical min–max envelope of the K repeats (the",
+        "measure used by the precedent CFDOpenPlan appendix study) beside the analytic",
         "plain-Monte-Carlo 95 % interval ±1.96·√(p(1−p)/N) — the engine samples by",
-        "Latin Hypercube, so its empirical band is expected to sit inside the analytic",
-        "curve.",
+        "Latin Hypercube, so its empirical envelope is expected to sit inside the",
+        "analytic curve. The 95 % percentile band is tabulated as a supplementary,",
+        "K-stable measure; the acceptance rule runs on the (wider, conservative)",
+        "envelope.",
         "",
         f"![convergence chart]({chart_name})",
         "",
-        f"Tolerance used: half-band ≤ ±{study['tolerance'] * 100:.1f} percentage points.",
+        f"Tolerance used: envelope half-width ≤ ±{study['tolerance'] * 100:.1f} "
+        "percentage points.",
         "",
-        "| FR (min) | nSim | K | mean | 95% band half-width | analytic 1.96·SE |",
-        "|---|---|---|---|---|---|",
+        "| FR (min) | nSim | K | mean | min–max half-width | 95% band half-width "
+        "| analytic 1.96·SE |",
+        "|---|---|---|---|---|---|---|",
     ]
     recs = {}
     for fr in study["fr_periods"]:
@@ -201,14 +229,15 @@ def make_writeup(study: dict, chart_name: str) -> str:
             s = stats[n]
             lines.append(
                 f"| {fr} | {n:,} | {s['k']} | {s['mean']:.4f} "
-                f"| ±{s['band_half_width']:.4f} | ±{1.96 * analytic_se(p_hat, n):.4f} |")
+                f"| ±{envelope_half_width(s):.4f} | ±{s['band_half_width']:.4f} "
+                f"| ±{1.96 * analytic_se(p_hat, n):.4f} |")
         recs[fr] = recommend_n(stats, study["tolerance"])
     lines.append("")
     lines.append("## Recommendation")
     lines.append("")
     for fr, rec in recs.items():
         rec_txt = f"nSim = {rec:,}" if rec else "not reached within the sweep"
-        lines.append(f"- FR {fr} min: band half-width first within "
+        lines.append(f"- FR {fr} min: min–max envelope half-width first within "
                      f"±{study['tolerance'] * 100:.1f} pp at **{rec_txt}**.")
     return "\n".join(lines) + "\n"
 

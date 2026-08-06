@@ -34,6 +34,10 @@ class TestSummarize:
         assert s["band_half_width"] == 0.0
         assert s["std"] == 0.0
 
+    def test_envelope_half_width(self):
+        s = cs.summarize([0.90, 0.92, 0.94, 0.96, 0.98])
+        assert s["envelope_half_width"] == pytest.approx((0.98 - 0.90) / 2)
+
 
 class TestAnalyticSe:
     def test_half_at_100(self):
@@ -62,18 +66,26 @@ class TestSeedFor:
 
 
 class TestRecommendN:
+    """The acceptance rule runs on the min-max envelope (the CFDOpenPlan-appendix
+    measure, wider than the percentile band, so conservative)."""
+
     def test_picks_smallest_qualifying(self):
-        stats = {100: {"band_half_width": 0.04}, 1000: {"band_half_width": 0.009},
-                 5000: {"band_half_width": 0.003}}
+        stats = {100: {"envelope_half_width": 0.04}, 1000: {"envelope_half_width": 0.009},
+                 5000: {"envelope_half_width": 0.003}}
         assert cs.recommend_n(stats, tol=0.01) == 1000
 
     def test_none_when_no_n_qualifies(self):
-        stats = {100: {"band_half_width": 0.04}, 1000: {"band_half_width": 0.02}}
+        stats = {100: {"envelope_half_width": 0.04}, 1000: {"envelope_half_width": 0.02}}
         assert cs.recommend_n(stats, tol=0.005) is None
 
     def test_unsorted_input(self):
-        stats = {5000: {"band_half_width": 0.003}, 500: {"band_half_width": 0.008}}
+        stats = {5000: {"envelope_half_width": 0.003}, 500: {"envelope_half_width": 0.008}}
         assert cs.recommend_n(stats, tol=0.01) == 500
+
+    def test_falls_back_to_min_max_for_older_results(self):
+        # JSONs written before envelope_half_width existed still carry min/max
+        stats = {100: {"min": 0.90, "max": 0.94}, 1000: {"min": 0.917, "max": 0.923}}
+        assert cs.recommend_n(stats, tol=0.005) == 1000
 
 
 class TestRunStudy:
