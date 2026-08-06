@@ -159,19 +159,11 @@ def make_chart(study: dict, path: str):
         lo = [stats[str(n)]["min"] for n in ns]
         hi = [stats[str(n)]["max"] for n in ns]
         p_hat = mean[-1]  # best estimate of true p from the largest nSim
-        an_lo = [p_hat - 1.96 * analytic_se(p_hat, n) for n in ns]
-        an_hi = [p_hat + 1.96 * analytic_se(p_hat, n) for n in ns]
         c = palette[i % len(palette)]
         ax.fill_between(ns, lo, hi, color=c, alpha=0.45,
-                        label="empirical min–max envelope (LHS engine)")
+                        label="min–max envelope of K repeats")
         ax.plot(ns, mean, "k--", lw=1.2, label="mean of K repeats")
-        ax.plot(ns, an_lo, color="dimgray", ls=":", lw=1.5)
-        ax.plot(ns, an_hi, color="dimgray", ls=":", lw=1.5,
-                label="analytic plain-MC 95% ($\\pm1.96\\sqrt{p(1-p)/N}$)")
         tol = study["tolerance"]
-        ax.axhline(p_hat + tol, color="crimson", ls="--", lw=1.0, alpha=0.7)
-        ax.axhline(p_hat - tol, color="crimson", ls="--", lw=1.0, alpha=0.7,
-                   label=f"tolerance $\\pm${tol * 100:.1f}%")
         rec = recommend_n({n: stats[str(n)] for n in ns}, tol)
         if rec is not None:
             ax.axvline(rec, color="crimson", ls="-", lw=1.2, alpha=0.8)
