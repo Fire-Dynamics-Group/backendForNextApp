@@ -13,7 +13,7 @@ try:
 except ImportError as e:
     print(f"Warning: Optional modules not loaded: {e}")
 try:
-    from teq_reliability import compute_reliability, SteelParams
+    from teq_reliability import compute_reliability, SteelParams, tlim_hours_for
 except ImportError as e:
     print(f"Warning: teq_reliability not loaded: {e}")
 from routers.fee_proposal import router as fee_proposal_router
@@ -360,7 +360,9 @@ async def read_timeEq_reliability(data: TimeEqReliabilityData):
     vent_widths = data.openableWidths if data.openableWidths is not None else geo.wall_lengths
     vent_heights = [data.compartmentHeight] * len(vent_widths)
 
-    params = SteelParams()
+    # t_lim from the occupancy's fire growth rate (EN 1991-1-2 Table E.5 /
+    # BS 9999 Table 3); an explicit tLimMinutes override wins.
+    params = SteelParams(t_lim_hours=tlim_hours_for(data.occupancy))
     if data.sectionFactor is not None:
         params.sect_factor = data.sectionFactor
     if data.criticalTemp is not None:

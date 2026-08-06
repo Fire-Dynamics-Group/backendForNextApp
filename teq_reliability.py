@@ -28,6 +28,34 @@ DEFAULT_CSV_PATH = os.path.join(BASE_DIR, "data", "fire_load_density.csv")
 
 OPENING_FACTOR_ROW = "Opening Factor"  # CSV row defining the window-breakage distribution
 
+# Fire growth rate -> t_lim, EN 1991-1-2 Annex A(10): slow 25 / medium 20 / fast 15 min.
+GROWTH_RATE_TLIM_MIN = {"slow": 25.0, "medium": 20.0, "fast": 15.0}
+
+# Occupancy -> growth rate. Sources: EN 1991-1-2 Table E.5 (office/dwelling/
+# hospital/hotel/classroom medium, shopping centre/library fast) and BS 9999
+# Table 3 (shop sales areas/factories/storage fast; lounges/seating medium —
+# hence Restaurant, absent from Table E.5, stays medium). BS 9999's ultra-fast
+# tier has no EC1 t_lim value, so warehousing caps at fast. Unlisted
+# occupancies default to medium (the engine's historical global setting).
+OCCUPANCY_GROWTH_RATE = {
+    "Dwelling": "medium",
+    "Hospital": "medium",
+    "Hotel room": "medium",
+    "Library": "fast",
+    "Office": "medium",
+    "School": "medium",
+    "Clothing store": "fast",
+    "Retail unit storage area": "fast",
+    "Manufacturing and storage of combustible goods (<150 kg/m2)": "fast",
+    "Manufacturing and storage of combustible goods (>150 kg/m2)": "fast",
+}
+
+
+def tlim_hours_for(occupancy: str) -> float:
+    """t_lim (hours) for an occupancy's fire growth rate; medium if unlisted."""
+    rate = OCCUPANCY_GROWTH_RATE.get(occupancy, "medium")
+    return GROWTH_RATE_TLIM_MIN[rate] / 60.0
+
 
 # --------------------------------------------------------------------------- params
 @dataclass
@@ -229,7 +257,7 @@ def compute_reliability(*, occupancy: str, total_area: float, floor_area: float,
                         params: SteelParams | None = None, csv_path: str = DEFAULT_CSV_PATH,
                         chunk_size: int = 2000, seed: int | None = None) -> ReliabilityResult:
     """Run the Monte Carlo reliability assessment for one compartment + FR period."""
-    p = params or SteelParams()
+    p = params or SteelParams(t_lim_hours=tlim_hours_for(occupancy))
     rng = np.random.default_rng(seed)
 
     # 1. deterministic protection sizing
