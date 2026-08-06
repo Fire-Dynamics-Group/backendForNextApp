@@ -46,7 +46,7 @@ FR_PERIODS = [30, 60, 90]
 # nSim -> K seeded repeats. K tapers at large nSim to keep the sweep ~1 h;
 # the flattening story is told by the smaller nSim anyway.
 FULL_SCHEDULE = {100: 100, 500: 100, 1000: 100, 2000: 100,
-                 5000: 100, 10000: 50, 50000: 25}
+                 5000: 100, 10000: 50, 20000: 50, 50000: 25}
 QUICK_SCHEDULE = {100: 5, 500: 3, 1000: 2}
 
 TOLERANCE = 0.005  # +/- 0.5 percentage points on the reliability estimate
