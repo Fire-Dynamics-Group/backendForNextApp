@@ -52,7 +52,31 @@ PANATTONI = dict(
     vent_heights=[0, 0, 3.5, 0],
 )
 
+# Geometry contrast cases (issue #13 follow-up): geometry only reaches the engine
+# through the max opening factor and the floor/total-area ratio, so the two
+# informative extremes are a same-area square (aspect ratio only; max O drops
+# 0.19 -> 0.09, ventilation-controlled) and a small cellular office within EC1
+# Annex A's stated validity (<=500 m2, <=4 m; max O at the 0.2 clamp,
+# fuel-controlled). One full-height openable wall throughout, as Panattoni.
+_SQ = math.sqrt(832)   # 28.844 m side, same floor area as Panattoni
+GEOMETRIES = {
+    "panattoni": PANATTONI,
+    "square": dict(
+        floor_area=832.0,
+        total_area=2 * 832.0 + 4 * (_SQ * 3.5),                  # 2067.8
+        vent_widths=[0, 0, _SQ, 0],
+        vent_heights=[0, 0, 3.5, 0],
+    ),
+    "cellular": dict(                                            # 5 x 4 x 2.7 office
+        floor_area=20.0,
+        total_area=2 * 20.0 + 2 * (5 * 2.7) + 2 * (4 * 2.7),     # 88.6
+        vent_widths=[0, 0, 4.0, 0],
+        vent_heights=[0, 0, 2.7, 0],
+    ),
+}
+
 DEFAULT_OCCUPANCY = "Office"
+DEFAULT_GEOMETRY = "panattoni"
 
 # Standard UK fire resistance ratings. Reliability bands they hit vary by
 # occupancy (e.g. Office ~0.10 / 0.97 / 0.99, Restaurant ~0.52 / 0.97 / 0.99).
@@ -127,14 +151,15 @@ def recommend_n(stats_by_n: dict, tol: float):
 
 # ------------------------------------------------------------------ the sweep
 def run_study(fr_periods, schedule, base_seed, engine=None, log=None,
-              occupancy=DEFAULT_OCCUPANCY) -> dict:
+              occupancy=DEFAULT_OCCUPANCY, geometry=DEFAULT_GEOMETRY) -> dict:
     """Repeat the reliability run K times per (FR, nSim) cell and aggregate spread.
 
     ``engine`` defaults to ``tr.compute_reliability``; injectable for tests.
     Result dict is JSON-ready (string keys).
     """
+    geo = GEOMETRIES[geometry]
     engine = engine or (lambda **kw: tr.compute_reliability(
-        **PANATTONI, occupancy=occupancy, combustion_factor=1.0,
+        **geo, occupancy=occupancy, combustion_factor=1.0,
         is_sprinklered=False, **kw))
     t0 = time.perf_counter()
     results, raw = {}, {}
@@ -152,10 +177,13 @@ def run_study(fr_periods, schedule, base_seed, engine=None, log=None,
                 log(f"FR{fr} n={n_sim} K={k_reps}: mean={s['mean']:.4f} "
                     f"band=+/-{s['band_half_width']:.4f} "
                     f"[{time.perf_counter() - t0:.0f}s elapsed]")
+    dims = {"panattoni": "64x13x3.5", "square": "28.8x28.8x3.5",
+            "cellular": "5x4x2.7"}[geometry]
     return {
-        "scenario": f"Panattoni benchmark ({occupancy} 64x13x3.5, one openable "
+        "scenario": f"{geometry} benchmark ({occupancy} {dims}, one openable "
                     "wall, sect 135, b=1200, 500C, no factors)",
         "occupancy": occupancy,
+        "geometry": geometry,
         "fr_periods": [str(f) for f in fr_periods],
         "schedule": {str(n): k for n, k in schedule.items()},
         "base_seed": base_seed,
@@ -267,23 +295,30 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--occupancy", default=DEFAULT_OCCUPANCY,
                     help="fire-load distribution to sample (PD 7974 Table A.5 name)")
+    ap.add_argument("--geometry", default=DEFAULT_GEOMETRY, choices=sorted(GEOMETRIES),
+                    help="compartment geometry preset")
     ap.add_argument("--fr-periods", type=int, nargs="+", default=FR_PERIODS,
                     help="FR periods (min) spanning mid and high reliability bands")
     args = ap.parse_args()
 
     schedule = QUICK_SCHEDULE if args.quick else FULL_SCHEDULE
     study = run_study(args.fr_periods, schedule, args.seed, log=print,
-                      occupancy=args.occupancy)
+                      occupancy=args.occupancy, geometry=args.geometry)
 
-    os.makedirs(OUT_DIR, exist_ok=True)
+    # full studies live in studies/ (the top of convergence_out/ holds only the
+    # final review charts); quick smoke outputs stay at the root, gitignored
+    out_dir = OUT_DIR if args.quick else os.path.join(OUT_DIR, "studies")
+    os.makedirs(out_dir, exist_ok=True)
     tag = "quick" if args.quick else "full"
+    if args.geometry != DEFAULT_GEOMETRY:
+        tag += "_" + args.geometry
     if args.occupancy != DEFAULT_OCCUPANCY:
         tag += "_" + args.occupancy.lower().replace(" ", "_")
     if args.fr_periods != FR_PERIODS:
         tag += "_fr" + "-".join(str(f) for f in args.fr_periods)
-    json_path = os.path.join(OUT_DIR, f"convergence_{tag}.json")
-    chart_path = os.path.join(OUT_DIR, f"convergence_{tag}.png")
-    md_path = os.path.join(OUT_DIR, f"convergence_{tag}.md")
+    json_path = os.path.join(out_dir, f"convergence_{tag}.json")
+    chart_path = os.path.join(out_dir, f"convergence_{tag}.png")
+    md_path = os.path.join(out_dir, f"convergence_{tag}.md")
     with open(json_path, "w", encoding="utf-8") as f:
         json.dump(study, f, indent=1)
     make_chart(study, chart_path)

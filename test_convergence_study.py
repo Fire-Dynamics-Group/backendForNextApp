@@ -52,6 +52,42 @@ class TestAnalyticSe:
         assert cs.analytic_se(0.9, 10000) < cs.analytic_se(0.9, 100)
 
 
+class TestGeometries:
+    """Geometry contrast presets: same-area square (ventilation-controlled
+    extreme) and EC1-validity cellular office (fuel-controlled extreme)."""
+
+    def test_presets_share_engine_keys(self):
+        for geo in cs.GEOMETRIES.values():
+            assert set(geo) == {"floor_area", "total_area",
+                                "vent_widths", "vent_heights"}
+
+    def test_square_same_floor_area_as_panattoni(self):
+        sq = cs.GEOMETRIES["square"]
+        assert sq["floor_area"] == pytest.approx(cs.PANATTONI["floor_area"])
+        side = 832 ** 0.5
+        assert sq["total_area"] == pytest.approx(2 * 832 + 4 * side * 3.5)
+        assert sq["vent_widths"][2] == pytest.approx(side)
+
+    def test_square_lowers_max_opening_factor(self):
+        def o_max(g):
+            w, h = g["vent_widths"][2], g["vent_heights"][2]
+            return w * h * h ** 0.5 / g["total_area"]
+        assert o_max(cs.GEOMETRIES["square"]) < 0.6 * o_max(cs.PANATTONI)
+
+    def test_cellular_within_ec1_validity(self):
+        cell = cs.GEOMETRIES["cellular"]
+        assert cell["floor_area"] <= 500        # EC1 Annex A limits
+        assert cell["vent_heights"][2] <= 4.0
+        assert cell["total_area"] == pytest.approx(88.6)
+
+    def test_run_study_records_geometry(self):
+        stub = lambda **kw: type("R", (), {"reliability": 0.9})()
+        study = cs.run_study([60], {100: 2}, base_seed=1, engine=stub,
+                             geometry="square")
+        assert study["geometry"] == "square"
+        assert "square" in study["scenario"]
+
+
 class TestSeedFor:
     def test_deterministic(self):
         assert cs.seed_for(42, 2000, 7) == cs.seed_for(42, 2000, 7)
