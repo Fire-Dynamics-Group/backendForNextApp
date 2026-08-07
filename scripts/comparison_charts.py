@@ -24,6 +24,9 @@ import matplotlib.pyplot as plt
 from convergence_study import envelope_half_width, recommend_n, TOLERANCE
 
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "convergence_out")
+# Per-study outputs (chart + write-up + JSON trios) live one level down so the
+# top of convergence_out/ holds only the four final review charts.
+STUDY_DIR = os.path.join(OUT_DIR, "studies")
 
 # occupancy -> FR -> (study tag, growth-rate note)
 SOURCES = {
@@ -40,7 +43,7 @@ COLORS = {"Office": "limegreen", "Clothing store": "deepskyblue",
 
 
 def load(tag):
-    with open(os.path.join(OUT_DIR, f"convergence_{tag}.json"), encoding="utf-8") as f:
+    with open(os.path.join(STUDY_DIR, f"convergence_{tag}.json"), encoding="utf-8") as f:
         return json.load(f)
 
 
