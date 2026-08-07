@@ -5,40 +5,45 @@
 For each nSim the full reliability run was repeated K times with independent
 seeds; the spread of the K estimates measures run-to-run variability at that
 nSim. The chart shows the empirical min–max envelope of the K repeats (the
-measure used by the precedent CFDOpenPlan appendix study) beside the analytic
-plain-Monte-Carlo 95 % interval ±1.96·√(p(1−p)/N) — the engine samples by
-Latin Hypercube, so its empirical envelope is expected to sit inside the
-analytic curve. The 95 % percentile band is tabulated as a supplementary,
-K-stable measure; the acceptance rule runs on the (wider, conservative)
-envelope.
+measure used by the precedent CFDOpenPlan appendix study). The 95 %
+percentile band is tabulated as a supplementary, K-stable measure; the
+acceptance rule runs on the (wider, conservative) envelope.
 
 ![convergence chart](convergence_full_clothing_store.png)
 
-Tolerance used: envelope half-width ≤ ±0.5% (all ± values are absolute differences in the reliability percentage).
+Tolerance used: envelope half-width ≤ ±0.5% (a guide value, not a hard requirement; all ± values are absolute differences in the reliability percentage).
 
-| FR (min) | nSim | K | mean | min–max half-width | 95% band half-width | analytic 1.96·SE |
-|---|---|---|---|---|---|---|
-| 30 | 100 | 100 | 20.36% | ±1.50% | ±1.00% | ±7.91% |
-| 30 | 500 | 100 | 20.47% | ±0.60% | ±0.50% | ±3.54% |
-| 30 | 1,000 | 100 | 20.47% | ±0.50% | ±0.38% | ±2.50% |
-| 30 | 2,000 | 100 | 20.46% | ±0.37% | ±0.29% | ±1.77% |
-| 30 | 5,000 | 100 | 20.47% | ±0.27% | ±0.17% | ±1.12% |
-| 30 | 10,000 | 50 | 20.49% | ±0.16% | ±0.12% | ±0.79% |
-| 30 | 50,000 | 25 | 20.48% | ±0.06% | ±0.05% | ±0.35% |
-| 60 | 100 | 100 | 96.33% | ±3.00% | ±2.50% | ±3.69% |
-| 60 | 500 | 100 | 96.34% | ±1.50% | ±1.11% | ±1.65% |
-| 60 | 1,000 | 100 | 96.31% | ±1.10% | ±0.85% | ±1.17% |
-| 60 | 2,000 | 100 | 96.31% | ±0.75% | ±0.63% | ±0.83% |
-| 60 | 5,000 | 100 | 96.32% | ±0.50% | ±0.34% | ±0.52% |
-| 60 | 10,000 | 50 | 96.31% | ±0.25% | ±0.21% | ±0.37% |
-| 60 | 50,000 | 25 | 96.31% | ±0.11% | ±0.10% | ±0.17% |
-| 90 | 100 | 100 | 98.77% | ±1.50% | ±1.50% | ±2.23% |
-| 90 | 500 | 100 | 98.68% | ±1.20% | ±0.75% | ±1.00% |
-| 90 | 1,000 | 100 | 98.65% | ±0.70% | ±0.50% | ±0.71% |
-| 90 | 2,000 | 100 | 98.69% | ±0.48% | ±0.36% | ±0.50% |
-| 90 | 5,000 | 100 | 98.68% | ±0.36% | ±0.21% | ±0.32% |
-| 90 | 10,000 | 50 | 98.67% | ±0.15% | ±0.13% | ±0.22% |
-| 90 | 50,000 | 25 | 98.68% | ±0.07% | ±0.07% | ±0.10% |
+**Definitions.** *Envelope*: the measured random scatter — the range from
+the lowest to the highest answer seen across the K repeats at one nSim
+(the shaded band on the chart); half of it is the "min–max half-width".
+*95 % band half-width*: as above but using the middle 95 % of the K
+repeats instead of the extremes (narrower, less sensitive to one-off
+outliers; supplementary only). *K*: how many times the whole reliability
+run was repeated, with different random seeds, at each nSim.
+
+| FR (min) | nSim | K | mean | min–max half-width | 95% band half-width |
+|---|---|---|---|---|---|
+| 30 | 100 | 100 | 20.36% | ±1.50% | ±1.00% |
+| 30 | 500 | 100 | 20.47% | ±0.60% | ±0.50% |
+| 30 | 1,000 | 100 | 20.47% | ±0.50% | ±0.38% |
+| 30 | 2,000 | 100 | 20.46% | ±0.37% | ±0.29% |
+| 30 | 5,000 | 100 | 20.47% | ±0.27% | ±0.17% |
+| 30 | 10,000 | 50 | 20.49% | ±0.16% | ±0.12% |
+| 30 | 50,000 | 25 | 20.48% | ±0.06% | ±0.05% |
+| 60 | 100 | 100 | 96.33% | ±3.00% | ±2.50% |
+| 60 | 500 | 100 | 96.34% | ±1.50% | ±1.11% |
+| 60 | 1,000 | 100 | 96.31% | ±1.10% | ±0.85% |
+| 60 | 2,000 | 100 | 96.31% | ±0.75% | ±0.63% |
+| 60 | 5,000 | 100 | 96.32% | ±0.50% | ±0.34% |
+| 60 | 10,000 | 50 | 96.31% | ±0.25% | ±0.21% |
+| 60 | 50,000 | 25 | 96.31% | ±0.11% | ±0.10% |
+| 90 | 100 | 100 | 98.77% | ±1.50% | ±1.50% |
+| 90 | 500 | 100 | 98.68% | ±1.20% | ±0.75% |
+| 90 | 1,000 | 100 | 98.65% | ±0.70% | ±0.50% |
+| 90 | 2,000 | 100 | 98.69% | ±0.48% | ±0.36% |
+| 90 | 5,000 | 100 | 98.68% | ±0.36% | ±0.21% |
+| 90 | 10,000 | 50 | 98.67% | ±0.15% | ±0.13% |
+| 90 | 50,000 | 25 | 98.68% | ±0.07% | ±0.07% |
 
 ## Recommendation
 

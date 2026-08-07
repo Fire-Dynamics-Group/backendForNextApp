@@ -2,9 +2,23 @@
 
 Answers "how many sims are enough?" in the style of the CFDOpenPlan appendix study:
 for each nSim, repeat the whole reliability run K times with independent seeds and
-plot the spread (2.5-97.5 percentile band) of the reliability estimate against nSim,
-with the analytic plain-MC standard error sqrt(p(1-p)/N) overlaid — LHS sampling
-should beat the analytic curve, which is part of the story.
+plot the spread (min–max envelope) of the reliability estimate against nSim.
+
+Definitions (all spreads are quoted as +/-X%, absolute differences in the
+reliability percentage):
+  envelope        the measured random scatter: lowest-to-highest answer seen
+                  across the K repeats at one nSim (the shaded band on the
+                  charts). Half of it ("envelope half-width") is the headline
+                  convergence measure, as in the CFDOpenPlan appendix study.
+  SE              standard error: the typical run-to-run wobble of a Monte Carlo
+                  answer. sqrt(p(1-p)/N) predicts it for plain random sampling;
+                  we measure the real thing instead because Latin hypercube
+                  sampling wobbles less than the formula says.
+  CoV             coefficient of variation: scatter relative to the size of the
+                  answer (std/mean). We use absolute tolerances, not CoV — a
+                  pass/fail check against e.g. 92.8% cares about absolute %.
+  K               number of times the whole reliability run is repeated (with
+                  different random seeds) at each nSim to measure the scatter.
 
 Runs OFFLINE against the engine module directly (never through the web endpoint —
 the sweep is millions of simulations). Scenario is the Panattoni parity benchmark.
@@ -27,9 +41,10 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 import teq_reliability as tr
 
-# Panattoni benchmark compartment (matches test_teq_reliability.py / the workbook).
+# Panattoni benchmark compartment (matches test_teq_reliability.py from Kevin's R&D).
 # Occupancy is a separate knob: the study repeats across fire-load distributions
-# (Gumbel vs log-normal, rising CoV) and the worst-case N across them wins.
+# (Gumbel vs log-normal, differing coefficient of variation CoV = scatter relative
+# to the mean) and the worst-case N across them wins.
 PANATTONI = dict(
     floor_area=64 * 13,                                          # 832
     total_area=2 * (64 * 3.5) + 2 * (13 * 3.5) + 2 * (64 * 13),  # 2203
@@ -49,7 +64,7 @@ FULL_SCHEDULE = {100: 100, 500: 100, 1000: 100, 2000: 100,
                  5000: 100, 10000: 50, 20000: 50, 50000: 25}
 QUICK_SCHEDULE = {100: 5, 500: 3, 1000: 2}
 
-TOLERANCE = 0.005  # +/- 0.5 percentage points on the reliability estimate
+TOLERANCE = 0.005  # +/- 0.5 percentage points on the reliability estimate - just a guide
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "convergence_out")
 
@@ -73,7 +88,11 @@ def summarize(values) -> dict:
 
 
 def analytic_se(p: float, n: int) -> float:
-    """Plain-MC binomial standard error — the overlay LHS is expected to beat."""
+    """SE = standard error: the typical amount a Monte Carlo answer wobbles from
+    run to run purely because of random sampling. This is the pen-and-paper value
+    for plain random sampling of a proportion, sqrt(p(1-p)/N); the engine's Latin
+    hypercube sampling wobbles less than this. Internal reference only (used to
+    quantify the LHS gain); not part of the reported results or acceptance rule."""
     return math.sqrt(max(p * (1.0 - p), 0.0) / n)
 
 
@@ -83,7 +102,11 @@ def seed_for(base_seed: int, n_sim: int, k: int) -> int:
 
 
 def envelope_half_width(s: dict) -> float:
-    """Min-max envelope half-width; derived from min/max for pre-envelope JSONs."""
+    """Envelope = the measured random scatter: the range between the lowest and
+    highest answer seen across the K repeats at one nSim (the shaded band on the
+    charts). Half of it, quoted as +/-X%, is the headline convergence measure —
+    same construction as the CFDOpenPlan appendix study's min/max band. Derived
+    from min/max for pre-envelope JSONs."""
     if "envelope_half_width" in s:
         return s["envelope_half_width"]
     return (s["max"] - s["min"]) / 2
@@ -93,7 +116,7 @@ def recommend_n(stats_by_n: dict, tol: float):
     """Smallest nSim whose min-max envelope half-width is within tol, else None.
 
     The envelope is the measure the precedent CFDOpenPlan appendix study used
-    (and passed authorities with); it is wider than the 95% percentile band,
+    it is wider than the 95% percentile band,
     so recommendations are conservative relative to a percentile rule.
     """
     for n in sorted(stats_by_n):
@@ -197,33 +220,36 @@ def make_writeup(study: dict, chart_name: str) -> str:
         "For each nSim the full reliability run was repeated K times with independent",
         "seeds; the spread of the K estimates measures run-to-run variability at that",
         "nSim. The chart shows the empirical min–max envelope of the K repeats (the",
-        "measure used by the precedent CFDOpenPlan appendix study) beside the analytic",
-        "plain-Monte-Carlo 95 % interval ±1.96·√(p(1−p)/N) — the engine samples by",
-        "Latin Hypercube, so its empirical envelope is expected to sit inside the",
-        "analytic curve. The 95 % percentile band is tabulated as a supplementary,",
-        "K-stable measure; the acceptance rule runs on the (wider, conservative)",
-        "envelope.",
+        "measure used by the precedent CFDOpenPlan appendix study). The 95 %",
+        "percentile band is tabulated as a supplementary, K-stable measure; the",
+        "acceptance rule runs on the (wider, conservative) envelope.",
         "",
         f"![convergence chart]({chart_name})",
         "",
         f"Tolerance used: envelope half-width ≤ ±{study['tolerance'] * 100:.1f}% "
-        "(all ± values are absolute differences in the reliability percentage).",
+        "(a guide value, not a hard requirement; all ± values are absolute "
+        "differences in the reliability percentage).",
         "",
-        "| FR (min) | nSim | K | mean | min–max half-width | 95% band half-width "
-        "| analytic 1.96·SE |",
-        "|---|---|---|---|---|---|---|",
+        "**Definitions.** *Envelope*: the measured random scatter — the range from",
+        "the lowest to the highest answer seen across the K repeats at one nSim",
+        "(the shaded band on the chart); half of it is the \"min–max half-width\".",
+        "*95 % band half-width*: as above but using the middle 95 % of the K",
+        "repeats instead of the extremes (narrower, less sensitive to one-off",
+        "outliers; supplementary only). *K*: how many times the whole reliability",
+        "run was repeated, with different random seeds, at each nSim.",
+        "",
+        "| FR (min) | nSim | K | mean | min–max half-width | 95% band half-width |",
+        "|---|---|---|---|---|---|",
     ]
     recs = {}
     for fr in study["fr_periods"]:
         stats = {int(n): s for n, s in study["results"][fr].items()}
-        p_hat = stats[max(stats)]["mean"]
         for n in sorted(stats):
             s = stats[n]
             lines.append(
                 f"| {fr} | {n:,} | {s['k']} | {s['mean'] * 100:.2f}% "
                 f"| ±{envelope_half_width(s) * 100:.2f}% "
-                f"| ±{s['band_half_width'] * 100:.2f}% "
-                f"| ±{1.96 * analytic_se(p_hat, n) * 100:.2f}% |")
+                f"| ±{s['band_half_width'] * 100:.2f}% |")
         recs[fr] = recommend_n(stats, study["tolerance"])
     lines.append("")
     lines.append("## Recommendation")

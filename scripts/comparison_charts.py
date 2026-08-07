@@ -5,6 +5,12 @@ Clothing store FR30 comes from the fast-growth re-run (the engine's Table E.5 /
 BS 9999 mapping); its other FRs are growth-rate-insensitive (ventilation-
 controlled), so the medium-growth sweep data remains valid for them.
 
+Definitions: the "envelope" is the measured random scatter — the lowest-to-
+highest answer seen across the K seeded repeats at one nSim (the shaded band);
+its half-width, quoted as +/-X% (absolute difference in the reliability
+percentage), is the headline convergence measure. See the definitions block in
+convergence_study.py for SE / CoV / K.
+
 Usage:  python scripts/comparison_charts.py
 Writes scripts/convergence_out/comparison_fr{30,60,90}.png
 """

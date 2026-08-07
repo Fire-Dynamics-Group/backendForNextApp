@@ -5,27 +5,32 @@
 For each nSim the full reliability run was repeated K times with independent
 seeds; the spread of the K estimates measures run-to-run variability at that
 nSim. The chart shows the empirical min–max envelope of the K repeats (the
-measure used by the precedent CFDOpenPlan appendix study) beside the analytic
-plain-Monte-Carlo 95 % interval ±1.96·√(p(1−p)/N) — the engine samples by
-Latin Hypercube, so its empirical envelope is expected to sit inside the
-analytic curve. The 95 % percentile band is tabulated as a supplementary,
-K-stable measure; the acceptance rule runs on the (wider, conservative)
-envelope.
+measure used by the precedent CFDOpenPlan appendix study). The 95 %
+percentile band is tabulated as a supplementary, K-stable measure; the
+acceptance rule runs on the (wider, conservative) envelope.
 
 ![convergence chart](convergence_full_clothing_store_fr30.png)
 
-Tolerance used: envelope half-width ≤ ±0.5% (all ± values are absolute differences in the reliability percentage).
+Tolerance used: envelope half-width ≤ ±0.5% (a guide value, not a hard requirement; all ± values are absolute differences in the reliability percentage).
 
-| FR (min) | nSim | K | mean | min–max half-width | 95% band half-width | analytic 1.96·SE |
-|---|---|---|---|---|---|---|
-| 30 | 100 | 100 | 73.74% | ±5.50% | ±4.02% | ±8.69% |
-| 30 | 500 | 100 | 73.07% | ±2.20% | ±1.81% | ±3.89% |
-| 30 | 1,000 | 100 | 73.14% | ±1.70% | ±1.30% | ±2.75% |
-| 30 | 2,000 | 100 | 73.11% | ±1.40% | ±1.03% | ±1.94% |
-| 30 | 5,000 | 100 | 73.06% | ±0.76% | ±0.50% | ±1.23% |
-| 30 | 10,000 | 50 | 73.10% | ±0.48% | ±0.40% | ±0.87% |
-| 30 | 20,000 | 50 | 73.08% | ±0.41% | ±0.31% | ±0.61% |
-| 30 | 50,000 | 25 | 73.09% | ±0.23% | ±0.18% | ±0.39% |
+**Definitions.** *Envelope*: the measured random scatter — the range from
+the lowest to the highest answer seen across the K repeats at one nSim
+(the shaded band on the chart); half of it is the "min–max half-width".
+*95 % band half-width*: as above but using the middle 95 % of the K
+repeats instead of the extremes (narrower, less sensitive to one-off
+outliers; supplementary only). *K*: how many times the whole reliability
+run was repeated, with different random seeds, at each nSim.
+
+| FR (min) | nSim | K | mean | min–max half-width | 95% band half-width |
+|---|---|---|---|---|---|
+| 30 | 100 | 100 | 73.74% | ±5.50% | ±4.02% |
+| 30 | 500 | 100 | 73.07% | ±2.20% | ±1.81% |
+| 30 | 1,000 | 100 | 73.14% | ±1.70% | ±1.30% |
+| 30 | 2,000 | 100 | 73.11% | ±1.40% | ±1.03% |
+| 30 | 5,000 | 100 | 73.06% | ±0.76% | ±0.50% |
+| 30 | 10,000 | 50 | 73.10% | ±0.48% | ±0.40% |
+| 30 | 20,000 | 50 | 73.08% | ±0.41% | ±0.31% |
+| 30 | 50,000 | 25 | 73.09% | ±0.23% | ±0.18% |
 
 ## Recommendation
 
