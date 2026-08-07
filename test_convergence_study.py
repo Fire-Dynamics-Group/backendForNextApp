@@ -1,8 +1,9 @@
 """Tests for the convergence-study stats/batching logic (scripts/convergence_study.py).
 
 The study itself is an offline script (issue #13); these tests cover the pure logic —
-summary statistics, the analytic binomial overlay, seed derivation, the recommendation
-rule, and the sweep orchestration (via a stub engine, no Monte Carlo compute).
+summary statistics, the internal analytic-SE reference, seed derivation, the
+recommendation rule, and the sweep orchestration (via a stub engine, no Monte Carlo
+compute).
 """
 import os
 import sys
@@ -66,7 +67,7 @@ class TestSeedFor:
 
 
 class TestRecommendN:
-    """The acceptance rule runs on the min-max envelope (the CFDOpenPlan-appendix
+    """The recommendation rule runs on the min-max envelope (the CFDOpenPlan-appendix
     measure, wider than the percentile band, so conservative)."""
 
     def test_picks_smallest_qualifying(self):

@@ -347,7 +347,7 @@ class TimeEqReliabilityData(BaseModel):
     bValue: Optional[float] = None
     sectionFactor: Optional[float] = None
     criticalTemp: Optional[float] = None
-    tLimMinutes: Optional[float] = None          # fire growth rate (medium=20)
+    tLimMinutes: Optional[float] = None          # growth-rate override; default derives from occupancy (tlim_hours_for)
     combustionFactor: float = 0.8
     sprinklerFactor: float = 0.65
 

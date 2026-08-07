@@ -70,7 +70,7 @@ class SteelParams:
     c_prot: float = 1200.0
     therm_cond_prot: float = 0.14
     ambient_temp: float = 20.0
-    t_lim_hours: float = 20.0 / 60.0     # fire growth rate (medium = 20 min)
+    t_lim_hours: float = 20.0 / 60.0     # medium fallback; overridden per occupancy via tlim_hours_for()
     delta_t_s: float = 5.0               # heat-transfer time step (seconds) — INTERNAL
     calc_time_hours: float = 300.0 / 60.0  # simulated duration (300 min) — INTERNAL
 

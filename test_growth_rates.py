@@ -1,9 +1,12 @@
-"""Per-occupancy fire growth rate -> t_lim (EN 1991-1-2 Annex A(10) + Table E.5).
+"""Per-occupancy fire growth rate -> t_lim (EN 1991-1-2 Annex A(10) + Table E.5,
+supplemented by BS 9999 Table 3).
 
 Table E.5 assigns growth rates by occupancy (office medium, shopping centre fast,
-library fast, ...); Annex A(10) maps slow/medium/fast to t_lim = 25/20/15 min.
-Occupancies EC1 doesn't list (e.g. Restaurant) default to medium, matching the
-engine's historical global setting.
+library fast, ...); BS 9999 Table 3 covers occupancies EC1 omits (shop sales areas
+fast, factories/storage fast, warehousing ultra-fast — capped at fast, EC1's top
+tier); Annex A(10) maps slow/medium/fast to t_lim = 25/20/15 min. Occupancies
+neither source lists (e.g. Restaurant) default to medium, matching the engine's
+historical global setting.
 """
 import pytest
 

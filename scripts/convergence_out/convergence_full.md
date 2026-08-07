@@ -7,7 +7,7 @@ seeds; the spread of the K estimates measures run-to-run variability at that
 nSim. The chart shows the empirical min–max envelope of the K repeats (the
 measure used by the precedent CFDOpenPlan appendix study). The 95 %
 percentile band is tabulated as a supplementary, K-stable measure; the
-acceptance rule runs on the (wider, conservative) envelope.
+recommendation rule runs on the (wider, conservative) envelope.
 
 ![convergence chart](convergence_full.png)
 

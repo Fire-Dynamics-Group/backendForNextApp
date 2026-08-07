@@ -64,7 +64,7 @@ FULL_SCHEDULE = {100: 100, 500: 100, 1000: 100, 2000: 100,
                  5000: 100, 10000: 50, 20000: 50, 50000: 25}
 QUICK_SCHEDULE = {100: 5, 500: 3, 1000: 2}
 
-TOLERANCE = 0.005  # +/- 0.5 percentage points on the reliability estimate - just a guide
+TOLERANCE = 0.005  # +/-0.5% (absolute, on the reliability percentage) - just a guide
 
 OUT_DIR = os.path.join(os.path.dirname(__file__), "convergence_out")
 
@@ -115,9 +115,9 @@ def envelope_half_width(s: dict) -> float:
 def recommend_n(stats_by_n: dict, tol: float):
     """Smallest nSim whose min-max envelope half-width is within tol, else None.
 
-    The envelope is the measure the precedent CFDOpenPlan appendix study used
-    it is wider than the 95% percentile band,
-    so recommendations are conservative relative to a percentile rule.
+    The envelope is the measure the precedent CFDOpenPlan appendix study used;
+    it is wider than the 95% percentile band, so recommendations are conservative
+    relative to a percentile rule. tol is a guide value, not a hard requirement.
     """
     for n in sorted(stats_by_n):
         if envelope_half_width(stats_by_n[n]) <= tol:
@@ -222,7 +222,7 @@ def make_writeup(study: dict, chart_name: str) -> str:
         "nSim. The chart shows the empirical min–max envelope of the K repeats (the",
         "measure used by the precedent CFDOpenPlan appendix study). The 95 %",
         "percentile band is tabulated as a supplementary, K-stable measure; the",
-        "acceptance rule runs on the (wider, conservative) envelope.",
+        "recommendation rule runs on the (wider, conservative) envelope.",
         "",
         f"![convergence chart]({chart_name})",
         "",

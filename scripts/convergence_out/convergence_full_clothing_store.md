@@ -1,5 +1,13 @@
 # Monte Carlo TEQ reliability — convergence study
 
+> **Note — FR 30 superseded.** This sweep ran all FR periods with medium fire
+> growth (t_lim 20 min). Clothing store is a **fast**-growth occupancy
+> (EN 1991-1-2 Table E.5 / BS 9999 Table 3), which changes the FR 30 result
+> substantially (reliability ≈ 73.1 %, recommendation nSim = 10,000 — see
+> `convergence_full_clothing_store_fr30.md`). The FR 30 rows below are kept for
+> the record only. FR 60 and FR 90 are unaffected (growth-rate-insensitive,
+> ventilation-controlled) and remain the governing results for those periods.
+
 *Scenario:* Panattoni benchmark (Clothing store 64x13x3.5, one openable wall, sect 135, b=1200, 500C, no factors). *Base seed:* 42. *Runtime:* 7423 s. *Repeats per nSim (K):* {'100': 100, '500': 100, '1000': 100, '2000': 100, '5000': 100, '10000': 50, '50000': 25}.
 
 For each nSim the full reliability run was repeated K times with independent
@@ -7,7 +15,7 @@ seeds; the spread of the K estimates measures run-to-run variability at that
 nSim. The chart shows the empirical min–max envelope of the K repeats (the
 measure used by the precedent CFDOpenPlan appendix study). The 95 %
 percentile band is tabulated as a supplementary, K-stable measure; the
-acceptance rule runs on the (wider, conservative) envelope.
+recommendation rule runs on the (wider, conservative) envelope.
 
 ![convergence chart](convergence_full_clothing_store.png)
 

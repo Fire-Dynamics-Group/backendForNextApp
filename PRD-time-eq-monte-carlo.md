@@ -98,7 +98,7 @@ accepts an **optional custom override**:
 | Section factor `Ap/V` | **202** | Dominant lever on result |
 | Critical (failure) temp | **500 °C** | |
 | Protection density `ρ_p` | **375** | `c_p` 1200, `k` 0.14 |
-| `t_lim` (growth rate) | **20 min (medium)** | selector: slow 25 / medium 20 / fast 15; custom allowed |
+| `t_lim` (growth rate) | **from occupancy** | EN 1991-1-2 Table E.5 + BS 9999 Table 3 (e.g. Office/Restaurant medium 20, Clothing store fast 15); selector slow 25 / medium 20 / fast 15 as override; custom allowed |
 | b-value (thermal inertia) | **derived from materials** | show per-material b (concrete ≈1741.6, brick ≈1674.8, plasterboard ≈421.5); custom override |
 | Combustibility factor | **0.8** | applied to fuel load |
 | Sprinkler factor | **0.65** | applied **only** when sprinklered |
