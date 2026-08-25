@@ -24,11 +24,42 @@ def get_ordinal_suffix(day: int) -> str:
     return "th"
 
 
+LEGISLATION_ENGLAND_WALES = "Building Regulations 2010 (Part B)"
+LEGISLATION_JERSEY = "Building Bye Laws (Jersey) 2007 (Part 2)"
+
+
 def get_legislation(country: str) -> str:
     """Return the appropriate legislation reference based on country."""
     if country == "J":
-        return "Building Bye Laws (Jersey) 2007 (Part 2)"
-    return "Building Regulations 2010 (Part B)"
+        return LEGISLATION_JERSEY
+    return LEGISLATION_ENGLAND_WALES
+
+
+def resolve_legislation(project) -> str:
+    """Return the legislation reference to quote throughout the proposal.
+
+    England/Wales and Jersey have fixed references. An "Other" location can
+    carry its own, falling back to the England/Wales reference when the user
+    left it blank.
+    """
+    country = getattr(project.country, "value", project.country)
+    if country == "OTHER":
+        custom = (getattr(project, "legislation", "") or "").strip()
+        if custom:
+            return custom
+    return get_legislation(country)
+
+
+def applies_vat(project) -> bool:
+    """Return whether fees for this project should be quoted exclusive of VAT.
+
+    England/Wales always attracts VAT and Jersey never does. For an "Other"
+    location the user states it explicitly on the form.
+    """
+    country = getattr(project.country, "value", project.country)
+    if country == "OTHER":
+        return bool(getattr(project, "vat_applicable", False))
+    return country != "J"
 
 
 def format_riba_stages(stages: List[int]) -> str:

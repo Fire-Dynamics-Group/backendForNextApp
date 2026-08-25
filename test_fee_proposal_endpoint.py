@@ -95,3 +95,72 @@ async def test_applicable_text_blocks_resilient_to_missing_engineer():
 
     assert resp.status_code == 200
     assert "STAGE_1_SCOPE" in resp.json()  # still resolves despite no engineer
+
+
+@pytest.mark.asyncio
+async def test_generate_endpoint_accepts_other_country_with_vat():
+    """The form posts country 'OTHER' plus an explicit VAT choice."""
+    import io
+    from docx import Document
+    from main import app
+
+    payload = {
+        "client": {"first_name": "Test", "surname": "Client", "address_lines": ["1 Test St"]},
+        "project": {"project_name": "Mill Court", "project_location": "Guernsey",
+                    "country": "OTHER", "vat_applicable": True},
+        "fee_options": {"engineer_name": "Sam Bennett"},
+        "design_stages_1_4": {"stage_1": {"included": True, "fee": 5000}},
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/fee-proposals/generate", json=payload)
+
+    assert resp.status_code == 200
+    doc = Document(io.BytesIO(resp.content))
+    assert "exc. VAT." in "\n".join(p.text for p in doc.paragraphs)
+
+
+@pytest.mark.asyncio
+async def test_generate_endpoint_accepts_other_country_without_vat():
+    import io
+    from docx import Document
+    from main import app
+
+    payload = {
+        "client": {"first_name": "Test", "surname": "Client", "address_lines": ["1 Test St"]},
+        "project": {"project_name": "Mill Court", "project_location": "Guernsey",
+                    "country": "OTHER", "vat_applicable": False},
+        "fee_options": {"engineer_name": "Sam Bennett"},
+        "design_stages_1_4": {"stage_1": {"included": True, "fee": 5000}},
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/fee-proposals/generate", json=payload)
+
+    assert resp.status_code == 200
+    doc = Document(io.BytesIO(resp.content))
+    assert "VAT" not in "\n".join(p.text for p in doc.paragraphs)
+
+
+@pytest.mark.asyncio
+async def test_generate_endpoint_accepts_custom_legislation_for_other_country():
+    import io
+    from docx import Document
+    from main import app
+
+    payload = {
+        "client": {"first_name": "Test", "surname": "Client", "address_lines": ["1 Test St"]},
+        "project": {"project_name": "Mill Court", "project_location": "Guernsey",
+                    "country": "OTHER", "vat_applicable": False,
+                    "legislation": "Building Bye Laws (Guernsey) 2012"},
+        "fee_options": {"engineer_name": "Sam Bennett"},
+        "design_stages_1_4": {"stage_3": {"included": True, "fee": 9000}},
+    }
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        resp = await ac.post("/fee-proposals/generate", json=payload)
+
+    assert resp.status_code == 200
+    text = "\n".join(p.text for p in Document(io.BytesIO(resp.content)).paragraphs)
+    assert "Building Bye Laws (Guernsey) 2012" in text
+    assert "Building Regulations 2010" not in text
