@@ -12,7 +12,7 @@ from docx.enum.text import WD_BREAK
 from docx.shared import Cm
 
 from services.fee_calculator import (
-    number_to_word, get_ordinal_suffix, get_legislation,
+    number_to_word, get_ordinal_suffix, get_legislation, applies_vat,
     format_riba_stages, determine_riba_stages, build_input_data, get_initials
 )
 from services import fee_text_templates as txt
@@ -101,6 +101,7 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     project_name = data.project.project_name
     project_location = data.project.project_location
     project_country = data.project.country.value
+    vat_applies = applies_vat(data.project)
     provide_hourly_rates = data.fee_options.include_hourly_rates
     PII = data.fee_options.pii_limit
     engineer = data.fee_options.engineer_name
@@ -202,7 +203,7 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
         run = p.add_run("\u00a3{:0,.2f}".format(float(item["fee"])))
         run.font.bold = True
         end_suffix = f" (expected end date {item['end_date']})" if item["end_date"] else ""
-        p.add_run(f"{end_suffix}." if project_country == "J" else f" exc. VAT{end_suffix}.")
+        p.add_run(f" exc. VAT{end_suffix}." if vat_applies else f"{end_suffix}.")
     else:
         _add_para(doc, "Our proposed fees for the scope outlined in this document are as follows:", "Standard_Text")
         fee_total = 0
@@ -233,14 +234,14 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
         table.rows[n].cells[1].paragraphs[0].style = doc.styles["Standard_Text"]
         table.rows[n].cells[0].paragraphs[0].runs[0].font.bold = True
         table.rows[n].cells[1].paragraphs[0].runs[0].font.bold = True
-        if project_country != "J":
+        if vat_applies:
             _add_para(doc, "All fees quoted are exclusive of VAT. ", "Standard_Text")
 
     if not provide_hourly_rates:
         _add_para(doc, "Any additional works beyond the detailed scope will either be charged at our standard hourly rates (available upon request) or would be subject to an additional fee agreement.", "Standard_Text")
     else:
         p = _add_para(doc, "Any additional works beyond the detailed scope will either be charged at our hourly rates, ", "Standard_Text")
-        if project_country != "J":
+        if vat_applies:
             p.add_run("exclusive of VAT, ")
         p.add_run("as follows:")
         table = doc.add_table(0, 0)
@@ -258,7 +259,7 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     # TERMS
     validity_date = (datetime.now() + timedelta(days=60)).strftime("%d/%m/%y")
     PII_fmt = "{:0,.0f}".format(PII)
-    vat_text = "" if project_country == "J" else "+VAT"
+    vat_text = "+VAT" if vat_applies else ""
     _add_para(doc, "Terms of Business", "Subheading")
     _add_para(doc, f"We propose to offer professional indemnity insurance to the value of \u00a3{PII_fmt} in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.", "Standard_Text")
     _add_para(doc, _safe_format(T.TERMS_ACE, vat_text=vat_text), "Standard_Text")

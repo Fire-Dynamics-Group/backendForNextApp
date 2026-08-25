@@ -84,3 +84,60 @@ class TestExpectedEndDateRendering:
         buf = generate_proposal(_base_request(stages))
         text = _all_text(buf)
         assert "(Up to" not in text
+
+
+def _country_request(country: CountryEnum, vat_applicable: bool = False,
+                     include_hourly_rates: bool = True,
+                     stages_1_4: DesignStagesRiba1to4 = None) -> FeeProposalRequest:
+    return FeeProposalRequest(
+        client=ClientDetails(first_name="Test", surname="Client", address_lines=["1 Test St"]),
+        project=ProjectDetails(project_name="Test Project", project_location="St Peter Port",
+                               country=country, vat_applicable=vat_applicable),
+        fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=100000,
+                               include_hourly_rates=include_hourly_rates),
+        design_stages_1_4=stages_1_4 or DesignStagesRiba1to4(
+            stage_1=ServiceConfig(included=True, fee=5000),
+        ),
+    )
+
+
+class TestVatByCountry:
+    def test_other_country_with_vat_quotes_fees_exclusive_of_vat(self):
+        text = _all_text(generate_proposal(
+            _country_request(CountryEnum.OTHER, vat_applicable=True)))
+        assert "exc. VAT." in text
+        assert "exclusive of VAT, " in text
+        assert "+VAT" in text
+
+    def test_other_country_without_vat_omits_vat(self):
+        text = _all_text(generate_proposal(
+            _country_request(CountryEnum.OTHER, vat_applicable=False)))
+        assert "VAT" not in text
+
+    def test_other_country_with_vat_notes_vat_under_fee_table(self):
+        stages = DesignStagesRiba1to4(
+            stage_1=ServiceConfig(included=True, fee=5000),
+            stage_2=ServiceConfig(included=True, fee=7500),
+        )
+        text = _all_text(generate_proposal(
+            _country_request(CountryEnum.OTHER, vat_applicable=True, stages_1_4=stages)))
+        assert "All fees quoted are exclusive of VAT." in text
+
+    def test_other_country_without_vat_omits_note_under_fee_table(self):
+        stages = DesignStagesRiba1to4(
+            stage_1=ServiceConfig(included=True, fee=5000),
+            stage_2=ServiceConfig(included=True, fee=7500),
+        )
+        text = _all_text(generate_proposal(
+            _country_request(CountryEnum.OTHER, vat_applicable=False, stages_1_4=stages)))
+        assert "VAT" not in text
+
+    def test_jersey_ignores_vat_applicable_flag(self):
+        text = _all_text(generate_proposal(
+            _country_request(CountryEnum.JERSEY, vat_applicable=True)))
+        assert "VAT" not in text
+
+    def test_england_wales_ignores_vat_applicable_flag(self):
+        text = _all_text(generate_proposal(
+            _country_request(CountryEnum.ENGLAND_WALES, vat_applicable=False)))
+        assert "exc. VAT." in text

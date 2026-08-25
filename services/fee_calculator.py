@@ -31,6 +31,18 @@ def get_legislation(country: str) -> str:
     return "Building Regulations 2010 (Part B)"
 
 
+def applies_vat(project) -> bool:
+    """Return whether fees for this project should be quoted exclusive of VAT.
+
+    England/Wales always attracts VAT and Jersey never does. For an "Other"
+    location the user states it explicitly on the form.
+    """
+    country = getattr(project.country, "value", project.country)
+    if country == "OTHER":
+        return bool(getattr(project, "vat_applicable", False))
+    return country != "J"
+
+
 def format_riba_stages(stages: List[int]) -> str:
     """Format RIBA stage numbers into a readable string."""
     if not stages:
