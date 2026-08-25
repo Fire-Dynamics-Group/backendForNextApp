@@ -88,11 +88,13 @@ class TestExpectedEndDateRendering:
 
 def _country_request(country: CountryEnum, vat_applicable: bool = False,
                      include_hourly_rates: bool = True,
-                     stages_1_4: DesignStagesRiba1to4 = None) -> FeeProposalRequest:
+                     stages_1_4: DesignStagesRiba1to4 = None,
+                     legislation: str = "") -> FeeProposalRequest:
     return FeeProposalRequest(
         client=ClientDetails(first_name="Test", surname="Client", address_lines=["1 Test St"]),
         project=ProjectDetails(project_name="Test Project", project_location="St Peter Port",
-                               country=country, vat_applicable=vat_applicable),
+                               country=country, vat_applicable=vat_applicable,
+                               legislation=legislation),
         fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=100000,
                                include_hourly_rates=include_hourly_rates),
         design_stages_1_4=stages_1_4 or DesignStagesRiba1to4(
@@ -141,3 +143,36 @@ class TestVatByCountry:
         text = _all_text(generate_proposal(
             _country_request(CountryEnum.ENGLAND_WALES, vat_applicable=False)))
         assert "exc. VAT." in text
+
+
+class TestLegislationByCountry:
+    _STAGE_3 = DesignStagesRiba1to4(stage_3=ServiceConfig(included=True, fee=9000))
+
+    def test_other_country_quotes_its_own_legislation(self):
+        text = _all_text(generate_proposal(_country_request(
+            CountryEnum.OTHER, legislation="Building Bye Laws (Guernsey) 2012",
+            stages_1_4=self._STAGE_3)))
+        assert "requirements of Building Bye Laws (Guernsey) 2012 and will also include:" in text
+        assert "Building Regulations 2010" not in text
+
+    def test_other_country_without_custom_legislation_falls_back(self):
+        text = _all_text(generate_proposal(_country_request(
+            CountryEnum.OTHER, stages_1_4=self._STAGE_3)))
+        assert "requirements of Building Regulations 2010 (Part B)" in text
+
+    def test_blank_custom_legislation_falls_back(self):
+        text = _all_text(generate_proposal(_country_request(
+            CountryEnum.OTHER, legislation="   ", stages_1_4=self._STAGE_3)))
+        assert "requirements of Building Regulations 2010 (Part B)" in text
+
+    def test_england_wales_ignores_custom_legislation(self):
+        text = _all_text(generate_proposal(_country_request(
+            CountryEnum.ENGLAND_WALES, legislation="Building Bye Laws (Guernsey) 2012",
+            stages_1_4=self._STAGE_3)))
+        assert "requirements of Building Regulations 2010 (Part B)" in text
+
+    def test_jersey_ignores_custom_legislation(self):
+        text = _all_text(generate_proposal(_country_request(
+            CountryEnum.JERSEY, legislation="Building Bye Laws (Guernsey) 2012",
+            stages_1_4=self._STAGE_3)))
+        assert "requirements of Building Bye Laws (Jersey) 2007 (Part 2)" in text

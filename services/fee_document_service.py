@@ -12,7 +12,7 @@ from docx.enum.text import WD_BREAK
 from docx.shared import Cm
 
 from services.fee_calculator import (
-    number_to_word, get_ordinal_suffix, get_legislation, applies_vat,
+    number_to_word, get_ordinal_suffix, resolve_legislation, applies_vat,
     format_riba_stages, determine_riba_stages, build_input_data, get_initials
 )
 from services import fee_text_templates as txt
@@ -123,7 +123,7 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     sig_path = os.path.join(SIGNATURES_DIR, pic_name)
     has_signature = os.path.exists(sig_path)
     initials = get_initials(engineer)
-    legislation = get_legislation(project_country)
+    legislation = resolve_legislation(data.project)
     input_data = build_input_data(data)
 
     address = T.OFFICE_ADDRESS

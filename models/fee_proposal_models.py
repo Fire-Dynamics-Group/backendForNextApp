@@ -22,6 +22,9 @@ class ProjectDetails(BaseModel):
     # Only consulted when country is OTHER; EW always attracts VAT and J never
     # does. Defaults to no VAT for an unspecified "Other" location.
     vat_applicable: bool = False
+    # Legislation reference for an OTHER location, e.g. "Building Bye Laws
+    # (Guernsey) 2012". Blank falls back to the England/Wales reference.
+    legislation: str = ""
 
 
 class FeeOptions(BaseModel):
