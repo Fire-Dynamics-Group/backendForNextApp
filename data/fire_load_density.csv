@@ -1,0 +1,15 @@
+﻿Occupancy,Distribution,Mean Fire Density,Coefficient of Variation
+Dwelling,Gumbel type 1,780,0.3
+Hospital,Gumbel type 1,230,0.3
+Hotel room,Gumbel type 1,310,0.3
+Library,Gumbel type 1,1500,0.3
+Office,Gumbel type 1,420,0.3
+School,Gumbel type 1,285,0.3
+Fast food outlet,Log-normal,526,0.61
+Clothing store,Log-normal,393,0.42
+Restaurant,Log-normal,298,0.64
+Kitchen,Log-normal,314,0.51
+Retail unit storage area,Log-normal,1196,1.01
+Manufacturing and storage of combustible goods (<150 kg/m2),Log-normal,1180,0.73
+Manufacturing and storage of combustible goods (>150 kg/m2),Log-normal,9920,0.86
+Opening Factor, Log-normal, 0.2, 1

@@ -168,7 +168,8 @@ def generate_proposal(data) -> io.BytesIO:
         p = _add_para(doc, "Our proposed fee for the scope outlined in this document is ", "Standard_Text")
         run = p.add_run("\u00a3{:0,.2f}".format(float(item["fee"])))
         run.font.bold = True
-        p.add_run("." if project_country == "J" else " exc. VAT.")
+        end_suffix = f" (expected end date {item['end_date']})" if item["end_date"] else ""
+        p.add_run(f"{end_suffix}." if project_country == "J" else f" exc. VAT{end_suffix}.")
     else:
         _add_para(doc, "Our proposed fees for the scope outlined in this document are as follows:", "Standard_Text")
         fee_total = 0
@@ -178,7 +179,7 @@ def generate_proposal(data) -> io.BytesIO:
         table.add_column(Cm(5))
         for n, item in enumerate(input_data):
             opt = " (Optional)" if item["optional"] else ""
-            end = f" (Up to {item['end_date']})" if item["end_date"] else ""
+            end = f" (expected end date {item['end_date']})" if item["end_date"] else ""
             table.add_row()
             row = table.rows[n]
             cell_a = row.cells[0]
