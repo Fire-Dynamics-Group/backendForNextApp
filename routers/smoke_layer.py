@@ -39,6 +39,7 @@ async def generate_report(data: SmokeLayerReportRequest):
             engineer_name=data.engineer_name,
             inputs=data.inputs,
             results=data.results,
+            details=data.details,
         )
     except Exception as e:  # noqa: BLE001 — surfaced to the client as a 500
         print(f"Error generating smoke layer report: {e}")

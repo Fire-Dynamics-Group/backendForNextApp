@@ -79,11 +79,40 @@ class SmokeLayerResults(CamelModel):
     queue_time: float
 
 
+class SmokeLayerReportDetails(BaseModel):
+    """Report wording inputs that are not part of the calculation.
+
+    Empty strings / None mean "not known": the report then uses the conservative
+    wording and, where the engineer must write something, a highlighted prompt.
+    """
+
+    client_name: str = ""
+    project_location: str = ""
+    building_name: str = ""
+    site_description: str = ""
+    intended_purpose: str = ""  # e.g. "storage and distribution purposes"; empty = fit-out unknown
+
+    racking_known: bool = False
+    racking_source: str = ""  # e.g. "indicative fit-out drawing in Appendix A"
+    occupancy_known: bool = False
+    occupancy_source: str = ""  # e.g. "the Fire Strategy Report supplied by Michael Sparks Associates"
+    occupancy_reference: str = ""  # full reference-list entry for [2]
+    has_undercroft: bool = False
+
+    office_storeys: Optional[int] = None
+    office_height: str = ""  # e.g. "8.5m"
+    staircases: Optional[int] = None
+
+    number_of_doors: Optional[int] = None
+    door_width_mm: Optional[float] = None
+
+
 class SmokeLayerReportRequest(BaseModel):
     project_name: str = ""
     engineer_name: str = ""
     inputs: SmokeLayerInputs
     results: SmokeLayerResults
+    details: Optional[SmokeLayerReportDetails] = None
 
 
 class SavedRunCreate(BaseModel):
