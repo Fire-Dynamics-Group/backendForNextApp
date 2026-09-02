@@ -1,6 +1,6 @@
 import contextlib
 
-from fastapi import FastAPI, Response, HTTPException
+from fastapi import Depends, FastAPI, Response, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Dict, Any
@@ -20,6 +20,8 @@ from routers.fee_proposal import router as fee_proposal_router
 from routers.efs import router as efs_router
 from routers.cfd_dashboard import router as cfd_dashboard_router
 from routers.smoke_layer import router as smoke_layer_router
+from routers.auth import router as auth_router
+from auth.deps import current_user
 
 _MCP_IMPORT_ERROR = None
 try:
@@ -109,16 +111,25 @@ app.add_middleware(
     expose_headers=["Content-Disposition"],  # Allow frontend to read filename
 )
 
-app.include_router(fee_proposal_router, prefix="/fee-proposals", tags=["Fee Proposals"])
-app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"])
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+
+# Browser-facing routers take the caller-identity dependency at include time.
+# With AUTH_MODE unset/log (the default) it verifies a bearer token when one is
+# sent and never rejects; only AUTH_MODE=enforce turns it into a gate. See auth/.
+# /cfd-dashboard stays ungated: the FDS runner bot posts there machine-to-machine.
+# /mcp keeps its own static bearer (routers/mcp_server.py).
+_user_gated = [Depends(current_user)]
+
+app.include_router(fee_proposal_router, prefix="/fee-proposals", tags=["Fee Proposals"], dependencies=_user_gated)
+app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"], dependencies=_user_gated)
 app.include_router(cfd_dashboard_router, prefix="/cfd-dashboard", tags=["CFD Dashboard"])
-app.include_router(smoke_layer_router, prefix="/smoke-layer", tags=["Warehouse Smoke Layer"])
+app.include_router(smoke_layer_router, prefix="/smoke-layer", tags=["Warehouse Smoke Layer"], dependencies=_user_gated)
 
 try:
     from routers.projects import router as projects_router
     from routers.floors import router as floors_router
-    app.include_router(projects_router, prefix="/projects", tags=["Projects"])
-    app.include_router(floors_router, prefix="/projects", tags=["Floors"])
+    app.include_router(projects_router, prefix="/projects", tags=["Projects"], dependencies=_user_gated)
+    app.include_router(floors_router, prefix="/projects", tags=["Floors"], dependencies=_user_gated)
 except (ImportError, ValueError) as e:
     print(f"Warning: Project/floor routers not loaded: {e}")
 # aims:

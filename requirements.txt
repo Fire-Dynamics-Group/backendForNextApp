@@ -15,3 +15,4 @@ python-dotenv
 python-multipart
 mcp>=1.20
 httpx
+PyJWT[crypto]>=2.10
