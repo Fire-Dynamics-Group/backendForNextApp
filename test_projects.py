@@ -348,3 +348,52 @@ async def test_api_replace_elements(client: AsyncClient):
     assert resp.status_code == 200
     assert len(resp.json()) == 2
     assert resp.json()[0]["comments"] == "wall"
+
+
+# --- Project mode (fdsGen / timeEq / ...) ---
+
+@pytest.mark.asyncio
+async def test_api_project_mode_defaults_to_fdsgen(client: AsyncClient):
+    resp = await client.post("/projects", json={"name": "Legacy-style create"})
+    assert resp.status_code == 201
+    assert resp.json()["mode"] == "fdsGen"
+
+    detail = await client.get(f"/projects/{resp.json()['id']}")
+    assert detail.json()["mode"] == "fdsGen"
+
+
+@pytest.mark.asyncio
+async def test_api_create_project_with_mode(client: AsyncClient):
+    resp = await client.post("/projects", json={"name": "TEQ", "mode": "timeEq"})
+    assert resp.status_code == 201
+    assert resp.json()["mode"] == "timeEq"
+
+
+@pytest.mark.asyncio
+async def test_api_list_projects_filters_by_mode(client: AsyncClient):
+    fds = (await client.post("/projects", json={"name": "FDS one"})).json()
+    teq = (await client.post("/projects", json={"name": "TEQ one", "mode": "timeEq"})).json()
+
+    # unfiltered list returns everything (backwards compatible)
+    everything = {p["id"] for p in (await client.get("/projects")).json()}
+    assert {fds["id"], teq["id"]} <= everything
+
+    teq_only = (await client.get("/projects", params={"mode": "timeEq"})).json()
+    assert [p["id"] for p in teq_only] == [teq["id"]]
+    assert all(p["mode"] == "timeEq" for p in teq_only)
+
+    fds_only = {p["id"] for p in (await client.get("/projects", params={"mode": "fdsGen"})).json()}
+    assert fds["id"] in fds_only
+    assert teq["id"] not in fds_only
+
+
+@pytest.mark.asyncio
+async def test_bulk_save_does_not_change_mode(client: AsyncClient):
+    teq = (await client.post("/projects", json={"name": "TEQ", "mode": "timeEq"})).json()
+    resp = await client.post(
+        f"/projects/{teq['id']}/save",
+        json={"name": "TEQ renamed", "settings": {"timeEqInputs": {"use": "Office"}}, "floors": []},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["mode"] == "timeEq"
+    assert resp.json()["settings"]["timeEqInputs"] == {"use": "Office"}

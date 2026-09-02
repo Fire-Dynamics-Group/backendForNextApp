@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -22,7 +24,9 @@ router = APIRouter()
 
 @router.post("", response_model=ProjectSummary, status_code=201)
 async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)):
-    project = Project(name=body.name, settings=body.settings, created_by=body.created_by)
+    project = Project(
+        name=body.name, mode=body.mode, settings=body.settings, created_by=body.created_by
+    )
     db.add(project)
     await db.commit()
     await db.refresh(project)
@@ -30,12 +34,14 @@ async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)
 
 
 @router.get("", response_model=list[ProjectDetail])
-async def list_projects(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(Project)
-        .options(selectinload(Project.floors))
-        .order_by(Project.updated_at.desc())
-    )
+async def list_projects(
+    mode: Optional[str] = Query(None, description="Only projects owned by this canvas mode"),
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(Project).options(selectinload(Project.floors))
+    if mode is not None:
+        query = query.where(Project.mode == mode)
+    result = await db.execute(query.order_by(Project.updated_at.desc()))
     return result.scalars().all()
 
 

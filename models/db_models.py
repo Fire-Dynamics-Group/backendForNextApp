@@ -26,6 +26,10 @@ class Project(Base):
 
     id = Column(Uuid, primary_key=True, default=uuid.uuid4)
     name = Column(Text, nullable=False)
+    # Which canvas mode owns this project (fdsGen / timeEq / ...). Each mode
+    # has its own dashboard; a project is only ever opened by the mode that
+    # created it, because the settings/floor payloads are mode-specific.
+    mode = Column(Text, nullable=False, default="fdsGen", server_default="fdsGen")
     settings = Column(JSONB, default=dict)
     created_by = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
