@@ -134,16 +134,6 @@ The results of the ASET/RSET calculation are provided in Table {tab:results}. No
 It can be seen that even with the highly conservative set of inputs used in this calculation, there is a factor of safety between the ASET and the RSET of at least 740 seconds. Given this, it is our view that it is a credible assumption that it would be possible to justify the extended travel distances within the warehouse during the fit-out stage.
 In light of the above findings and calculations, it is demonstrated that at this base build stage, with the warehouse empty, the extended travel distances within the warehouse achieve a satisfactory standard of fire safety in line with requirement B1 of the Approved Document B[3].
 !pagebreak
-# References
-- [1] BS 9999:2017 - Code of practice for fire safety in the design, construction and use of buildings.
-- [2] Michael Sparks Associates, Fire Strategy Report, 7th August 2025.
-- [3] Approved Document B: Fire Safety Volume 2 – Buildings other than dwellings. 2019 edition incorporating 2020, 2022 and 2025 amendments.
-- [4] Drysdale, D., An Introduction to Fire Dynamics. 2nd edition. Chichester: John Wiley & Sons, Ltd; 2007.
-- [5] PD 7974-2:2019 - Application of fire safety engineering principles to the design of buildings – Spread of smoke and toxic gases within and beyond the enclosure of origin (Sub-system 2). BSI Standards Limited; 2019.
-- [6] PD 7974-1:2019 - Application of fire safety engineering principles to the design of buildings – Initiation and development of fire within the enclosure (Sub-system 1). BSI Standards Limited; 2019.
-- [7] CIBSE Guide E. Fire Safety Engineering. Third Edition. London: The Chartered Institution of Building Services Engineers; 2019.
-- [8] PD 7974-6:2019 - Application of fire safety engineering principles to the design of buildings - Human factors. Life safety strategies. Occupant evacuation, behaviour and condition (Sub-system 6). BSI Standards Limited; 2019.
-!pagebreak
 @Style1| Quantitative Justification of Extended Travel Distances within the Warehouse
 !appendix A
 ## Introduction
@@ -266,7 +256,10 @@ The results of the ASET/RSET calculation are provided in Table {tab:results_a}. 
 It can be seen that even with the highly conservative set of inputs used in this calculation, there is a factor of safety between the ASET and the RSET of at least 740 seconds. Given this, it is our view that it is a credible assumption that it would be possible to justify the extended travel distances within the warehouse during the fit-out stage.
 In light of the above findings and calculations, it is demonstrated that at this base build stage, with the warehouse empty, the extended travel distances within the warehouse achieve a satisfactory standard of fire safety in line with requirement B1 of the Approved Document B[3].
 !pagebreak
-@FD Subheading| References
+@Style1| Drawings Used in this Assessment
+!! Insert the drawings used in this assessment.
+!pagebreak
+@Main Headd*| References
 - [1] BS 9999:2017 - Code of practice for fire safety in the design, construction and use of buildings.
 - [2] Michael Sparks Associates, Fire Strategy Report, 7th August 2025.
 - [3] Approved Document B: Fire Safety Volume 2 – Buildings other than dwellings. 2019 edition incorporating 2020, 2022 and 2025 amendments.
@@ -275,6 +268,3 @@ In light of the above findings and calculations, it is demonstrated that at this
 - [6] PD 7974-1:2019 - Application of fire safety engineering principles to the design of buildings – Initiation and development of fire within the enclosure (Sub-system 1). BSI Standards Limited; 2019.
 - [7] CIBSE Guide E. Fire Safety Engineering. Third Edition. London: The Chartered Institution of Building Services Engineers; 2019.
 - [8] PD 7974-6:2019 - Application of fire safety engineering principles to the design of buildings - Human factors. Life safety strategies. Occupant evacuation, behaviour and condition (Sub-system 6). BSI Standards Limited; 2019.
-!pagebreak
-@Style1| Drawings Used in this Assessment
-!! Insert the drawings used in this assessment.

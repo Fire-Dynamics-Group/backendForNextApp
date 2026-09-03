@@ -18,7 +18,7 @@ from models.smoke_layer_models import (
     SmokeLayerReportRequest,
     SmokeLayerRun,
 )
-from services.smoke_layer_report_service import generate_smoke_layer_report
+from services.smoke_layer_report_service import generate_multi_building_report, generate_smoke_layer_report
 
 router = APIRouter()
 
@@ -29,18 +29,36 @@ DOCX_MEDIA_TYPE = (
 
 @router.post("/report")
 async def generate_report(data: SmokeLayerReportRequest):
-    """Render the Word report from the supplied inputs and results."""
-    if not data.results.steps:
+    """Render the Word report from the supplied inputs and results.
+
+    Accepts either the single-building body (inputs / results / details) or
+    ``project`` + ``buildings``; one building in the list gives the single-building
+    report, two or more the multi-building one.
+    """
+    if data.buildings:
+        if any(not b.results.steps for b in data.buildings):
+            raise HTTPException(status_code=422, detail="Every building needs results to report on.")
+    elif data.inputs is None or data.results is None:
+        raise HTTPException(status_code=422, detail="Provide inputs and results, or a list of buildings.")
+    elif not data.results.steps:
         raise HTTPException(status_code=422, detail="No results to report on.")
 
     try:
-        doc_bytes = generate_smoke_layer_report(
-            project_name=data.project_name,
-            engineer_name=data.engineer_name,
-            inputs=data.inputs,
-            results=data.results,
-            details=data.details,
-        )
+        if data.buildings:
+            doc_bytes = generate_multi_building_report(
+                project_name=data.project_name,
+                engineer_name=data.engineer_name,
+                project=data.project,
+                buildings=data.buildings,
+            )
+        else:
+            doc_bytes = generate_smoke_layer_report(
+                project_name=data.project_name,
+                engineer_name=data.engineer_name,
+                inputs=data.inputs,
+                results=data.results,
+                details=data.details,
+            )
     except Exception as e:  # noqa: BLE001 — surfaced to the client as a 500
         print(f"Error generating smoke layer report: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate report: {e}")

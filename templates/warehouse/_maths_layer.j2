@@ -1,0 +1,37 @@
+{#- Shared by the single- and multi-building reports: plume temperature, layer temperature, density and depth. -#}
+The temperature of the smoke plume as it hits the ceiling can then be calculated using the following formula from Drysdale, p. 393[4]:
+[[eq_plume_temp]]
+> where:
+> [[T_smoke]] = Temperature of smoke as it reaches the ceiling (K);
+> [[Qc]] = Convective heat release rate of the fire (kW);
+> [[m_smoke]] = Mass flow of smoke as it reaches the ceiling (minus mass flow of smoke lost through openings) (kg/s);
+> cp = Specific heat capacity of air at ambient temperature ({{ cp }} kJ/kg/K);
+> T∞ = Ambient temperature ({{ ambient_k }}K).
+It is assumed that no smoke is lost through any openings in the warehouses.
+It should be noted that as per Section 7.2.2.4 of PD 7974-2[5], it can be assumed that at the upper limits the temperature of the smoke layer will converge with the temperature of the flames, resulting in a maximum temperature rise of 900°C above ambient. As such, all temperatures calculated which are above {{ max_temp_c }}°C are rounded down.
+Assuming that the new smoke from the plume mixes evenly with the established smoke layer to give a uniform temperature across the full layer, the change in temperature of the upper smoke layer at each time step can then be calculated from the conservation of energy using the following formula:
+[[eq_layer_temp_change]]
+> where:
+> [[dT_upper]] = Temperature change in the upper smoke layer (K);
+> [[T_smoke]] = Temperature of smoke as it reaches the ceiling (K);
+> [[T_upper]] = Temperature of smoke layer at previous time step (K);
+> [[m_smoke]] = Mass of smoke as it reaches the ceiling (kg);
+> [[m_upper]] = Mass of smoke in the smoke layer at previous time step (kg);
+> T∞ = Ambient temperature ({{ ambient_k }}K).
+Note here that [[m_smoke]] is used for the mass of the smoke, which is equivalent to the mass flow rate as explained above.
+The density of the smoke layer will vary as the temperature changes. Using the ideal gas law with constant pressure, this can be calculated as follows:
+[[eq_layer_density]]
+> where:
+> [[rho_upper]] = Density of the smoke layer (kg/m³);
+> ρ∞ = Density of air at ambient temperature ({{ rho_ambient }} kg/m³);
+> T∞ = Ambient temperature ({{ ambient_k }}K);
+> [[T_upper]] = Temperature of smoke layer at previous time step (K).
+As the temperature and density of the smoke layer changes, the smoke will expand. Using the above, the depth of the smoke layer at the current timestep can then be calculated using the equation below. This assumes that the whole layer expands together (since it was assumed that the new smoke was well mixed), meaning the depth of the layer is dependent on the mass and density of the entire smoke layer, not just the added smoke. This depth is then used to calculate the height of clear air (and subsequently rise of the smoke plume) for the mass flow equation above.
+[[eq_layer_depth]]
+> where:
+> [[H]] = Depth of the smoke layer (m);
+> [[m_smoke]] = Mass flow of smoke as it reaches the ceiling (kg/s);
+> [[timestep]] = Timestep used for the calculation (s);
+> [[m_upper]] = Mass of smoke from previous timestep (kg);
+> [[rho_upper]] = Density of the smoke layer (kg/m³);
+> [[Area]] = Area of the smoke layer (m²).

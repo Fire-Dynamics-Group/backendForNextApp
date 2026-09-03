@@ -9,10 +9,16 @@ report skin, a prose template and extracted equation blocks.
 """
 
 from io import BytesIO
-from typing import Optional
+from typing import List, Optional
 
-from models.smoke_layer_models import SmokeLayerInputs, SmokeLayerReportDetails, SmokeLayerResults
-from services.warehouse_report.render import render_report
+from models.smoke_layer_models import (
+    SmokeLayerBuilding,
+    SmokeLayerInputs,
+    SmokeLayerProjectDetails,
+    SmokeLayerReportDetails,
+    SmokeLayerResults,
+)
+from services.warehouse_report.render import render_multi_report, render_report
 
 
 def generate_smoke_layer_report(
@@ -24,3 +30,13 @@ def generate_smoke_layer_report(
 ) -> BytesIO:
     """Build the Word report and return it as a BytesIO stream."""
     return render_report(project_name, engineer_name, inputs, results, details)
+
+
+def generate_multi_building_report(
+    project_name: str,
+    engineer_name: str,
+    project: Optional[SmokeLayerProjectDetails],
+    buildings: List[SmokeLayerBuilding],
+) -> BytesIO:
+    """Build the report for one or more buildings and return it as a BytesIO stream."""
+    return render_multi_report(project_name, engineer_name, project or SmokeLayerProjectDetails(), buildings)

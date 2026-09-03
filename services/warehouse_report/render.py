@@ -10,11 +10,18 @@ import math
 import os
 from datetime import date
 from io import BytesIO
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
-from models.smoke_layer_models import SmokeLayerInputs, SmokeLayerReportDetails, SmokeLayerResults
+from models.smoke_layer_models import (
+    SmokeLayerBuilding,
+    SmokeLayerInputs,
+    SmokeLayerProjectDetails,
+    SmokeLayerReportDetails,
+    SmokeLayerResults,
+    single_building_details,
+)
 from services.warehouse_report.builder import DocBuilder
 from services.warehouse_report.figures import report_figures
 
@@ -229,4 +236,207 @@ def render_report(
         figures[key + "_a"] = figures[key]
 
     builder.render(render_text(ctx), figures=figures, substitutions=results_table_values(ctx))
+    return builder.save()
+
+
+# ---------------------------------------------------------------- several buildings
+
+NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+SHARED_PARAMS = {
+    "fgr": "fire growth rate",
+    "detection_time": "detection time",
+    "pre_movement_time": "pre-movement time",
+    "walking_speed": "walking speed",
+    "flow_rate": "flow rate",
+    "assessment_time": "assessment period",
+    "reference_height": "reference height",
+}
+
+
+def _join_names(names: List[str]) -> str:
+    if not names:
+        return ""
+    if len(names) == 1:
+        return names[0]
+    return ", ".join(names[:-1]) + " and " + names[-1]
+
+
+def _number_word(n: int) -> str:
+    return NUMBER_WORDS[n] if n < len(NUMBER_WORDS) else str(n)
+
+
+def _door_columns(building: SmokeLayerBuilding) -> Dict[str, str]:
+    doors = [d for d in building.details.doors if d.count]
+    if not doors:
+        return {"number_of_doors": "\u2014", "width_of_doors": "\u2014"}
+    widths = sorted({d.width_mm for d in doors})
+    return {
+        "number_of_doors": str(sum(d.count for d in doors)),
+        "width_of_doors": " / ".join(_g(w) for w in widths),
+    }
+
+
+def build_multi_context(
+    project_name: str,
+    engineer_name: str,
+    project: SmokeLayerProjectDetails,
+    buildings: List[SmokeLayerBuilding],
+) -> dict:
+    """Project-level context plus one single-building context per building.
+
+    Shared parameters (growth rate, detection, pre-movement, walking speed, flow rate,
+    assessment period, reference height) are quoted from the first building; if any
+    building differs the template gets an engineer prompt naming them.
+    """
+    if not buildings:
+        raise ValueError("at least one building is required")
+    per_building = []
+    for i, b in enumerate(buildings, start=1):
+        ctx = build_context(project_name, engineer_name, b.inputs, b.results, single_building_details(project, b))
+        ctx.update(_door_columns(b))
+        ctx["name"] = b.name
+        ctx["key"] = f"b{i}"
+        ctx["occupancy"] = _int(b.inputs.occupancy)
+        ctx["over_220"] = b.inputs.occupancy > 220
+        ctx["over_45"] = b.inputs.maximum_travel_distance > 45
+        ctx["office_row_known"] = bool(b.details.office_storeys and b.details.office_height.strip())
+        ctx["floor_list"] = (
+            _floor_list(b.details.office_storeys, b.details.has_undercroft) if ctx["office_row_known"] else "\u2014"
+        )
+        ctx["office_height"] = b.details.office_height.strip() or "\u2014"
+        per_building.append(ctx)
+
+    first = per_building[0]
+    names = [c["name"] for c in per_building]
+    racking = [c["racking_percent"] for c in per_building]
+    known = [b.details.racking_known for b in buildings]
+    triggered = [c["aset_triggered"] for c in per_building]
+    differ = [
+        label for attr, label in SHARED_PARAMS.items()
+        if len({getattr(b.inputs, attr) for b in buildings}) > 1
+    ]
+    aset_names = [c["name"] for c in per_building if c["aset_triggered"]]
+    no_aset_names = [c["name"] for c in per_building if not c["aset_triggered"]]
+    over_220 = [c["name"] for c in per_building if c["over_220"]]
+
+    ctx = {key: first[key] for key in (
+        "project_name", "client_name", "project_location", "site_description", "intended_purpose",
+        "site_plan_supplied", "fitout_known", "occupancy_known", "occupancy_basis", "occupancy_reference",
+        "racking_source", "racking_source_given", "growth_rate_is_ultra_fast", "growth_rate_label", "fgr",
+        "assessment_minutes", "ambient_c", "ambient_k", "rho_ambient", "cp", "max_temp_c",
+        "detection_time", "pre_movement_time", "pre_movement_is_default", "walking_speed", "flow_rate",
+        "flow_rate_is_default", "smoke_area_percent",
+    )}
+    ctx.update({
+        "buildings": per_building,
+        "building_names": _join_names(names),
+        "number_of_buildings": _number_word(len(buildings)),
+        "staircases": project.staircases or 0,
+        "office_known_all": all(c["office_row_known"] for c in per_building) and bool(project.staircases),
+        "office_missing_names": _join_names([c["name"] for c in per_building if not c["office_row_known"]]),
+        "racking_known_all": all(known),
+        "racking_known_none": not any(known),
+        "racking_same": len(set(racking)) == 1,
+        "racking_percent": first["racking_percent"],
+        "has_undercroft_any": any(b.details.has_undercroft for b in buildings),
+        "all_over_45": all(c["over_45"] for c in per_building),
+        "tenability_met_all": all(c["tenability_met"] for c in per_building),
+        "aset_all": all(triggered),
+        "aset_none": not any(triggered),
+        "aset_names": _join_names(aset_names),
+        "no_aset_names": _join_names(no_aset_names),
+        "no_aset_this_these": "this unit" if len(no_aset_names) == 1 else "these units",
+        "all_over_220": all(c["over_220"] for c in per_building),
+        "over_220_names": _join_names(over_220),
+        "doors_missing_names": _join_names([c["name"] for c in per_building if c["number_of_doors"] == "\u2014"]),
+        "shared_params_differ": _join_names(differ),
+    })
+    return ctx
+
+
+def multi_tables(ctx: dict) -> Dict[str, List[List[str]]]:
+    """Rows for the per-building tables, for the body and again ("_a") for the appendix."""
+    b = ctx["buildings"]
+    if ctx["racking_known_all"] and ctx["racking_same"]:
+        area = [["Building", "Floor Area (m\u00b2)", f"Floor Area with {ctx['racking_percent']}% Obstructed (m\u00b2)"]]
+        area += [[c["name"], c["room_area"], c["smoke_area"]] for c in b]
+    else:
+        area = [["Building", "Floor Area (m\u00b2)", "Percentage Obstructed (%)", "Non-Obstructed Floor Area (m\u00b2)"]]
+        area += [[c["name"], c["room_area"], c["racking_percent"], c["smoke_area"]] for c in b]
+
+    def more(c):
+        return "" if c["aset_triggered"] else ">"
+
+    results = [["", "Factor"] + [f"{c['name']} (s)" for c in b]]
+    results += [
+        ["RSET", "TDET"] + [c["detection_time"] for c in b],
+        ["^", "TALARM"] + ["0" for _ in b],
+        ["^", "TPRE"] + [c["pre_movement_time"] for c in b],
+        ["^", "TTRAV \u2013 Travel Time"] + [c["travel_time"] for c in b],
+        ["^", "TTRAV \u2013 Queueing Time"] + [c["queue_time"] for c in b],
+        ["^", "Total RSET"] + [c["rset"] for c in b],
+        ["ASET", "Calculated ASET"] + [more(c) + c["aset"] for c in b],
+        ["^", "Margin of Safety"] + [more(c) + c["margin_of_safety"] for c in b],
+    ]
+    tables = {
+        "office": [["Building", "Office Level", "Height of Top Floor Above Ground Level (m)"]]
+        + [[c["name"], c["floor_list"], c["office_height"]] for c in b],
+        "travel": [["Building", "Maximum Direct Travel Distance (m)"]] + [[c["name"], c["max_travel_distance"]] for c in b],
+        "racking": [["Building", "Racking Percentage (%)"]] + [[c["name"], c["racking_percent"]] for c in b],
+        "margin": [["Building", "Margin of Safety (s)"]] + [[c["name"], more(c) + c["margin_of_safety"]] for c in b],
+        "height": [["Building", "Average Internal Height (m)"]] + [[c["name"], c["room_height"]] for c in b],
+        "area": area,
+        "aset": [["Building", "Calculated ASET (s)"]] + [[c["name"], more(c) + c["aset"]] for c in b],
+        "travel_time": [["Building", "Maximum Direct Travel Distance (m)", "Travel Time (s)"]]
+        + [[c["name"], c["max_travel_distance"], c["travel_time"]] for c in b],
+        "doors": [["Building", "Number of Occupants", "Number of Doors", "Width of Doors (mm)", "Travel Time through the Doors (s)"]]
+        + [[c["name"], c["occupancy"], c["number_of_doors"], c["width_of_doors"], c["queue_time"]] for c in b],
+        "results": results,
+    }
+    for key in list(tables):
+        if key != "office":
+            tables[key + "_a"] = tables[key]
+    return tables
+
+
+def render_multi_text(ctx: dict) -> str:
+    return _env.get_template("report_multiple_buildings.j2").render(**ctx)
+
+
+def render_multi_report(
+    project_name: str,
+    engineer_name: str,
+    project: SmokeLayerProjectDetails,
+    buildings: List[SmokeLayerBuilding],
+    today: Optional[date] = None,
+) -> BytesIO:
+    """The multi-building report. One building is rendered with the single-building template."""
+    if len(buildings) == 1:
+        return render_report(project_name, engineer_name, buildings[0].inputs, buildings[0].results,
+                             single_building_details(project, buildings[0]), today)
+    today = today or date.today()
+    ctx = build_multi_context(project_name, engineer_name, project, buildings)
+
+    builder = DocBuilder(SKIN, BLOCKS_DIR)
+    builder.substitute(
+        {
+            "PROJECT_NAME": ctx["project_name"],
+            "CLIENT_NAME": ctx["client_name"],
+            "TODAYS_DATE": f"{today.day} {today:%B %Y}",
+            "AUTHOR_NAME": engineer_name.strip() or "Fire Dynamics Group",
+            "EMAIL_PREFIX": _email_prefix(engineer_name),
+        }
+    )
+
+    figures: Dict[str, object] = {"site_plan": SITE_PLAN_PLACEHOLDER}
+    # One fire curve (the growth rate is shared), then a temperature + height pair per building.
+    figures["hrr"] = report_figures(buildings[0].inputs, buildings[0].results)["hrr"]
+    for b, c in zip(buildings, ctx["buildings"]):
+        figs = report_figures(b.inputs, b.results)
+        figures[f"temperature_{c['key']}"] = figs["temperature"]
+        figures[f"height_{c['key']}"] = figs["height"]
+    for key in list(figures):
+        figures[key + "_a"] = figures[key]
+
+    builder.render(render_multi_text(ctx), figures=figures, tables=multi_tables(ctx))
     return builder.save()

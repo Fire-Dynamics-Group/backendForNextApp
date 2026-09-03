@@ -82,7 +82,7 @@ PICTURE = Fmt("Appendix Text", unnumbered=True, center=True)
 CAPTION = Fmt("figure / table title")
 REFERENCE = Fmt("List Paragraph", indent=714, hanging=357, superscript_citations=False)
 ENGINEER_NOTE = Fmt("Parag", unnumbered=True, indent=720, bold=True, highlight=True)
-TABLE_STYLE = "Table Grid"
+TABLE_STYLE = "FD Table"  # the skin's own table style
 
 # After "!appendix X": level-2 headings and body paragraphs keep their styles but are
 # put on a clone of the main list whose level texts read "X.%2." and "X.%2.%3.", the
@@ -180,8 +180,12 @@ class DocBuilder:
         elif line.startswith("- "):
             self._add_paragraph(REFERENCE, line[2:])
         elif line.startswith("@"):
+            # "@Style| text"; a trailing "*" on the style name suppresses its list number
+            # (e.g. "@Main Headd*| References" for a top-level heading with no "5.").
             style, content = line[1:].split("|", 1)
-            self._add_paragraph(Fmt(style.strip()), content.strip())
+            style = style.strip()
+            unnumbered = style.endswith("*")
+            self._add_paragraph(Fmt(style.rstrip("*").strip(), unnumbered=unnumbered), content.strip())
         elif re.fullmatch(r"\[\[\w+\]\]", line.strip()):
             self._add_standalone_block(line.strip()[2:-2], substitutions)
         else:
@@ -418,8 +422,10 @@ def _resolve_numbers(lines: Iterable[str]) -> List[str]:
             if key not in figures:
                 fig_count += 1
                 figures[key] = f"{prefix}{fig_count}"
-        elif line.startswith("!tab "):
-            key = line[5:].strip()
+        elif line.startswith("!tab ") or line.startswith("!table "):
+            # "!tab key" reserves the next number ahead of a block table; "!table key |
+            # caption" takes it when it is the first mention.
+            key = line[5:].strip() if line.startswith("!tab ") else _split_marker(line[7:])[0]
             if key not in tables:
                 tab_count += 1
                 tables[key] = f"{prefix}{tab_count}"
