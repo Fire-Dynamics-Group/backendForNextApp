@@ -16,7 +16,13 @@ from models.smoke_layer_models import (
     SmokeLayerReportRequest,
 )
 from services.smoke_layer_report_service import generate_multi_building_report
-from services.warehouse_report.render import build_multi_context, multi_tables, render_multi_report, render_multi_text
+from services.warehouse_report.render import (
+    build_multi_context,
+    multi_tables,
+    render_multi_report,
+    render_multi_text,
+    shared_inputs,
+)
 from test_smoke_layer_report import FULL_DETAILS, SNAPSHOT_DIR, docx_text, make_inputs, make_results
 
 PROJECT = SmokeLayerProjectDetails(
@@ -96,11 +102,83 @@ class TestWording:
         body = text_for(three_units())
         assert "This applies to Unit 1 and Unit 3. For the remaining units, with lower occupancy" in body
 
-    def test_shared_parameter_mismatch_prompts_the_engineer(self):
+    def test_differing_shared_parameters_are_tabulated_not_prompted(self):
         units = three_units()
-        units[1] = building("Unit 3", detection_time=60, pre_movement_time=240)
+        units[1] = building("Unit 3", area=12500, detection_time=60, pre_movement_time=240)
+        ctx = build_multi_context("Shed Zone", "Kathryn Kleijn", PROJECT, units)
+        body = render_multi_text(ctx)
+        assert "!! The units were run with different values" not in body
+        assert (
+            "the same parameters are used for all three of the units. The exceptions are the detection time and "
+            "pre-movement time: the value used for each unit is given in Table {tab:assumptions}, alongside the "
+            "shared assumption quoted in this section."
+        ) in body
+        assert "!table assumptions | Parameters Which Differ Between the Units." in body
+        assert multi_tables(ctx)["assumptions"] == [
+            ["", "Time to Detection (s)", "Pre-movement Time (s)"],
+            ["Shared assumption", "120", "180"],
+            ["Unit 1", "120", "180"],
+            ["Unit 3", "60", "240"],
+            ["Unit 4", "120", "180"],
+        ]
+
+    def test_shared_value_is_the_one_most_units_use(self):
+        units = three_units()
+        units[0] = building("Unit 1", triggered=True, aset=705, detection_time=60, assessment_time=1800)
+        ctx = build_multi_context("Shed Zone", "Kathryn Kleijn", PROJECT, units)
+        assert ctx["detection_time"] == "120"
+        assert ctx["assessment_minutes"] == "20"
+        body = render_multi_text(ctx)
+        assert "a time to detection of 120 seconds is conservatively assumed" in body
+        assert multi_tables(ctx)["assumptions"][:3] == [
+            ["", "Time to Detection (s)", "Assessment Period (min)"],
+            ["Shared assumption", "120", "20"],
+            ["Unit 1", "60", "30"],
+        ]
+
+    def test_two_units_that_disagree_take_the_first_as_shared(self):
+        units = [building("Unit 1", walking_speed=1.0), building("Unit 2", area=9000)]
+        ctx = build_multi_context("Shed Zone", "Kathryn Kleijn", PROJECT, units)
+        assert ctx["walking_speed"] == "1"
+        assert multi_tables(ctx)["assumptions"][1] == ["Shared assumption", "1"]
+
+    def test_matching_parameters_have_no_assumptions_table(self):
+        ctx = build_multi_context("Shed Zone", "Kathryn Kleijn", PROJECT, three_units())
+        assert "assumptions" not in multi_tables(ctx)
+        body = render_multi_text(ctx)
+        assert "{tab:assumptions}" not in body
+        assert "The exceptions are" not in body
+
+    def test_growth_rate_override_keeps_a_justification_prompt(self):
+        units = three_units()
+        units[2] = building("Unit 4", area=9800, fgr=0.0469)
+        ctx = build_multi_context("Shed Zone", "Kathryn Kleijn", PROJECT, units)
+        body = render_multi_text(ctx)
+        # The shared (ultra-fast) paragraph stands; the unit that departs from it gets a prompt.
+        assert "Therefore, the fire growth rate coefficient is 0.188 kW/s²." in body
+        assert "!! The growth rate is not the default ultra-fast value." not in body
+        assert "!! Unit 4 does not use the default ultra-fast growth rate: justify the growth rate chosen for it here." in body
+        assert multi_tables(ctx)["assumptions"] == [
+            ["", "Fire Growth Rate (kW/s²)"],
+            ["Shared assumption", "0.188 (Ultra-fast)"],
+            ["Unit 1", "0.188 (Ultra-fast)"],
+            ["Unit 3", "0.188 (Ultra-fast)"],
+            ["Unit 4", "0.0469 (Fast)"],
+        ]
+
+    def test_ultra_fast_override_of_a_slower_shared_rate_needs_no_extra_prompt(self):
+        units = three_units()
+        for i in (0, 1):
+            units[i] = building(f"Unit {i}", fgr=0.0469)
         body = text_for(units)
-        assert "!! The units were run with different values for detection time and pre-movement time." in body
+        assert "!! The growth rate is not the default ultra-fast value. Justify the choice of Fast growth here." in body
+        assert "does not use the default ultra-fast growth rate" not in body
+
+    def test_fire_curve_follows_the_shared_growth_rate(self):
+        units = three_units()
+        units[0] = building("Unit 1", triggered=True, aset=705, fgr=0.0469)
+        assert shared_inputs(units).fgr == 0.188
+        assert shared_inputs(units).room_area == 43047  # everything else is still the first building's
 
     def test_numeric_office_height_is_formatted_in_metres(self):
         # The form sends the height as a number; the text field is the older wire shape.

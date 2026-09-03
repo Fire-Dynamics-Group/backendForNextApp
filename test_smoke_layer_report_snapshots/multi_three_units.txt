@@ -94,6 +94,7 @@ An uncapped growing fire has been assumed. For a given time, the heat release ra
 
 The fire growth rate coefficient should be selected based on the contents of the space and their likely fire growth rate. As the contents of the warehouses are, at this stage, unknown, a worst-case assumption has been made that the contents will exhibit an “Ultra-Fast” growth rate. Therefore, the fire growth rate coefficient is 0.188 kW/s². This is a conservative assumption because if the contents of the warehouses were to exhibit an ultra-fast growth rate, sprinkler protection would need to be provided which would reduce fire growth significantly once activated (6.5, BS 9999[1]).
 
+
 The assumed fire curve for the model is shown in Figure {fig:hrr}. This figure shows both, the total heat release rate, and the convective heat release rate (taken to be 70% of the total) across the whole of the 20-minute reference period.
 !fig hrr | Heat Release Rate Over the 20-minute Reference Period
 ### Smoke Layer Depth
