@@ -6,7 +6,8 @@
   pre-formatted by services/warehouse_report/render.py: `buildings` is a list of
   per-building contexts (name, key, room_area, aset, ...); everything else is
   project-level or a parameter shared by every building. Tables come from render.py
-  keyed "<name><k>" so the appendix copy numbers separately.
+  keyed "<name><k>"; k is "" in both the report and the separate appendix document
+  (appendix_multiple_buildings.j2 imports the calculation macro from here).
 
   Flags: fitout_known  racking_known_all/none  racking_same  has_undercroft_any
          occupancy_known  office_known_all  all_over_45  tenability_met_all
@@ -234,11 +235,6 @@ The buildings are predominantly single storey but are provided with ancillary of
 !table office | Details of Office Accommodation within the Warehouses.
 
 {{ calculation(false, "") }}
-
-!pagebreak
-@Style1| Quantitative Justification of Extended Travel Distances within the Warehouse
-!appendix A
-{{ calculation(true, "_a") }}
 
 !pagebreak
 @Style1| Drawings Used in this Assessment

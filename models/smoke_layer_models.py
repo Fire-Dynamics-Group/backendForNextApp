@@ -10,7 +10,7 @@ snake_case via the alias generator.
 """
 
 import uuid
-from typing import List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -123,9 +123,17 @@ class SmokeLayerBuildingDetails(BaseModel):
 
     has_undercroft: bool = False
     office_storeys: Optional[int] = None
-    office_height: str = ""  # e.g. "8.5m"
+    office_height: str = ""  # e.g. "8.5m" (older clients); prefer office_height_m
+    office_height_m: Optional[float] = None  # height of the top office floor above ground (m)
     racking_known: bool = False
     doors: List[SmokeLayerDoorGroup] = Field(default_factory=list)
+
+    @property
+    def office_height_text(self) -> str:
+        """The top-floor height as the report prints it ("8.5m"), from whichever field was sent."""
+        if self.office_height_m is not None:
+            return f"{self.office_height_m:g}m"
+        return self.office_height.strip()
 
 
 class SmokeLayerProjectDetails(BaseModel):
@@ -152,8 +160,11 @@ class SmokeLayerBuilding(BaseModel):
 class SmokeLayerReportRequest(BaseModel):
     """Report request. Either the legacy single-building shape (inputs / results /
     details at the top level) or ``project`` + ``buildings``; one building in the
-    list renders the single-building report, more render the multi-building one."""
+    list renders the single-building report, more render the multi-building one.
+    ``document`` chooses the deliverable: the report, or the standalone calculation
+    appendix (the team issues them as two files)."""
 
+    document: Literal["report", "appendix"] = "report"
     project_name: str = ""
     engineer_name: str = ""
     inputs: Optional[SmokeLayerInputs] = None
@@ -180,7 +191,7 @@ def single_building_details(project: SmokeLayerProjectDetails, building: SmokeLa
         occupancy_reference=project.occupancy_reference,
         has_undercroft=building.details.has_undercroft,
         office_storeys=building.details.office_storeys,
-        office_height=building.details.office_height,
+        office_height=building.details.office_height_text,
         staircases=project.staircases,
         number_of_doors=sum(d.count for d in building.details.doors) if one_width else None,
         door_width_mm=widths.pop() if one_width else None,
@@ -188,9 +199,13 @@ def single_building_details(project: SmokeLayerProjectDetails, building: SmokeLa
 
 
 class SavedRunCreate(BaseModel):
+    """A named form document. ``inputs`` is whatever JSON the form saves: today a
+    versioned multi-building document; before that a bare SmokeLayerInputs. The
+    backend stores and returns it verbatim, the form knows how to read both."""
+
     name: str = Field(min_length=1, max_length=200)
     project_name: str = ""
-    inputs: SmokeLayerInputs
+    inputs: Dict[str, Any]
 
 
 class SavedRunResponse(BaseModel):
@@ -199,7 +214,7 @@ class SavedRunResponse(BaseModel):
     id: uuid.UUID
     name: str
     project_name: Optional[str]
-    inputs: SmokeLayerInputs
+    inputs: Any
     created_at: object
     updated_at: object
 

@@ -1,0 +1,13 @@
+{#
+  Standalone calculation appendix — single building. Mirrors the team's
+  Appendix_Single_Building_Template.docx: the calculation as Appendix A (A.1
+  numbering, Figure A.n / Table A.n) followed by the references, on the cover-less
+  appendix skin (skin_appendix.docx). The prose is the report's calculation macro,
+  so the two documents cannot drift apart.
+#}
+{% from "report_single_building.j2" import calculation, references with context %}
+@Style1| Quantitative Justification of Extended Travel Distances within the Warehouse
+!appendix A
+{{ calculation(true, "") }}
+
+{{ references() }}

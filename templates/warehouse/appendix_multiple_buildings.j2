@@ -1,0 +1,12 @@
+{#
+  Standalone calculation appendix — several buildings. Mirrors the team's
+  Appendix_Multiple_Buildings_Template.docx: the calculation as Appendix A followed
+  by the references, on the cover-less appendix skin. Prose comes from the report's
+  calculation macro.
+#}
+{% from "report_multiple_buildings.j2" import calculation, references with context %}
+@Style1| Quantitative Justification of Extended Travel Distances within the Warehouse
+!appendix A
+{{ calculation(true, "") }}
+
+{{ references() }}

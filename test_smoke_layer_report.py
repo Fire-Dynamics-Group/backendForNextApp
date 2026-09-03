@@ -310,18 +310,30 @@ class TestDocument:
         pngs = [p for p in document.part.package.iter_parts() if str(p.partname).endswith(".png")]
         assert len(pngs) >= 4  # site plan + 3 result figures (+ cover art)
 
-    def test_appendix_repeats_the_calculation_with_a_numbering(self):
+    def test_report_has_no_calculation_appendix(self):
         stream = render_report("Shed Zone", "", make_inputs(), make_results(), FULL_DETAILS)
         body = docx_text(stream)
-        # Section 3 in the body, numbered plainly...
-        assert "Figure 3: Heat Release Rate Over the 20-minute Reference Period" in body
-        assert "Table 1: Result of ASET/RSET Calculation" in body
-        # ...and again as Appendix A with A-numbering, as in Kathryn's appendix template.
+        assert body.count("Heat Release Rate of the Fire") == 1
+        assert "Figure A." not in body and "Table A." not in body
+        assert "Drawings Used in this Assessment" in body
+        assert body.index("Drawings Used in this Assessment") < body.index("BS 9999:2017")
+
+    def test_appendix_document_is_the_calculation_with_a_numbering(self):
+        stream = render_report("Shed Zone", "", make_inputs(), make_results(), FULL_DETAILS, document="appendix")
+        body = docx_text(stream)
+        # Appendix A numbering, as in Kathryn's Appendix_Single_Building_Template.docx...
         assert "Figure A.2: Heat Release Rate Over the 20-minute Reference Period" in body
         assert "shown below in Figure A.3 and Figure A.4" in body
         assert "Table A.1: Result of ASET/RSET Calculation" in body
-        assert body.count("Heat Release Rate of the Fire") == 2
+        assert body.count("Heat Release Rate of the Fire") == 1
+        # ...no cover page, contents or drawings appendix, but the references.
+        assert "Version History" not in body and "Site Plan" not in body
+        assert "Drawings Used in this Assessment" not in body
+        assert "BS 9999:2017" in body
+        assert "Figure 1:" not in body and "Table 1:" not in body
         document = Document(stream)
+        assert document.paragraphs[0].text == "Quantitative Justification of Extended Travel Distances within the Warehouse"
+        assert "{{PROJECT_NAME}}" not in document.sections[0].header.paragraphs[0].text
         styled = {(p.text, p.style.name) for p in document.paragraphs if p.text.strip()}
         assert ("Quantitative Justification of Extended Travel Distances within the Warehouse", "Style1") in styled
         assert ("Summary of ASET / RSET Calculation", "FD Subheading 1") in styled

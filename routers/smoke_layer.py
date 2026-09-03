@@ -33,7 +33,8 @@ async def generate_report(data: SmokeLayerReportRequest):
 
     Accepts either the single-building body (inputs / results / details) or
     ``project`` + ``buildings``; one building in the list gives the single-building
-    report, two or more the multi-building one.
+    report, two or more the multi-building one. ``document`` picks the deliverable:
+    "report" (default) or the standalone calculation "appendix".
     """
     if data.buildings:
         if any(not b.results.steps for b in data.buildings):
@@ -50,6 +51,7 @@ async def generate_report(data: SmokeLayerReportRequest):
                 engineer_name=data.engineer_name,
                 project=data.project,
                 buildings=data.buildings,
+                document=data.document,
             )
         else:
             doc_bytes = generate_smoke_layer_report(
@@ -58,6 +60,7 @@ async def generate_report(data: SmokeLayerReportRequest):
                 inputs=data.inputs,
                 results=data.results,
                 details=data.details,
+                document=data.document,
             )
     except Exception as e:  # noqa: BLE001 — surfaced to the client as a 500
         print(f"Error generating smoke layer report: {e}")
@@ -87,7 +90,7 @@ async def create_run(data: SavedRunCreate, db: AsyncSession = Depends(get_db)):
         db.add(run)
 
     run.project_name = data.project_name or None
-    run.inputs = data.inputs.model_dump(by_alias=True)
+    run.inputs = data.inputs
 
     await db.commit()
     await db.refresh(run)
