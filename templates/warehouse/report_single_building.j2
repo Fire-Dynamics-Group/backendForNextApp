@@ -9,9 +9,11 @@
   Flags:  fitout_known  racking_known  occupancy_known  has_undercroft  aset_triggered
   "!!" lines are prompts for the engineer to edit and must not be automated away.
 
-  Structure: the calculation is a macro rendered twice — as section 3 of the report
-  (app=false) and again as Appendix A (app=true, keys suffixed with k so figures and
-  tables number separately: Figure 3 in the body, Figure A.2 in the appendix).
+  Structure: the calculation is a macro. This report renders it as section 3
+  (app=false); appendix_single_building.j2 imports it and renders it as Appendix A
+  of a separate document (app=true). k suffixes figure/table keys and is "" in both.
+  The report ends with Appendix A (drawings) and the references, as the team's
+  Report_Single_Building_Template.docx does.
 #}
 {% macro calculation(app, k) %}
 {% if not app %}
@@ -195,11 +197,6 @@ The building is predominantly single storey but is provided with ancillary offic
 {% endif %}
 
 {{ calculation(false, "") }}
-
-!pagebreak
-@Style1| Quantitative Justification of Extended Travel Distances within the Warehouse
-!appendix A
-{{ calculation(true, "_a") }}
 
 !pagebreak
 @Style1| Drawings Used in this Assessment

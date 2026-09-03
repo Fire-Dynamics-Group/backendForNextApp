@@ -33,14 +33,16 @@ PROJECT = SmokeLayerProjectDetails(
 
 
 def building(name, *, area=43047, height=15.0, travel=115.0, occupancy=1431.0, racking=0.33, triggered=False,
-             aset=1200.0, rset=460.0, doors=((21, 850),), storeys=1, office_height="4m", undercroft=True, **inputs):
+             aset=1200.0, rset=460.0, doors=((21, 850),), storeys=1, office_height="4m", office_height_m=None,
+             undercroft=True, **inputs):
     return SmokeLayerBuilding(
         name=name,
         inputs=make_inputs(room_area=area, room_height=height, maximum_travel_distance=travel, occupancy=occupancy,
                            racking_perc=racking, **inputs),
         results=make_results(aset_triggered=triggered, aset=aset, rset=rset, margin_of_safety=aset - rset),
         details=SmokeLayerBuildingDetails(
-            has_undercroft=undercroft, office_storeys=storeys, office_height=office_height, racking_known=True,
+            has_undercroft=undercroft, office_storeys=storeys, office_height=office_height,
+            office_height_m=office_height_m, racking_known=True,
             doors=[SmokeLayerDoorGroup(count=c, width_mm=w) for c, w in doors],
         ),
     )
@@ -100,6 +102,16 @@ class TestWording:
         body = text_for(units)
         assert "!! The units were run with different values for detection time and pre-movement time." in body
 
+    def test_numeric_office_height_is_formatted_in_metres(self):
+        # The form sends the height as a number; the text field is the older wire shape.
+        units = [building("Unit 1", office_height="", office_height_m=8.5), building("Unit 2", office_height_m=4)]
+        ctx = build_multi_context("Shed Zone", "Kathryn Kleijn", PROJECT, units)
+        assert ctx["office_known_all"] is True
+        assert multi_tables(ctx)["office"][1][2] == "8.5m"
+        assert multi_tables(ctx)["office"][2][2] == "4m"
+        body = text_for(units)
+        assert "!! Complete the office accommodation" not in body
+
     def test_missing_doors_and_offices_prompt_the_engineer(self):
         units = [building("Unit 1", doors=(), storeys=None, office_height=""), building("Unit 2")]
         body = text_for(units)
@@ -123,7 +135,7 @@ class TestTables:
         assert tables["office"][3][1] == "Ground Floor"  # no undercroft: offices start at ground
         assert tables["results"][0] == ["", "Factor", "Unit 1 (s)", "Unit 3 (s)", "Unit 4 (s)"]
         assert tables["results"][-1][2:] == ["245", "160", ">850"]
-        assert "results_a" in tables and "office_a" not in tables
+        assert "results_a" not in tables
 
 
 class TestDocument:
@@ -137,10 +149,26 @@ class TestDocument:
         assert "Table 10: Result of ASET/RSET Calculation" in body
         assert "Figure 5: Calculated Smoke Layer Height Above Floor vs Time, Unit 1." in body
         assert "Figure 9: Calculated Smoke Layer Height Above Floor vs Time, Unit 4." in body
-        assert "Table A.9: Result of ASET/RSET Calculation" in body
-        assert "Figure A.8: Calculated Smoke Layer Height Above Floor vs Time, Unit 4." in body
+        assert "Table A." not in body and "Figure A." not in body
         assert "shown below in: Figure 4 and Figure 5 (Unit 1); Figure 6 and Figure 7 (Unit 3), and Figure 8 and Figure 9 (Unit 4)." in body
         assert "850 / 1000" in body
+
+    def test_appendix_document_for_several_buildings(self):
+        stream = generate_multi_building_report("Shed Zone", "Kathryn Kleijn", PROJECT, three_units(), document="appendix")
+        body = docx_text(stream)
+        assert "{{" not in body and "{tab:" not in body and "{fig:" not in body
+        assert "Table A.9: Result of ASET/RSET Calculation" in body
+        assert "Figure A.8: Calculated Smoke Layer Height Above Floor vs Time, Unit 4." in body
+        assert "shown below in: Figure A.3 and Figure A.4 (Unit 1); Figure A.5 and Figure A.6 (Unit 3), and Figure A.7 and Figure A.8 (Unit 4)." in body
+        assert "Details of Office Accommodation" not in body and "Site Plan" not in body
+        assert "Table 1:" not in body and "Figure 1:" not in body
+        assert "BS 9999:2017" in body
+
+    def test_one_building_appendix_uses_the_single_building_appendix(self):
+        stream = render_multi_report("Shed Zone", "Kathryn Kleijn", PROJECT, [building("Unit 1")], document="appendix")
+        body = docx_text(stream)
+        assert "Figure A.4: Calculated Smoke Layer Height Above Floor vs Time." in body
+        assert "Table A.1: Result of ASET/RSET Calculation" in body
 
     def test_one_building_uses_the_single_building_report(self):
         stream = render_multi_report("Shed Zone", "Kathryn Kleijn", PROJECT, [building("Unit 1")])
@@ -151,9 +179,31 @@ class TestDocument:
 
 
 class TestRequestShapes:
+    def test_numeric_office_height_folds_into_the_single_building_details(self):
+        from models.smoke_layer_models import single_building_details
+
+        details = single_building_details(PROJECT, building("Unit 1", office_height="", office_height_m=8.5))
+        assert details.office_height == "8.5m"
+
+    def test_saved_runs_store_any_json_document(self):
+        # The form saves a versioned multi-building document, not a bare input set,
+        # and older rows hold the bare input set: both must validate.
+        from models.smoke_layer_models import SavedRunCreate, SavedRunResponse
+
+        document = {"version": 2, "project": {"projectName": "Shed Zone"}, "shared": {}, "buildings": []}
+        assert SavedRunCreate(name="Shed Zone", inputs=document).inputs == document
+        legacy = make_inputs().model_dump(by_alias=True)
+        response = SavedRunResponse(id="00000000-0000-0000-0000-000000000000", name="old", project_name=None,
+                                    inputs=legacy, created_at=None, updated_at=None)
+        assert response.inputs["roomArea"] == 43047
+
     def test_legacy_single_building_body_still_validates(self):
         req = SmokeLayerReportRequest(inputs=make_inputs(), results=make_results(), details=FULL_DETAILS)
         assert req.buildings == [] and req.inputs is not None
+
+    def test_document_defaults_to_the_report(self):
+        assert SmokeLayerReportRequest(project=PROJECT, buildings=three_units()).document == "report"
+        assert SmokeLayerReportRequest(document="appendix", buildings=three_units()).document == "appendix"
 
     def test_buildings_body_validates(self):
         req = SmokeLayerReportRequest(project=PROJECT, buildings=three_units())

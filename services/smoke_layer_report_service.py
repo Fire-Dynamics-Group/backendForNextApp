@@ -27,9 +27,10 @@ def generate_smoke_layer_report(
     inputs: SmokeLayerInputs,
     results: SmokeLayerResults,
     details: Optional[SmokeLayerReportDetails] = None,
+    document: str = "report",
 ) -> BytesIO:
-    """Build the Word report and return it as a BytesIO stream."""
-    return render_report(project_name, engineer_name, inputs, results, details)
+    """Build the Word report (or the standalone calculation appendix) as a BytesIO stream."""
+    return render_report(project_name, engineer_name, inputs, results, details, document=document)
 
 
 def generate_multi_building_report(
@@ -37,6 +38,8 @@ def generate_multi_building_report(
     engineer_name: str,
     project: Optional[SmokeLayerProjectDetails],
     buildings: List[SmokeLayerBuilding],
+    document: str = "report",
 ) -> BytesIO:
-    """Build the report for one or more buildings and return it as a BytesIO stream."""
-    return render_multi_report(project_name, engineer_name, project or SmokeLayerProjectDetails(), buildings)
+    """Build the report or appendix for one or more buildings and return it as a BytesIO stream."""
+    return render_multi_report(project_name, engineer_name, project or SmokeLayerProjectDetails(), buildings,
+                               document=document)

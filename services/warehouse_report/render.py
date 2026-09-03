@@ -28,7 +28,14 @@ from services.warehouse_report.figures import report_figures
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates", "warehouse")
 BLOCKS_DIR = os.path.join(TEMPLATE_DIR, "blocks")
-SKIN = os.path.join(TEMPLATE_DIR, "skin_single_building.docx")
+# Two deliverables, as in the team's Report_* and Appendix_* templates: the report
+# (cover, contents, body, drawings appendix, references) and the standalone
+# calculation appendix (no cover; Appendix A numbering; references).
+DOCUMENTS = ("report", "appendix")
+SKINS = {
+    "report": os.path.join(TEMPLATE_DIR, "skin_single_building.docx"),
+    "appendix": os.path.join(TEMPLATE_DIR, "skin_appendix.docx"),
+}
 SITE_PLAN_PLACEHOLDER = os.path.join(BLOCKS_DIR, "site_plan_placeholder.png")
 ENGINEERS_PATH = os.path.join(BASE_DIR, "data", "engineers.json")
 
@@ -202,9 +209,15 @@ def results_table_values(ctx: dict) -> Dict[str, str]:
     }
 
 
-def render_text(ctx: dict) -> str:
+def _template(document: str, buildings: str) -> str:
+    if document not in DOCUMENTS:
+        raise ValueError(f"unknown document {document!r}; expected one of {DOCUMENTS}")
+    return f"{document}_{buildings}.j2"
+
+
+def render_text(ctx: dict, document: str = "report") -> str:
     """The rendered line-oriented body, before it becomes Word paragraphs."""
-    return _env.get_template("report_single_building.j2").render(**ctx)
+    return _env.get_template(_template(document, "single_building")).render(**ctx)
 
 
 def render_report(
@@ -214,12 +227,13 @@ def render_report(
     results: SmokeLayerResults,
     details: Optional[SmokeLayerReportDetails] = None,
     today: Optional[date] = None,
+    document: str = "report",
 ) -> BytesIO:
     details = details or SmokeLayerReportDetails()
     today = today or date.today()
     ctx = build_context(project_name, engineer_name, inputs, results, details)
 
-    builder = DocBuilder(SKIN, BLOCKS_DIR)
+    builder = DocBuilder(SKINS[document], BLOCKS_DIR)
     builder.substitute(
         {
             "PROJECT_NAME": ctx["project_name"],
@@ -232,12 +246,8 @@ def render_report(
 
     figures: Dict[str, object] = dict(report_figures(inputs, results))
     figures["site_plan"] = SITE_PLAN_PLACEHOLDER
-    # The calculation renders twice (section 3 and Appendix A); the appendix uses
-    # "_a" keys so its figures number separately. Same images, deduplicated by docx.
-    for key in list(figures):
-        figures[key + "_a"] = figures[key]
 
-    builder.render(render_text(ctx), figures=figures, substitutions=results_table_values(ctx))
+    builder.render(render_text(ctx, document), figures=figures, substitutions=results_table_values(ctx))
     return builder.save()
 
 
@@ -301,11 +311,11 @@ def build_multi_context(
         ctx["occupancy"] = _int(b.inputs.occupancy)
         ctx["over_220"] = b.inputs.occupancy > 220
         ctx["over_45"] = b.inputs.maximum_travel_distance > 45
-        ctx["office_row_known"] = bool(b.details.office_storeys and b.details.office_height.strip())
+        ctx["office_row_known"] = bool(b.details.office_storeys and b.details.office_height_text)
         ctx["floor_list"] = (
             _floor_list(b.details.office_storeys, b.details.has_undercroft) if ctx["office_row_known"] else "\u2014"
         )
-        ctx["office_height"] = b.details.office_height.strip() or "\u2014"
+        ctx["office_height"] = b.details.office_height_text or "\u2014"
         per_building.append(ctx)
 
     first = per_building[0]
@@ -358,7 +368,7 @@ def build_multi_context(
 
 
 def multi_tables(ctx: dict) -> Dict[str, List[List[str]]]:
-    """Rows for the per-building tables, for the body and again ("_a") for the appendix."""
+    """Rows for the per-building tables, keyed as the templates name them."""
     b = ctx["buildings"]
     if ctx["racking_known_all"] and ctx["racking_same"]:
         area = [["Building", "Floor Area (m\u00b2)", f"Floor Area with {ctx['racking_percent']}% Obstructed (m\u00b2)"]]
@@ -396,14 +406,11 @@ def multi_tables(ctx: dict) -> Dict[str, List[List[str]]]:
         + [[c["name"], c["occupancy"], c["number_of_doors"], c["width_of_doors"], c["queue_time"]] for c in b],
         "results": results,
     }
-    for key in list(tables):
-        if key != "office":
-            tables[key + "_a"] = tables[key]
     return tables
 
 
-def render_multi_text(ctx: dict) -> str:
-    return _env.get_template("report_multiple_buildings.j2").render(**ctx)
+def render_multi_text(ctx: dict, document: str = "report") -> str:
+    return _env.get_template(_template(document, "multiple_buildings")).render(**ctx)
 
 
 def render_multi_report(
@@ -412,15 +419,16 @@ def render_multi_report(
     project: SmokeLayerProjectDetails,
     buildings: List[SmokeLayerBuilding],
     today: Optional[date] = None,
+    document: str = "report",
 ) -> BytesIO:
-    """The multi-building report. One building is rendered with the single-building template."""
+    """The multi-building report or appendix. One building uses the single-building templates."""
     if len(buildings) == 1:
         return render_report(project_name, engineer_name, buildings[0].inputs, buildings[0].results,
-                             single_building_details(project, buildings[0]), today)
+                             single_building_details(project, buildings[0]), today, document)
     today = today or date.today()
     ctx = build_multi_context(project_name, engineer_name, project, buildings)
 
-    builder = DocBuilder(SKIN, BLOCKS_DIR)
+    builder = DocBuilder(SKINS[document], BLOCKS_DIR)
     builder.substitute(
         {
             "PROJECT_NAME": ctx["project_name"],
@@ -438,8 +446,6 @@ def render_multi_report(
         figs = report_figures(b.inputs, b.results)
         figures[f"temperature_{c['key']}"] = figs["temperature"]
         figures[f"height_{c['key']}"] = figs["height"]
-    for key in list(figures):
-        figures[key + "_a"] = figures[key]
 
-    builder.render(render_multi_text(ctx), figures=figures, tables=multi_tables(ctx))
+    builder.render(render_multi_text(ctx, document), figures=figures, tables=multi_tables(ctx))
     return builder.save()
