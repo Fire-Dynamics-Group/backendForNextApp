@@ -107,12 +107,80 @@ class SmokeLayerReportDetails(BaseModel):
     door_width_mm: Optional[float] = None
 
 
-class SmokeLayerReportRequest(BaseModel):
-    project_name: str = ""
-    engineer_name: str = ""
+class SmokeLayerDoorGroup(BaseModel):
+    """N exit doors of one clear width, e.g. 21 doors at 850 mm."""
+
+    count: int = Field(ge=0)
+    width_mm: float = Field(gt=0)
+
+
+class SmokeLayerBuildingDetails(BaseModel):
+    """Per-building report wording inputs (the calculation inputs are SmokeLayerInputs)."""
+
+    has_undercroft: bool = False
+    office_storeys: Optional[int] = None
+    office_height: str = ""  # e.g. "8.5m"
+    racking_known: bool = False
+    doors: List[SmokeLayerDoorGroup] = Field(default_factory=list)
+
+
+class SmokeLayerProjectDetails(BaseModel):
+    """Project-level report wording inputs shared by every building."""
+
+    client_name: str = ""
+    project_location: str = ""
+    site_description: str = ""
+    intended_purpose: str = ""
+    staircases: Optional[int] = None
+    racking_source: str = ""
+    occupancy_known: bool = False
+    occupancy_source: str = ""
+    occupancy_reference: str = ""
+
+
+class SmokeLayerBuilding(BaseModel):
+    name: str = Field(min_length=1)
     inputs: SmokeLayerInputs
     results: SmokeLayerResults
+    details: SmokeLayerBuildingDetails = Field(default_factory=SmokeLayerBuildingDetails)
+
+
+class SmokeLayerReportRequest(BaseModel):
+    """Report request. Either the legacy single-building shape (inputs / results /
+    details at the top level) or ``project`` + ``buildings``; one building in the
+    list renders the single-building report, more render the multi-building one."""
+
+    project_name: str = ""
+    engineer_name: str = ""
+    inputs: Optional[SmokeLayerInputs] = None
+    results: Optional[SmokeLayerResults] = None
     details: Optional[SmokeLayerReportDetails] = None
+    project: Optional[SmokeLayerProjectDetails] = None
+    buildings: List[SmokeLayerBuilding] = Field(default_factory=list)
+
+
+def single_building_details(project: SmokeLayerProjectDetails, building: SmokeLayerBuilding) -> SmokeLayerReportDetails:
+    """Fold project + one building's details into the single-building shape."""
+    widths = {d.width_mm for d in building.details.doors if d.count}
+    one_width = len(widths) == 1
+    return SmokeLayerReportDetails(
+        client_name=project.client_name,
+        project_location=project.project_location,
+        building_name=building.name,
+        site_description=project.site_description,
+        intended_purpose=project.intended_purpose,
+        racking_known=building.details.racking_known,
+        racking_source=project.racking_source,
+        occupancy_known=project.occupancy_known,
+        occupancy_source=project.occupancy_source,
+        occupancy_reference=project.occupancy_reference,
+        has_undercroft=building.details.has_undercroft,
+        office_storeys=building.details.office_storeys,
+        office_height=building.details.office_height,
+        staircases=project.staircases,
+        number_of_doors=sum(d.count for d in building.details.doors) if one_width else None,
+        door_width_mm=widths.pop() if one_width else None,
+    )
 
 
 class SavedRunCreate(BaseModel):
