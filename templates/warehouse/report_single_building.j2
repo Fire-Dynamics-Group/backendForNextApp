@@ -8,43 +8,15 @@
 
   Flags:  fitout_known  racking_known  occupancy_known  has_undercroft  aset_triggered
   "!!" lines are prompts for the engineer to edit and must not be automated away.
+
+  Structure: the calculation is a macro rendered twice — as section 3 of the report
+  (app=false) and again as Appendix A (app=true, keys suffixed with k so figures and
+  tables number separately: Figure 3 in the body, Figure A.2 in the appendix).
 #}
-# Introduction
-Fire Dynamics has been appointed by {{ client_name }} to provide fire safety engineering advice for the shell and core phase of the {{ project_name }} development at {{ project_location }}. This report addresses {{ building_name }}.
-The main objective of this report is to provide justification for extended travel distances within the warehouse at the base build stage, with a view to determining whether there is a possibility of the travel distances being justified after fit-out.
-{% if fitout_known %}
-It should be noted that the unit is shell and core only, but it is anticipated that it will be used for {{ intended_purpose }} when occupied. This report intends to demonstrate that it would be possible to demonstrate that a fit-out design could meet functional requirement B1 of the Building Regulations by demonstrating compliance for a “reasonable worst case” fit-out arrangement. The fit-out design assumed is not intended to be representative of the final fit-out arrangement. Any fit-out works will be subject to a further Building Regulations application.
-{% else %}
-It should be noted that the unit is shell and core only. This report intends to demonstrate that it would be possible to demonstrate that a fit-out design could meet functional requirement B1 of the Building Regulations by demonstrating compliance for a “reasonable worst case” fit-out arrangement. The fit-out design assumed is not intended to be representative of the final fit-out arrangement. Any fit-out works will be subject to a further Building Regulations application.
-{% endif %}
-By demonstrating compliance for a notional fit-out, where the building is assumed to be heavily occupied and contain significant amounts of fire loading, it is also reasonable to conclude that compliance is demonstrated for the base build state where the building is empty, where escape times and fire growth rates would be significantly reduced.
-All information contained in the report should be read in conjunction with the architectural general arrangement drawings and all other supporting documentation prepared and submitted by other consultants who are acting on behalf of the design team.
-
-# Project Overview
-## Site Description
-{% if site_description %}
-The {{ project_name }} development consists of {{ site_description }}. This report concerns the warehouse area of {{ building_name }} of the development only, as this is the area where extended travel distances are present.
-{% else %}
-!! Describe the site here. The {{ project_name }} development consists of … This report concerns the warehouse area of {{ building_name }} of the development only, as this is the area where extended travel distances are present.
-{% endif %}
-A site plan is provided in Figure {fig:site_plan}.
-{% if not site_plan_supplied %}
-!! Replace the placeholder below with the site plan.
-{% endif %}
-!fig site_plan | Site Plan of {{ project_name }} Development.
-## Building Description
-{% if fitout_known %}
-{{ building_name }} is a new build single-storey warehouse. The development is shell and core only, but it is anticipated that it will be used for {{ intended_purpose }} when occupied. Any fit-out works will be required to be subject to a further Building Regulations application.
-{% else %}
-{{ building_name }} is a new build single-storey warehouse. The development is shell and core only, with no specific use associated. Any fit-out works will be required to be subject to a further Building Regulations application.
-{% endif %}
-{% if office_known %}
-The building is predominantly single storey but is provided with ancillary office accommodation, contained over {{ office_storeys }} {{ storey_word }} above the warehouse – {{ floor_list }}. The top floor of the office is located at {{ office_height }} above the ground level. The main office levels are accessed by {{ staircases }} staircases from the Ground Floor.
-{% else %}
-!! Describe the office accommodation: number of storeys, the floors they occupy, height of the top floor above ground and the number of staircases serving them.
-{% endif %}
-
+{% macro calculation(app, k) %}
+{% if not app %}
 # Quantitative Justification of Extended Travel Distances within the Warehouse
+{% endif %}
 ## Introduction
 {% if fitout_known %}
 With the proposed indicative fit-out layout, the unit has a maximum travel distance of {{ max_travel_distance }}m. This is {{ excess_over_45 }}m greater than the 45m maximum limit set out in BS 9999[1] (16.4, Table 11) and {{ excess_over_30 }}m greater than the 30m limit for spaces where the layout is unknown (not accounting for the enhancement allowed by high ceilings /automatic fire detection and alarm etc.).
@@ -73,8 +45,8 @@ The results show that even when conservative values are used, there is a margin 
 This assessment is indicative only and should not be used to justify extended travel distances during the fit-out stage. An additional assessment will need to be separately undertaken which accounts for the actual layout, contents and occupancy of the completed design at the fit-out stage.
 
 ## Overview of ASET/RSET Methodology
-The design approach outlined in this section is commonly referred to as ASET - RSET and has been used here to justify the extended travel distances provided within the warehouse. The ASET - RSET methodology consists of a comparison between calculated escape times (Available Safe Egress Time - ASET) and the time taken for untenable conditions to occur (Required Safe Egress Time - RSET). This methodology is illustrated in Figure {fig:aset_rset}.
-!figblock aset_rset | aset_rset_diagram
+The design approach outlined in this section is commonly referred to as ASET - RSET and has been used here to justify the extended travel distances provided within the warehouse. The ASET - RSET methodology consists of a comparison between calculated escape times (Available Safe Egress Time - ASET) and the time taken for untenable conditions to occur (Required Safe Egress Time - RSET). This methodology is illustrated in Figure {fig:aset_rset{{ k }}}.
+!figblock aset_rset{{ k }} | aset_rset_diagram
 
 ## Mathematical Correlations and Associated Definitions
 = Design Requirement = TASET > TRSET
@@ -112,8 +84,8 @@ The fire growth rate coefficient should be selected based on the contents of the
 The fire growth rate coefficient should be selected based on the contents of the space and their likely fire growth rate. A {{ growth_rate_label }} growth rate has been assumed for the contents of the warehouse. Therefore, the fire growth rate coefficient is {{ fgr }} kW/s².
 !! The growth rate is not the default ultra-fast value. Justify the choice of {{ growth_rate_label }} growth here.
 {% endif %}
-The assumed fire curve for the model is shown in Figure {fig:hrr}. This figure shows both, the total heat release rate, and the convective heat release rate (taken to be 70% of the total) across the whole of the {{ assessment_minutes }}-minute reference period.
-!fig hrr | Heat Release Rate Over the {{ assessment_minutes }}-minute Reference Period
+The assumed fire curve for the model is shown in Figure {fig:hrr{{ k }}}. This figure shows both, the total heat release rate, and the convective heat release rate (taken to be 70% of the total) across the whole of the {{ assessment_minutes }}-minute reference period.
+!fig hrr{{ k }} | Heat Release Rate Over the {{ assessment_minutes }}-minute Reference Period
 ### Smoke Layer Depth
 Using this design fire, the depth of the smoke layer is then calculated for each time step with the intention of calculating the time taken for the smoke layer to reach head height (assumed to be 2m – CIBSE Guide E[7]). This is calculated using the methodology described below. The calculations for the mass and temperature of the smoke plume are taken from Drysdale[4] and are deployed at one second intervals to allow the temperature depth and volume of the smoke layer within the room to be measured over time.
 Ambient temperature is taken to be {{ ambient_c }}°C ({{ ambient_k }}K).
@@ -169,14 +141,14 @@ As scaled on the drawings, the floor area of the space is approximately {{ room_
 {% else %}
 As scaled on the drawings, the floor area of the space is approximately {{ room_area }}m².{% if has_undercroft %} This area assumes that the smoke does not spread beneath the office undercroft.{% endif %} It is typical for warehouses to be fitted out with high-racked storage which would occupy a proportion of the volume of the compartment. As the proportion of the volume taken up by racking or other obstructions is, at this stage, unknown, it is assumed that obstructions will take up approximately 50% of the volume of the compartment. From experience, this is a highly conservative assumption. This is accounted for in the calculations by taking the area of the smoke layer to be 50% of the total floor area, in this case {{ smoke_area }}m².
 {% endif %}
-Using these calculations, the temperature and depth of the smoke layer are shown below in Figure {fig:temperature} and Figure {fig:height}.
+Using these calculations, the temperature and depth of the smoke layer are shown below in Figure {fig:temperature{{ k }}} and Figure {fig:height{{ k }}}.
 {% if aset_triggered %}
 The smoke layer descends to below 2m above ground level within the {{ assessment_minutes }}-minute reference period. The figures cover the time up to 30 seconds after the ASET, taken to be when the 2m height is breached. The ASET time is plotted, as is the 2m height. The calculated ASET value before which escape would be possible is {{ aset }} seconds.
 {% else %}
 The figures cover the full length of the {{ assessment_minutes }}-minute reference period. It can be seen that in this time, the smoke layer descends to just over {{ final_height }}m above ground level. As this is greater than 2m, escape would still be possible at this time but given a lack of further data, the ASET is taken to be {{ assessment_minutes }} minutes.
 {% endif %}
-!fig temperature | Calculated Smoke Layer Temperature vs Time.
-!fig height | Calculated Smoke Layer Height Above Floor vs Time.
+!fig temperature{{ k }} | Calculated Smoke Layer Temperature vs Time.
+!fig height{{ k }} | Calculated Smoke Layer Height Above Floor vs Time.
 
 ## Calculation of RSET
 This section outlines the assumptions and calculation method used to determine the RSET (i.e. the time from ignition to final occupant escape).
@@ -200,19 +172,29 @@ The exit widths and maximum capacities have been sized using the guidance in BS 
 !! The flow rate used ({{ flow_rate }} persons/m/s) is not the 1.33 persons/m/s quoted above. Reword this paragraph for the population and door widths used.
 {% endif %}
 
+{% if app %}
+## Summary of ASET / RSET Calculation
+{% else %}
 # Results and Conclusions
-!tab results
-The results of the ASET/RSET calculation are provided in Table {tab:results}. Note all values used in the RSET calculation are rounded up to the nearest whole second.
+{% endif %}
+!tab results{{ k }}
+The results of the ASET/RSET calculation are provided in Table {tab:results{{ k }}}. Note all values used in the RSET calculation are rounded up to the nearest whole second.
 [[results_table]]
-@figure / table title| Table {tab:results}: Result of ASET/RSET Calculation
+@figure / table title| Table {tab:results{{ k }}}: Result of ASET/RSET Calculation
 {% if not tenability_met %}
 !! Tenability is exceeded before escape is complete: rewrite the conclusions below.
 {% endif %}
 It can be seen that even with the highly conservative set of inputs used in this calculation, there is a factor of safety between the ASET and the RSET of {% if not aset_triggered %}at least {% endif %}{{ margin_of_safety }} seconds. Given this, it is our view that it is a credible assumption that it would be possible to justify the extended travel distances within the warehouse during the fit-out stage.
 In light of the above findings and calculations, it is demonstrated that at this base build stage, with the warehouse empty, the extended travel distances within the warehouse achieve a satisfactory standard of fire safety in line with requirement B1 of the Approved Document B[3].
+{% endmacro %}
 
+{% macro references(app) %}
 !pagebreak
+{% if app %}
+@FD Subheading| References
+{% else %}
 # References
+{% endif %}
 - [1] BS 9999:2017 - Code of practice for fire safety in the design, construction and use of buildings.
 {% if occupancy_known %}
 - [2] {{ occupancy_reference }}
@@ -225,6 +207,52 @@ In light of the above findings and calculations, it is demonstrated that at this
 - [6] PD 7974-1:2019 - Application of fire safety engineering principles to the design of buildings – Initiation and development of fire within the enclosure (Sub-system 1). BSI Standards Limited; 2019.
 - [7] CIBSE Guide E. Fire Safety Engineering. Third Edition. London: The Chartered Institution of Building Services Engineers; 2019.
 - [8] PD 7974-6:2019 - Application of fire safety engineering principles to the design of buildings - Human factors. Life safety strategies. Occupant evacuation, behaviour and condition (Sub-system 6). BSI Standards Limited; 2019.
+{% endmacro %}
+
+# Introduction
+Fire Dynamics has been appointed by {{ client_name }} to provide fire safety engineering advice for the shell and core phase of the {{ project_name }} development at {{ project_location }}. This report addresses {{ building_name }}.
+The main objective of this report is to provide justification for extended travel distances within the warehouse at the base build stage, with a view to determining whether there is a possibility of the travel distances being justified after fit-out.
+{% if fitout_known %}
+It should be noted that the unit is shell and core only, but it is anticipated that it will be used for {{ intended_purpose }} when occupied. This report intends to demonstrate that it would be possible to demonstrate that a fit-out design could meet functional requirement B1 of the Building Regulations by demonstrating compliance for a “reasonable worst case” fit-out arrangement. The fit-out design assumed is not intended to be representative of the final fit-out arrangement. Any fit-out works will be subject to a further Building Regulations application.
+{% else %}
+It should be noted that the unit is shell and core only. This report intends to demonstrate that it would be possible to demonstrate that a fit-out design could meet functional requirement B1 of the Building Regulations by demonstrating compliance for a “reasonable worst case” fit-out arrangement. The fit-out design assumed is not intended to be representative of the final fit-out arrangement. Any fit-out works will be subject to a further Building Regulations application.
+{% endif %}
+By demonstrating compliance for a notional fit-out, where the building is assumed to be heavily occupied and contain significant amounts of fire loading, it is also reasonable to conclude that compliance is demonstrated for the base build state where the building is empty, where escape times and fire growth rates would be significantly reduced.
+All information contained in the report should be read in conjunction with the architectural general arrangement drawings and all other supporting documentation prepared and submitted by other consultants who are acting on behalf of the design team.
+
+# Project Overview
+## Site Description
+{% if site_description %}
+The {{ project_name }} development consists of {{ site_description }}. This report concerns the warehouse area of {{ building_name }} of the development only, as this is the area where extended travel distances are present.
+{% else %}
+!! Describe the site here. The {{ project_name }} development consists of … This report concerns the warehouse area of {{ building_name }} of the development only, as this is the area where extended travel distances are present.
+{% endif %}
+A site plan is provided in Figure {fig:site_plan}.
+{% if not site_plan_supplied %}
+!! Replace the placeholder below with the site plan.
+{% endif %}
+!fig site_plan | Site Plan of {{ project_name }} Development.
+## Building Description
+{% if fitout_known %}
+{{ building_name }} is a new build single-storey warehouse. The development is shell and core only, but it is anticipated that it will be used for {{ intended_purpose }} when occupied. Any fit-out works will be required to be subject to a further Building Regulations application.
+{% else %}
+{{ building_name }} is a new build single-storey warehouse. The development is shell and core only, with no specific use associated. Any fit-out works will be required to be subject to a further Building Regulations application.
+{% endif %}
+{% if office_known %}
+The building is predominantly single storey but is provided with ancillary office accommodation, contained over {{ office_storeys }} {{ storey_word }} above the warehouse – {{ floor_list }}. The top floor of the office is located at {{ office_height }} above the ground level. The main office levels are accessed by {{ staircases }} staircases from the Ground Floor.
+{% else %}
+!! Describe the office accommodation: number of storeys, the floors they occupy, height of the top floor above ground and the number of staircases serving them.
+{% endif %}
+
+{{ calculation(false, "") }}
+
+{{ references(false) }}
+
+!pagebreak
+@Style1| Quantitative Justification of Extended Travel Distances within the Warehouse
+!appendix A
+{{ calculation(true, "_a") }}
+{{ references(true) }}
 
 !pagebreak
 @Style1| Drawings Used in this Assessment

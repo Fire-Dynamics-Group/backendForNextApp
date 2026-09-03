@@ -292,6 +292,36 @@ class TestDocument:
         pngs = [p for p in document.part.package.iter_parts() if str(p.partname).endswith(".png")]
         assert len(pngs) >= 4  # site plan + 3 result figures (+ cover art)
 
+    def test_appendix_repeats_the_calculation_with_a_numbering(self):
+        stream = render_report("Shed Zone", "", make_inputs(), make_results(), FULL_DETAILS)
+        body = docx_text(stream)
+        # Section 3 in the body, numbered plainly...
+        assert "Figure 3: Heat Release Rate Over the 20-minute Reference Period" in body
+        assert "Table 1: Result of ASET/RSET Calculation" in body
+        # ...and again as Appendix A with A-numbering, as in Kathryn's appendix template.
+        assert "Figure A.2: Heat Release Rate Over the 20-minute Reference Period" in body
+        assert "shown below in Figure A.3 and Figure A.4" in body
+        assert "Table A.1: Result of ASET/RSET Calculation" in body
+        assert body.count("Heat Release Rate of the Fire") == 2
+        document = Document(stream)
+        styled = {(p.text, p.style.name) for p in document.paragraphs if p.text.strip()}
+        assert ("Quantitative Justification of Extended Travel Distances within the Warehouse", "Style1") in styled
+        assert ("Summary of ASET / RSET Calculation", "FD Subheading 1") in styled
+        # The appendix headings and paragraphs sit on a cloned list numbered A.1. / A.1.1.
+        w = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+        numbering = document.part.numbering_part.element
+        appendix_nums = {
+            n.get(w + "numId")
+            for n in numbering.findall(w + "num")
+            if any(t.get(w + "val") == "A.%2." for t in n.iter(w + "lvlText"))
+        }
+        assert len(appendix_nums) == 1
+        summary = next(p for p in document.paragraphs if p.text == "Summary of ASET / RSET Calculation")
+        num_id = summary._p.find(w + "pPr").find(w + "numPr").find(w + "numId").get(w + "val")
+        assert num_id in appendix_nums
+        first_body = next(p for p in document.paragraphs if p.text.startswith("The ASET has been calculated") and p._p.find(w + "pPr").find(w + "numPr") is not None)
+        assert first_body._p.find(w + "pPr").find(w + "numPr").find(w + "numId").get(w + "val") in appendix_nums
+
     def test_engineer_prompts_are_highlighted(self):
         stream = render_report("Shed Zone", "", make_inputs(), make_results())
         document = Document(stream)

@@ -15,6 +15,8 @@ Line grammar (one paragraph per line, blank lines ignored)::
                                  {{FIGURE_NUMBER}} inside it becomes N
     !tab key                     marker: assigns the next table number to key
     !pagebreak                   start a new page
+    !appendix A                  from here: figures/tables number A.1, A.2, ...; "##"
+                                 headings number A.1. and body paragraphs A.1.1.
     !table key | caption         table from tables[key] (rows of cells; "^" merges up)
     [[name]]                     a block from blocks/: a whole paragraph or table when
                                  the fragment is w:p / w:tbl, a display equation when
@@ -30,11 +32,12 @@ The per-line paragraph overrides (no numbering, indents, italics) reproduce what
 team's template applied directly to those paragraphs on top of the named styles.
 """
 
+import copy
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Union
+from typing import Dict, Iterable, List, Mapping, Optional, Tuple, Union
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_COLOR_INDEX
@@ -65,6 +68,7 @@ class Fmt:
     font: Optional[str] = None
     size_pt: Optional[float] = None
     superscript_citations: bool = True  # "[3]" in running text; off for the reference list itself
+    numbering: Optional[Tuple[int, int]] = None  # (ilvl, numId) applied directly, e.g. an appendix list
 
 
 HEADING_1 = Fmt("Main Headd")
@@ -80,6 +84,10 @@ REFERENCE = Fmt("List Paragraph", indent=714, hanging=357, superscript_citations
 ENGINEER_NOTE = Fmt("Parag", unnumbered=True, indent=720, bold=True, highlight=True)
 TABLE_STYLE = "Table Grid"
 
+# After "!appendix X": level-2 headings and body paragraphs keep their styles but are
+# put on a clone of the main list whose level texts read "X.%2." and "X.%2.%3.", the
+# way the team's appendix template numbers A.1. / A.1.1. (see _add_appendix_list).
+
 
 class DocBuilder:
     def __init__(self, skin: Union[str, Path], blocks_dir: Union[str, Path]):
@@ -87,6 +95,7 @@ class DocBuilder:
         self.blocks_dir = Path(blocks_dir)
         self._body = self.doc.element.body
         self._sect_pr = self._body.find(qn("w:sectPr"))
+        self._appendix_num: Optional[int] = None
 
     # ------------------------------------------------------------------ public
 
@@ -149,6 +158,8 @@ class DocBuilder:
             return  # numbering marker only
         elif line.strip() == "!pagebreak":
             self.doc.add_page_break()
+        elif line.startswith("!appendix "):
+            self._appendix_num = self._add_appendix_list(line[10:].strip())
         elif line.startswith("!table "):
             key, caption = _split_marker(line[7:])
             self._add_table(tables[key])
@@ -158,7 +169,8 @@ class DocBuilder:
         elif line.startswith("### "):
             self._add_paragraph(HEADING_3, line[4:])
         elif line.startswith("## "):
-            self._add_paragraph(HEADING_2, line[3:])
+            fmt = HEADING_2 if self._appendix_num is None else Fmt(HEADING_2.style, numbering=(1, self._appendix_num))
+            self._add_paragraph(fmt, line[3:])
         elif line.startswith("# "):
             self._add_paragraph(HEADING_1, line[2:])
         elif line.startswith("= "):
@@ -173,7 +185,8 @@ class DocBuilder:
         elif re.fullmatch(r"\[\[\w+\]\]", line.strip()):
             self._add_standalone_block(line.strip()[2:-2], substitutions)
         else:
-            self._add_paragraph(BODY, line)
+            fmt = BODY if self._appendix_num is None else Fmt(BODY.style, numbering=(2, self._appendix_num))
+            self._add_paragraph(fmt, line)
 
     def _add_paragraph(self, fmt: Fmt, content: str):
         paragraph = self.doc.add_paragraph(style=fmt.style)
@@ -208,6 +221,9 @@ class DocBuilder:
         elif element.tag in (qn("w:p"), qn("w:tbl")):
             for paragraph in element.iter(qn("w:p")):
                 _substitute_in_paragraph(paragraph, substitutions)
+            if element.tag == qn("w:tbl"):
+                _keep_table_together(element)
+                self._keep_last_paragraph_with_next()
             self._sect_pr.addprevious(element)
         else:
             raise ValueError(f"block {name} ({element.tag}) cannot stand alone")
@@ -215,13 +231,68 @@ class DocBuilder:
     def _add_picture(self, source: ImageSource) -> None:
         paragraph = self.doc.add_paragraph(style=PICTURE.style)
         _apply_paragraph_format(paragraph, PICTURE)
+        paragraph.paragraph_format.keep_with_next = True  # caption stays under its figure
         if isinstance(source, BytesIO):
             source.seek(0)
         else:
             source = str(source)
         paragraph.add_run().add_picture(source, width=Inches(FIGURE_WIDTH_IN))
 
+    def _add_appendix_list(self, letter: str) -> int:
+        """Clone the main heading/paragraph list so its levels read "A.1." and "A.1.1.".
+
+        Word numbers by list instance, so the body's 3.5.3 and the appendix's A.5.3
+        cannot share one. The clone keeps the main list's indents and fonts, drops the
+        style links (or every Parag in the body would join it), restarts its counters
+        and prefixes the level text with the appendix letter.
+        """
+        numbering = self.doc.part.numbering_part.element
+
+        def num_for(style_name: str):
+            num_id = self.doc.styles[style_name].element.find(qn("w:pPr")).find(qn("w:numPr")).find(qn("w:numId")).get(qn("w:val"))
+            return next(n for n in numbering.findall(qn("w:num")) if n.get(qn("w:numId")) == num_id)
+
+        # Level 1 (headings) from the heading style's list and level 2 (paragraphs)
+        # from the body style's: the two body styles number through different list
+        # instances of the same abstract list, with different number fonts/colours.
+        new_id = max(int(n.get(qn("w:numId"))) for n in numbering.findall(qn("w:num"))) + 1
+        clone = copy.deepcopy(num_for(BODY.style))
+        clone.set(qn("w:numId"), str(new_id))
+        heading_level = next(o for o in num_for(HEADING_2.style).findall(qn("w:lvlOverride")) if o.get(qn("w:ilvl")) == "1")
+        for override in clone.findall(qn("w:lvlOverride")):
+            if override.get(qn("w:ilvl")) == "1":
+                override.addprevious(copy.deepcopy(heading_level))
+                clone.remove(override)
+        for override in clone.findall(qn("w:lvlOverride")):
+            level = int(override.get(qn("w:ilvl")))
+            lvl = override.find(qn("w:lvl"))
+            if lvl is None:
+                continue
+            style = lvl.find(qn("w:pStyle"))
+            if style is not None:
+                lvl.remove(style)
+            if level in (1, 2):
+                lvl.find(qn("w:lvlText")).set(qn("w:val"), f"{letter}.%2." if level == 1 else f"{letter}.%2.%3.")
+                restart = OxmlElement("w:startOverride")
+                restart.set(qn("w:val"), "1")
+                override.insert(0, restart)
+        cleanup = numbering.find(qn("w:numIdMacAtCleanup"))
+        if cleanup is not None:
+            cleanup.addprevious(clone)
+        else:
+            numbering.append(clone)
+        return new_id
+
+    def _keep_last_paragraph_with_next(self) -> None:
+        """The sentence introducing a table ("...are provided in Table 1.") moves with it."""
+        previous = self._sect_pr.getprevious()
+        if previous is not None and previous.tag == qn("w:p"):
+            from docx.text.paragraph import Paragraph
+
+            Paragraph(previous, self.doc._body).paragraph_format.keep_with_next = True
+
     def _add_table(self, rows: List[List[str]]) -> None:
+        self._keep_last_paragraph_with_next()
         table = self.doc.add_table(rows=len(rows), cols=len(rows[0]))
         table.style = TABLE_STYLE
         for r, row in enumerate(rows):
@@ -240,6 +311,7 @@ class DocBuilder:
                     top = r
                 elif r == len(rows) - 1 or rows[r + 1][c] != "^":
                     table.cell(top, c).merge(table.cell(r, c))
+        _keep_table_together(table._tbl)
 
     def _load_block(self, name: str):
         path = self.blocks_dir / f"{name}.xml"
@@ -253,13 +325,14 @@ class DocBuilder:
 
 def _apply_paragraph_format(paragraph, fmt: Fmt) -> None:
     pf = paragraph.paragraph_format
-    if fmt.unnumbered:
+    numbering = (0, 0) if fmt.unnumbered else fmt.numbering
+    if numbering is not None:
         ppr = paragraph._p.get_or_add_pPr()
         num_pr = OxmlElement("w:numPr")
         ilvl = OxmlElement("w:ilvl")
-        ilvl.set(qn("w:val"), "0")
+        ilvl.set(qn("w:val"), str(numbering[0]))
         num_id = OxmlElement("w:numId")
-        num_id.set(qn("w:val"), "0")
+        num_id.set(qn("w:val"), str(numbering[1]))
         num_pr.append(ilvl)
         num_pr.append(num_id)
         ppr.insert_element_before(
@@ -276,6 +349,38 @@ def _apply_paragraph_format(paragraph, fmt: Fmt) -> None:
         pf.first_line_indent = Twips(-fmt.hanging)
     if fmt.center:
         pf.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+
+def _keep_table_together(tbl) -> None:
+    """Keep a table on one page and its caption with it.
+
+    Word has no table-level setting for this: rows get cantSplit, and every
+    paragraph in every row gets keepNext, so the whole table (and the caption
+    paragraph after it) moves to the next page rather than breaking mid-way.
+    """
+    for row in tbl.findall(qn("w:tr")):
+        tr_pr = row.find(qn("w:trPr"))
+        if tr_pr is None:
+            tr_pr = OxmlElement("w:trPr")
+            tbl_pr_ex = row.find(qn("w:tblPrEx"))
+            if tbl_pr_ex is not None:
+                tbl_pr_ex.addnext(tr_pr)
+            else:
+                row.insert(0, tr_pr)
+        if tr_pr.find(qn("w:cantSplit")) is None:
+            tr_pr.insert(0, OxmlElement("w:cantSplit"))
+        for paragraph in row.iter(qn("w:p")):
+            p_pr = paragraph.find(qn("w:pPr"))
+            if p_pr is None:
+                p_pr = OxmlElement("w:pPr")
+                paragraph.insert(0, p_pr)
+            if p_pr.find(qn("w:keepNext")) is None:
+                keep = OxmlElement("w:keepNext")
+                style = p_pr.find(qn("w:pStyle"))
+                if style is not None:
+                    style.addnext(keep)
+                else:
+                    p_pr.insert(0, keep)
 
 
 def _apply_run_format(run, fmt: Fmt) -> None:
@@ -299,21 +404,29 @@ def _split_marker(rest: str):
 def _resolve_numbers(lines: Iterable[str]) -> List[str]:
     """Assign figure/table numbers in order of appearance and resolve references."""
     lines = list(lines)
-    figures: Dict[str, int] = {}
-    tables: Dict[str, int] = {}
+    figures: Dict[str, str] = {}
+    tables: Dict[str, str] = {}
+    prefix = ""
+    fig_count = tab_count = 0
     for line in lines:
-        if line.startswith("!fig "):
-            key, _ = _split_marker(line[5:])
-            figures.setdefault(key, len(figures) + 1)
-        elif line.startswith("!figblock "):
-            key, _ = _split_marker(line[10:])
-            figures.setdefault(key, len(figures) + 1)
+        if line.startswith("!appendix "):
+            # "!appendix A": numbering restarts as A.1, A.2, ... from here on.
+            prefix = line[10:].strip() + "."
+            fig_count = tab_count = 0
+        elif line.startswith("!fig ") or line.startswith("!figblock "):
+            key, _ = _split_marker(line.split(" ", 1)[1])
+            if key not in figures:
+                fig_count += 1
+                figures[key] = f"{prefix}{fig_count}"
         elif line.startswith("!tab "):
-            tables.setdefault(line[5:].strip(), len(tables) + 1)
+            key = line[5:].strip()
+            if key not in tables:
+                tab_count += 1
+                tables[key] = f"{prefix}{tab_count}"
 
     def resolve(text: str) -> str:
-        text = re.sub(r"\{fig:(\w+)\}", lambda m: str(figures[m.group(1)]), text)
-        return re.sub(r"\{tab:(\w+)\}", lambda m: str(tables[m.group(1)]), text)
+        text = re.sub(r"\{fig:(\w+)\}", lambda m: figures[m.group(1)], text)
+        return re.sub(r"\{tab:(\w+)\}", lambda m: tables[m.group(1)], text)
 
     out = []
     for line in lines:

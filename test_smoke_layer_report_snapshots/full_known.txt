@@ -141,5 +141,134 @@ In light of the above findings and calculations, it is demonstrated that at this
 - [7] CIBSE Guide E. Fire Safety Engineering. Third Edition. London: The Chartered Institution of Building Services Engineers; 2019.
 - [8] PD 7974-6:2019 - Application of fire safety engineering principles to the design of buildings - Human factors. Life safety strategies. Occupant evacuation, behaviour and condition (Sub-system 6). BSI Standards Limited; 2019.
 !pagebreak
+@Style1| Quantitative Justification of Extended Travel Distances within the Warehouse
+!appendix A
+## Introduction
+With the proposed indicative fit-out layout, the unit has a maximum travel distance of 115m. This is 70m greater than the 45m maximum limit set out in BS 9999[1] (16.4, Table 11) and 85m greater than the 30m limit for spaces where the layout is unknown (not accounting for the enhancement allowed by high ceilings /automatic fire detection and alarm etc.).
+Extended travel distances within large warehouse spaces are common. When the fit-out of the building is undertaken it will be necessary for the design team to undertake a quantitative assessment to demonstrate that under the proposed layout, the extended travel distances are acceptable when the internal layout is known.
+However, as part of this base build submission, it is considered that such an assessment could yield positive results. To demonstrate this, a broad scope ASET/RSET study has been undertaken. This study assesses the time taken for smoke to fill down and affect the escape routes, should fire occur, and compares this to the time taken to evacuate the space under a “typical” layout for storage and distribution purposes and level of occupation.
+It is assumed that under the proposed fit-out, 33% of the space will be taken up by obstructions (e.g. racking), as per the indicative fit-out drawing in Appendix A. The floor area used for the warehouse also assumes that the smoke layer is unable to spread into the area of the warehouse under the location of the office accommodation, reducing the available space for the smoke layer to spread. Occupancy rates are based on values given in the Fire Strategy Report supplied by Michael Sparks Associates[2]. (These assume a rate of one person per 30 m² of floor area, with the full floor area of the warehouse used for calculation, as per the Approved Document B[3].)
+The results show that even when conservative values are used, there is a margin of safety of at least 740 seconds between the time taken for occupants to escape and the time taken for smoke to fill down and affect the escape routes. As such, it is our view that it is credible to assume that during the fit-out of the buildings, a strategy could be developed which allows the extended travel distances to be justified.
+This assessment is indicative only and should not be used to justify extended travel distances during the fit-out stage. An additional assessment will need to be separately undertaken which accounts for the actual layout, contents and occupancy of the completed design at the fit-out stage.
+## Overview of ASET/RSET Methodology
+The design approach outlined in this section is commonly referred to as ASET - RSET and has been used here to justify the extended travel distances provided within the warehouse. The ASET - RSET methodology consists of a comparison between calculated escape times (Available Safe Egress Time - ASET) and the time taken for untenable conditions to occur (Required Safe Egress Time - RSET). This methodology is illustrated in Figure {fig:aset_rset_a}.
+!figblock aset_rset_a | aset_rset_diagram
+## Mathematical Correlations and Associated Definitions
+= Design Requirement = TASET > TRSET
+= Margin of Safety = TMARGIN = TASET – TRSET
+= TRSET = TDET + TALARM + TPRE + TTRAV
+= TASET – Available Safe Escape Time (ASET)
+The calculated time available between ignition of a fire and the time at which tenability criteria are exceeded in a specified space in a building.
+= TRSET – Required Safe Escape Time (RSET)
+Calculated time available between ignition of a fire and the time at which occupants in a specified space in a building are able to reach a place of safety.
+= TDET – Time to Detection
+The time from ignition to detection either by an automatic system or by an occupant seeing the fire and raising an alarm.
+= TALARM – Time to Alarm
+The time from detection to a general alarm being raised within the building.
+= TPRE – Pre-movement Time
+Consists of two distinct behavioural elements for each occupant: the recognition time (the time from alarm until the occupant begins to respond) and the response time (the time taken by the occupant to undertake activities – fire investigation, fire-fighting, halting machine operation, collecting members of a group and / or belongings – prior to commencing the travel phase of the evacuation).
+= TTRAV – Travel Time
+The time required to evacuate to a place of relative safety. This consists of two components: the time required to walk to an exit; the time required to flow through the elements (doors, corridors, stairs) forming the escape route.
+## Design Requirement
+The available safe escape time must be greater than the required safe escape time.
+## Calculation of ASET
+The ASET has been calculated using the methodology provided in Drysdale[4] and BS 7974-2[5]. Full details of the calculations, and the numerical assumptions made, are provided in this section.
+The calculations below are deployed at one second intervals to allow the temperature, depth and volume of the smoke layer to be measured over time. A 20-minute assessment period has been adopted, which is sufficient to account for the time taken to evacuate the space.
+### Heat Release Rate of the Fire
+An uncapped growing fire has been assumed. For a given time, the heat release rate can be calculated as per equation 22 of BS 7974-1[6], as follows:
+[[eq_hrr]]
+> where:
+> [[Q]] = Heat release rate at the given time (kW);
+> [[t]] = Time from ignition (s);
+> [[alpha]] = Fire growth rate coefficient (kW/s²).
+The fire growth rate coefficient should be selected based on the contents of the space and their likely fire growth rate. As the contents of the warehouse are, at this stage, unknown, a worst-case assumption has been made that the contents will exhibit an “Ultra-Fast” growth rate. Therefore, the fire growth rate coefficient is 0.188 kW/s². This is a conservative assumption because if the contents of the warehouse were to exhibit an ultra-fast growth rate, sprinkler protection would need to be provided which would reduce fire growth significantly once activated (6.5, BS 9999[1]).
+The assumed fire curve for the model is shown in Figure {fig:hrr_a}. This figure shows both, the total heat release rate, and the convective heat release rate (taken to be 70% of the total) across the whole of the 20-minute reference period.
+!fig hrr_a | Heat Release Rate Over the 20-minute Reference Period
+### Smoke Layer Depth
+Using this design fire, the depth of the smoke layer is then calculated for each time step with the intention of calculating the time taken for the smoke layer to reach head height (assumed to be 2m – CIBSE Guide E[7]). This is calculated using the methodology described below. The calculations for the mass and temperature of the smoke plume are taken from Drysdale[4] and are deployed at one second intervals to allow the temperature depth and volume of the smoke layer within the room to be measured over time.
+Ambient temperature is taken to be 20°C (293K).
+The temperature of the smoke produced by the fire as it reaches the ceiling is dependent on the convective portion (70%) of the heat release rate of the fire ([[Qc]]) and the mass of the smoke after ambient air has been entrained into the plume ([[m_smoke]] – here [[m_smoke]] is the mass flow rate, but since time steps are taken to be one second, it is equivalent to the mass at each step of the calculation, and is used interchangeably throughout the calculations). The heat release rate at each time step is as per the previous calculations. The additional mass of the smoke added to the smoke layer at each time step is calculated as follows (p. 136[4]):
+[[eq_mass_flow]]
+> where:
+> [[m_smoke]] = Mass flow of smoke as it reaches the ceiling (kg/s);
+> g = Acceleration due to gravity (9.81 m/s²);
+> ρ∞ = Density of air at ambient temperature (1.195 kg/m³);
+> cp = Specific heat capacity of air at ambient temperature (1.016 kJ/kg/K);
+> T∞ = Ambient temperature (293K);
+> [[Qc]] = Convective heat release rate of the fire (kW);
+> z = Height of rise of the smoke plume (equivalent to the amount of clear air) (m).
+The height of rise of the smoke plume is taken initially to be the average height internally of the warehouse (discounting the office undercroft). This is updated at each time step to account for the depth of the smoke layer and corresponding amount of clear air through which the smoke plume rises. It is assumed that the smoke plume rises from the floor. The average internal height of Unit 1 is 15m.
+The temperature of the smoke plume as it hits the ceiling can then be calculated using the following formula from Drysdale, p. 393[4]:
+[[eq_plume_temp]]
+> where:
+> [[T_smoke]] = Temperature of smoke as it reaches the ceiling (K);
+> [[Qc]] = Convective heat release rate of the fire (kW);
+> [[m_smoke]] = Mass flow of smoke as it reaches the ceiling (minus mass flow of smoke lost through openings) (kg/s);
+> cp = Specific heat capacity of air at ambient temperature (1.016 kJ/kg/K);
+> T∞ = Ambient temperature (293K).
+It is assumed that no smoke is lost through any openings in the warehouses.
+It should be noted that as per Section 7.2.2.4 of PD 7974-2[5], it can be assumed that at the upper limits the temperature of the smoke layer will converge with the temperature of the flames, resulting in a maximum temperature rise of 900°C above ambient. As such, all temperatures calculated which are above 920°C are rounded down.
+Assuming that the new smoke from the plume mixes evenly with the established smoke layer to give a uniform temperature across the full layer, the change in temperature of the upper smoke layer at each time step can then be calculated from the conservation of energy using the following formula:
+[[eq_layer_temp_change]]
+> where:
+> [[dT_upper]] = Temperature change in the upper smoke layer (K);
+> [[T_smoke]] = Temperature of smoke as it reaches the ceiling (K);
+> [[T_upper]] = Temperature of smoke layer at previous time step (K);
+> [[m_smoke]] = Mass of smoke as it reaches the ceiling (kg);
+> [[m_upper]] = Mass of smoke in the smoke layer at previous time step (kg);
+> T∞ = Ambient temperature (293K).
+Note here that [[m_smoke]] is used for the mass of the smoke, which is equivalent to the mass flow rate as explained above.
+The density of the smoke layer will vary as the temperature changes. Using the ideal gas law with constant pressure, this can be calculated as follows:
+[[eq_layer_density]]
+> where:
+> [[rho_upper]] = Density of the smoke layer (kg/m³);
+> ρ∞ = Density of air at ambient temperature (1.195 kg/m³);
+> T∞ = Ambient temperature (293K);
+> [[T_upper]] = Temperature of smoke layer at previous time step (K).
+As the temperature and density of the smoke layer changes, the smoke will expand. Using the above, the depth of the smoke layer at the current timestep can then be calculated using the equation below. This assumes that the whole layer expands together (since it was assumed that the new smoke was well mixed), meaning the depth of the layer is dependent on the mass and density of the entire smoke layer, not just the added smoke. This depth is then used to calculate the height of clear air (and subsequently rise of the smoke plume) for the mass flow equation above.
+[[eq_layer_depth]]
+> where:
+> [[H]] = Depth of the smoke layer (m);
+> [[m_smoke]] = Mass flow of smoke as it reaches the ceiling (kg/s);
+> [[timestep]] = Timestep used for the calculation (s);
+> [[m_upper]] = Mass of smoke from previous timestep (kg);
+> [[rho_upper]] = Density of the smoke layer (kg/m³);
+> [[Area]] = Area of the smoke layer (m²).
+As scaled on the drawings, the floor area of the space is approximately 43,047m². This area assumes that the smoke does not spread beneath the office undercroft. The proportion of the volume taken up by racking or other obstructions is estimated to be 33% of the compartment. This is accounted for in the calculations by taking the area of the smoke layer to be 67% of the total floor area, in this case 28,841m².
+Using these calculations, the temperature and depth of the smoke layer are shown below in Figure {fig:temperature_a} and Figure {fig:height_a}.
+The figures cover the full length of the 20-minute reference period. It can be seen that in this time, the smoke layer descends to just over 5.2m above ground level. As this is greater than 2m, escape would still be possible at this time but given a lack of further data, the ASET is taken to be 20 minutes.
+!fig temperature_a | Calculated Smoke Layer Temperature vs Time.
+!fig height_a | Calculated Smoke Layer Height Above Floor vs Time.
+## Calculation of RSET
+This section outlines the assumptions and calculation method used to determine the RSET (i.e. the time from ignition to final occupant escape).
+### Time to Detection
+It is reasonable to expect that once fitted out, the warehouse will be fully covered by an alarm and detection system which includes detection within the warehouse. In the absence of other data, and to account for a range of possible detection systems, a time to detection of 120 seconds is conservatively assumed. This is considered to be a conservative assumption given the ultra-fast growth rate of the fire, which would produce a large amount of smoke and would likely activate the detection system long before this time.
+!! Check the detection assumptions against any proposed detection system for the building.
+### Time to Alarm
+It is reasonable to expect that once fitted out, the warehouse will be fully covered by an alarm and detection system which includes detection within the warehouse. On this basis, and assuming that the warehouse does not operate an investigation period, a time for the alarm to activate of 0 seconds has been assumed. This is in accordance with the guidance in PD 7974-6[8].
+### Pre-movement Time
+A pre-movement time of 180 seconds has been assumed. This figure has been taken from guidance given in Table E.2 of PD 7974-6[8] and is the 99th percentile value for a space where the occupants are familiar with the layout of the building and “standard” management procedures are in place.
+### Travel Time
+As per CIBSE Guide E[7], 1.2 m/s can be taken as an average speed for persons walking on flat surfaces. The maximum direct travel distance (with the indicative fit-out layout) is 115m. As such, the travel time is taken to be 96 seconds.
+### Queueing Time
+The exit widths and maximum capacities have been sized using the guidance in BS 9999[1]. As noted in BS 7974-6 (Table G.4[8]), the maximum design sustained flow capacity implicit in the Approved Document B[3] guidance for a population in excess of 220 persons is 1.33 persons/m/s. With an estimated warehouse population of 1,431 people and 21 doors (one of which is discounted), each with a 850mm clear width, the total travel time through the doors is 64 seconds. Exit routes shared with the offices and secondary staircases are discounted.
+## Summary of ASET / RSET Calculation
+!tab results_a
+The results of the ASET/RSET calculation are provided in Table {tab:results_a}. Note all values used in the RSET calculation are rounded up to the nearest whole second.
+[[results_table]]
+@figure / table title| Table {tab:results_a}: Result of ASET/RSET Calculation
+It can be seen that even with the highly conservative set of inputs used in this calculation, there is a factor of safety between the ASET and the RSET of at least 740 seconds. Given this, it is our view that it is a credible assumption that it would be possible to justify the extended travel distances within the warehouse during the fit-out stage.
+In light of the above findings and calculations, it is demonstrated that at this base build stage, with the warehouse empty, the extended travel distances within the warehouse achieve a satisfactory standard of fire safety in line with requirement B1 of the Approved Document B[3].
+!pagebreak
+@FD Subheading| References
+- [1] BS 9999:2017 - Code of practice for fire safety in the design, construction and use of buildings.
+- [2] Michael Sparks Associates, Fire Strategy Report, 7th August 2025.
+- [3] Approved Document B: Fire Safety Volume 2 – Buildings other than dwellings. 2019 edition incorporating 2020, 2022 and 2025 amendments.
+- [4] Drysdale, D., An Introduction to Fire Dynamics. 2nd edition. Chichester: John Wiley & Sons, Ltd; 2007.
+- [5] PD 7974-2:2019 - Application of fire safety engineering principles to the design of buildings – Spread of smoke and toxic gases within and beyond the enclosure of origin (Sub-system 2). BSI Standards Limited; 2019.
+- [6] PD 7974-1:2019 - Application of fire safety engineering principles to the design of buildings – Initiation and development of fire within the enclosure (Sub-system 1). BSI Standards Limited; 2019.
+- [7] CIBSE Guide E. Fire Safety Engineering. Third Edition. London: The Chartered Institution of Building Services Engineers; 2019.
+- [8] PD 7974-6:2019 - Application of fire safety engineering principles to the design of buildings - Human factors. Life safety strategies. Occupant evacuation, behaviour and condition (Sub-system 6). BSI Standards Limited; 2019.
+!pagebreak
 @Style1| Drawings Used in this Assessment
 !! Insert the drawings used in this assessment.
