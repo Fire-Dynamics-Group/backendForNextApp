@@ -44,7 +44,7 @@ def make_inputs(**overrides) -> SmokeLayerInputs:
         flow_rate=1.33,
         occupancy=1431,
         assessment_time=1200,
-        reference_height=5.3,
+        tenability_height=2,
         tstep=1,
     )
     base.update(overrides)
@@ -72,8 +72,6 @@ def make_results(aset_triggered=False, **overrides) -> SmokeLayerResults:
         aset=1200 if not aset_triggered else 54,
         aset_triggered=aset_triggered,
         margin_of_safety=740 if not aset_triggered else -406,
-        reference_height_breached=True,
-        breach_time=1197,
         final_clear_height=5.27,
         total_pre_evac=395.83,
         people_per_second=22.61,
@@ -178,6 +176,26 @@ class TestAset:
         assert "terminated 30 seconds after the smoke layer breaches 2m" in body
         assert "The calculated ASET value before which escape would be possible is 54 seconds" in body
         assert "at least" not in body
+
+    def test_tenability_height_replaces_head_height_throughout(self):
+        body = text_for(make_inputs(tenability_height=5.3), make_results(aset_triggered=True))
+        assert "to reach the tenability height of 5.3m." in body
+        assert "terminated 30 seconds after the smoke layer breaches 5.3m height" in body
+        assert "descends to below 5.3m above ground level" in body
+        assert "when the 5.3m height is breached. The ASET time is plotted, as is the 5.3m height." in body
+        assert " 2m" not in body
+
+    def test_tenability_height_accepts_the_old_reference_height_name(self):
+        data = make_inputs().model_dump(by_alias=True)
+        assert data.pop("tenabilityHeight") == 2
+        assert SmokeLayerInputs(**data).tenability_height == 2.0
+        assert SmokeLayerInputs(**data, referenceHeight=5.3).tenability_height == 5.3
+        assert SmokeLayerInputs(**data, reference_height=5.3).tenability_height == 5.3
+
+    def test_head_height_wording_at_two_metres(self):
+        body = text_for()
+        assert "to reach head height (assumed to be 2m – CIBSE Guide E[7])." in body
+        assert "As this is greater than 2m, escape would still be possible" in body
 
     def test_negative_margin_flags_the_conclusions(self):
         body = text_for(results=make_results(aset_triggered=True))
