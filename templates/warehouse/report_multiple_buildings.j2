@@ -5,7 +5,9 @@
   Same line grammar as report_single_building.j2 (see builder.py). Values are
   pre-formatted by services/warehouse_report/render.py: `buildings` is a list of
   per-building contexts (name, key, room_area, aset, ...); everything else is
-  project-level or a parameter shared by every building. Tables come from render.py
+  project-level or a parameter shared by every building (quoted at the value most
+  buildings use; shared_params_differ names the ones some building overrides, and the
+  "assumptions" table lists those per building). Tables come from render.py
   keyed "<name><k>"; k is "" in both the report and the separate appendix document
   (appendix_multiple_buildings.j2 imports the calculation macro from here).
 
@@ -83,9 +85,9 @@ The available safe escape time must be greater than the required safe escape tim
 ## Calculation of ASET
 The ASET has been calculated using the methodology provided in Drysdale[4] and BS 7974-2[5]. Full details of the calculations, and the numerical assumptions made, are provided in this section.
 The calculations below are deployed at one second intervals to allow the temperature, depth and volume of the smoke layer to be measured over time. A {{ assessment_minutes }}-minute assessment period has been adopted, which is sufficient to account for the time taken to evacuate the space.{% if not aset_none %} The calculations are terminated 30 seconds after the smoke layer breaches {{ tenability_height }}m height.{% endif %}
-Unless otherwise specified, the same parameters are used for all {{ number_of_buildings }} of the units.
+Unless otherwise specified, the same parameters are used for all {{ number_of_buildings }} of the units.{% if shared_params_differ %} The exceptions are the {{ shared_params_differ }}: the value used for each unit is given in Table {tab:assumptions{{ k }}}, alongside the shared assumption quoted in this section.{% endif %}
 {% if shared_params_differ %}
-!! The units were run with different values for {{ shared_params_differ }}. The shared parameters quoted below are those of {{ buildings[0].name }}; state the others here or align the inputs.
+!table assumptions{{ k }} | Parameters Which Differ Between the Units.
 {% endif %}
 ### Heat Release Rate of the Fire
 An uncapped growing fire has been assumed. For a given time, the heat release rate can be calculated as per equation 22 of BS 7974-1[6], as follows:
@@ -99,6 +101,9 @@ The fire growth rate coefficient should be selected based on the contents of the
 {% else %}
 The fire growth rate coefficient should be selected based on the contents of the space and their likely fire growth rate. A {{ growth_rate_label }} growth rate has been assumed for the contents of the warehouses. Therefore, the fire growth rate coefficient is {{ fgr }} kW/s².
 !! The growth rate is not the default ultra-fast value. Justify the choice of {{ growth_rate_label }} growth here.
+{% endif %}
+{% if fgr_override_names %}
+!! {{ fgr_override_names }} does not use the default ultra-fast growth rate: justify the growth rate chosen for {{ fgr_override_this_these }} here.
 {% endif %}
 The assumed fire curve for the model is shown in Figure {fig:hrr{{ k }}}. This figure shows both, the total heat release rate, and the convective heat release rate (taken to be 70% of the total) across the whole of the {{ assessment_minutes }}-minute reference period.
 !fig hrr{{ k }} | Heat Release Rate Over the {{ assessment_minutes }}-minute Reference Period

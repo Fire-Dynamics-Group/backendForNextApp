@@ -8,6 +8,7 @@ the template stays a readable document rather than a program.
 import json
 import math
 import os
+from collections import Counter
 from datetime import date
 from io import BytesIO
 from typing import Dict, List, Optional
@@ -254,15 +255,36 @@ def render_report(
 # ---------------------------------------------------------------- several buildings
 
 NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
+# Parameters the report quotes once for every building: prose name and table column.
 SHARED_PARAMS = {
-    "fgr": "fire growth rate",
-    "detection_time": "detection time",
-    "pre_movement_time": "pre-movement time",
-    "walking_speed": "walking speed",
-    "flow_rate": "flow rate",
-    "assessment_time": "assessment period",
-    "tenability_height": "tenability height",
+    "fgr": ("fire growth rate", "Fire Growth Rate (kW/s²)"),
+    "detection_time": ("detection time", "Time to Detection (s)"),
+    "pre_movement_time": ("pre-movement time", "Pre-movement Time (s)"),
+    "walking_speed": ("walking speed", "Walking Speed (m/s)"),
+    "flow_rate": ("flow rate", "Flow Rate (persons/m/s)"),
+    "assessment_time": ("assessment period", "Assessment Period (min)"),
+    "tenability_height": ("tenability height", "Tenability Height (m)"),
 }
+
+
+def shared_inputs(buildings: List[SmokeLayerBuilding]) -> SmokeLayerInputs:
+    """The first building's inputs with each shared parameter set to the value most
+    buildings use (ties go to the earliest building). The frontend models these as one
+    shared assumption plus per-building overrides, so the majority is the shared value."""
+    majority = {
+        attr: Counter(getattr(b.inputs, attr) for b in buildings).most_common(1)[0][0]
+        for attr in SHARED_PARAMS
+    }
+    return buildings[0].inputs.model_copy(update=majority)
+
+
+def _shared_value(attr: str, value: float) -> str:
+    if attr == "assessment_time":
+        return _g(value / 60)
+    if attr == "fgr":
+        label = _growth_rate_label(value)
+        return _g(value) if label.startswith("custom") else f"{_g(value)} ({label})"
+    return _g(value)
 
 
 def _join_names(names: List[str]) -> str:
@@ -297,8 +319,9 @@ def build_multi_context(
     """Project-level context plus one single-building context per building.
 
     Shared parameters (growth rate, detection, pre-movement, walking speed, flow rate,
-    assessment period, reference height) are quoted from the first building; if any
-    building differs the template gets an engineer prompt naming them.
+    assessment period, tenability height) are quoted at the value most buildings use; the
+    ones any building departs from are listed in `shared_params_differ` and tabulated per
+    building (see `multi_tables`), with a prompt only for a non-default growth rate.
     """
     if not buildings:
         raise ValueError("at least one building is required")
@@ -318,14 +341,17 @@ def build_multi_context(
         ctx["office_height"] = b.details.office_height_text or "\u2014"
         per_building.append(ctx)
 
-    first = per_building[0]
+    shared = shared_inputs(buildings)
+    first = build_context(project_name, engineer_name, shared, buildings[0].results,
+                          single_building_details(project, buildings[0]))
     names = [c["name"] for c in per_building]
     racking = [c["racking_percent"] for c in per_building]
     known = [b.details.racking_known for b in buildings]
     triggered = [c["aset_triggered"] for c in per_building]
-    differ = [
-        label for attr, label in SHARED_PARAMS.items()
-        if len({getattr(b.inputs, attr) for b in buildings}) > 1
+    differ = [attr for attr in SHARED_PARAMS if len({getattr(b.inputs, attr) for b in buildings}) > 1]
+    fgr_override_names = [
+        b.name for b in buildings
+        if not math.isclose(b.inputs.fgr, shared.fgr) and _growth_rate_label(b.inputs.fgr) != "Ultra-fast"
     ]
     aset_names = [c["name"] for c in per_building if c["aset_triggered"]]
     no_aset_names = [c["name"] for c in per_building if not c["aset_triggered"]]
@@ -362,7 +388,14 @@ def build_multi_context(
         "all_over_220": all(c["over_220"] for c in per_building),
         "over_220_names": _join_names(over_220),
         "doors_missing_names": _join_names([c["name"] for c in per_building if c["number_of_doors"] == "\u2014"]),
-        "shared_params_differ": _join_names(differ),
+        "shared_params_differ": _join_names([SHARED_PARAMS[attr][0] for attr in differ]),
+        "fgr_override_names": _join_names(fgr_override_names),
+        "fgr_override_this_these": "it" if len(fgr_override_names) == 1 else "them",
+        "assumptions_table": (
+            [[""] + [SHARED_PARAMS[attr][1] for attr in differ]]
+            + [["Shared assumption"] + [_shared_value(attr, getattr(shared, attr)) for attr in differ]]
+            + [[b.name] + [_shared_value(attr, getattr(b.inputs, attr)) for attr in differ] for b in buildings]
+        ) if differ else None,
     })
     return ctx
 
@@ -406,6 +439,8 @@ def multi_tables(ctx: dict) -> Dict[str, List[List[str]]]:
         + [[c["name"], c["occupancy"], c["number_of_doors"], c["width_of_doors"], c["queue_time"]] for c in b],
         "results": results,
     }
+    if ctx["assumptions_table"]:
+        tables["assumptions"] = ctx["assumptions_table"]
     return tables
 
 
@@ -440,8 +475,8 @@ def render_multi_report(
     )
 
     figures: Dict[str, object] = {"site_plan": SITE_PLAN_PLACEHOLDER}
-    # One fire curve (the growth rate is shared), then a temperature + height pair per building.
-    figures["hrr"] = report_figures(buildings[0].inputs, buildings[0].results)["hrr"]
+    # One fire curve at the shared growth rate, then a temperature + height pair per building.
+    figures["hrr"] = report_figures(shared_inputs(buildings), buildings[0].results)["hrr"]
     for b, c in zip(buildings, ctx["buildings"]):
         figs = report_figures(b.inputs, b.results)
         figures[f"temperature_{c['key']}"] = figs["temperature"]
