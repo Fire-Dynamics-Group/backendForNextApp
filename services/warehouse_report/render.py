@@ -223,6 +223,10 @@ def render_report(
 
     figures: Dict[str, object] = dict(report_figures(inputs, results))
     figures["site_plan"] = SITE_PLAN_PLACEHOLDER
+    # The calculation renders twice (section 3 and Appendix A); the appendix uses
+    # "_a" keys so its figures number separately. Same images, deduplicated by docx.
+    for key in list(figures):
+        figures[key + "_a"] = figures[key]
 
     builder.render(render_text(ctx), figures=figures, substitutions=results_table_values(ctx))
     return builder.save()

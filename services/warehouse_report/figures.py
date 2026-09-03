@@ -1,11 +1,13 @@
 """House-style report figures for the warehouse smoke layer report.
 
 Re-plots the browser results with matplotlib; nothing is recomputed. The styling
-mirrors the MACS+ / time-eq Monte Carlo report charts (i-macs macs_automation/report.py,
-backend-time-eq-monte-carlo services/teq_reliability_charts.py) so the FDG report
-figures read as one family: Segoe UI, light grey text and axes, hairline grid, mid
-blue and coral series, red dashed limit lines, legend in a strip above the axes,
-axes pinned to the origin.
+follows the common-corridor CFD report charts (cfd-post-processing pipeline/hrr_graph.py,
+constants.py) so the FDG report figures read as one family: Segoe UI, light grey text
+and axes, hairline grid, thin mid-blue and coral series, legend centred below the
+axes with no frame, axes pinned to the origin. Every static line has its own colour
+and dash pattern so none can be confused in the legend (agreed with Ian, Sep 2026):
+tenability limit red dash-dot, reference height grey dashed, RSET blue dotted,
+ASET green dashed.
 """
 
 import threading
@@ -36,27 +38,34 @@ HOUSE_CHART_CONFIG = {
     "axes.grid": True,
     "grid.linewidth": "0.05",
     "grid.color": HOUSE_LIGHT_TEXT,
+    "axes.labelsize": 10,
+    "xtick.labelsize": 8,
+    "ytick.labelsize": 8,
+    "legend.fontsize": 8,
 }
 HOUSE_BLUE = "#4798EA"
 HOUSE_CORAL = "coral"
-HOUSE_LIMIT = "red"
-HOUSE_MARKER = HOUSE_LIGHT_TEXT
 HOUSE_DPI = 300
+SERIES_WIDTH = 0.75
+
+# (colour, linestyle, linewidth) per static line role.
+TENABILITY_STYLE = ("red", "-.", 0.75)
+REFERENCE_STYLE = (HOUSE_LIGHT_TEXT, "--", 0.75)
+RSET_STYLE = ("blue", ":", 1.0)
+ASET_STYLE = ("green", "--", 0.75)
 
 TENABILITY_HEIGHT = 2.0
 
 Series = Tuple[str, str, str]  # (attribute, label, colour)
-Line = Tuple[float, str, str]  # (value, label, colour)
+Line = Tuple[float, str, Tuple[object, str, float]]  # (value, label, style)
 
 
 def _place_legend(ax) -> None:
-    """Legend in a strip above the axes, stretched to exactly the plot width."""
+    """Legend centred below the axes, no frame, as the CFD report charts do."""
     handles, _ = ax.get_legend_handles_labels()
     if handles:
-        # Two columns once there are more than two entries: four labels at the
-        # default size overflow a single row on a 6-inch chart.
-        ax.legend(loc="lower left", bbox_to_anchor=(0, 1.02, 1, 0.102), mode="expand",
-                  ncol=min(len(handles), 2), borderaxespad=0)
+        ax.legend(loc="lower center", bbox_to_anchor=(0.5, -0.37), frameon=False,
+                  ncol=3 if len(handles) > 4 else 2)
 
 
 def _plot(
@@ -70,17 +79,21 @@ def _plot(
     fig, ax = plt.subplots()
 
     for attr, label, colour in series:
-        ax.plot(times, [getattr(s, attr) for s in steps], color=colour, linewidth=1.5, label=label)
-    for value, label, colour in hlines or []:
-        ax.axhline(value, color=colour, linestyle="--", linewidth=1.5, label=label)
-    for value, label, colour in vlines or []:
-        ax.axvline(value, color=colour, linestyle="--", linewidth=1.0, label=label)
+        ax.plot(times, [getattr(s, attr) for s in steps], color=colour, linewidth=SERIES_WIDTH, label=label)
+    for value, label, (colour, style, width) in hlines or []:
+        ax.axhline(value, color=colour, linestyle=style, linewidth=width, label=label)
+    for value, label, (colour, style, width) in vlines or []:
+        ax.axvline(value, color=colour, linestyle=style, linewidth=width, label=label)
 
-    ax.set_xlabel("Time (s)")
+    ax.set_xlabel("Time (Seconds)")
     ax.set_ylabel(ylabel)
     # Pinned to the origin: no autoscale padding before zero.
     ax.set_xlim(0, times[-1] if len(times) > 1 else max(times[-1], 1))
+    # Bottom pinned at zero, top rounded up to the next major tick so the frame
+    # closes on a labelled line rather than an autoscaled 189 or 15.75.
     ax.set_ylim(bottom=0)
+    top = ax.get_ylim()[1]
+    ax.set_ylim(0, max(t for t in ax.yaxis.get_major_locator().tick_values(0, top) if t >= top))
     _place_legend(ax)
 
     stream = BytesIO()
@@ -97,32 +110,33 @@ def report_figures(inputs: SmokeLayerInputs, results: SmokeLayerResults) -> Dict
 
 
 def _render(inputs: SmokeLayerInputs, results: SmokeLayerResults) -> Dict[str, BytesIO]:
-    height_lines: List[Line] = [(TENABILITY_HEIGHT, f"{TENABILITY_HEIGHT:g} m tenability limit", HOUSE_LIMIT)]
+    height_lines: List[Line] = [(TENABILITY_HEIGHT, f"Tenability Limit ({TENABILITY_HEIGHT:g}m)", TENABILITY_STYLE)]
     if inputs.reference_height != TENABILITY_HEIGHT:
-        height_lines.append((inputs.reference_height, f"{inputs.reference_height:g} m reference", HOUSE_MARKER))
+        height_lines.append((inputs.reference_height, f"Reference Height ({inputs.reference_height:g}m)", REFERENCE_STYLE))
 
     markers: List[Line] = []
-    if results.aset_triggered:
-        markers.append((results.aset, f"ASET {round(results.aset):,} s", HOUSE_LIMIT))
     if results.steps and results.rset <= results.steps[-1].time:
-        markers.append((results.rset, f"RSET {round(results.rset):,} s", HOUSE_MARKER))
+        markers.append((results.rset, f"RSET ({round(results.rset):,}s)", RSET_STYLE))
+    if results.aset_triggered:
+        markers.append((results.aset, f"ASET ({round(results.aset):,}s)", ASET_STYLE))
 
     return {
         "hrr": _plot(
             results.steps,
             [("hrr", "Total HRR", HOUSE_BLUE), ("convective_hrr", "Convective HRR", HOUSE_CORAL)],
-            "Heat release rate (MW)",
+            "Heat Release Rate (MW)",
         ),
         "temperature": _plot(
             results.steps,
-            [("smoke_layer_temp", "Smoke layer", HOUSE_BLUE), ("added_smoke_temp", "Smoke entering layer", HOUSE_CORAL)],
+            [("smoke_layer_temp", "Smoke Layer Temperature", HOUSE_BLUE),
+             ("added_smoke_temp", "Temperature of Smoke Entering Layer", HOUSE_CORAL)],
             "Temperature (°C)",
             vlines=markers,
         ),
         "height": _plot(
             results.steps,
-            [("clear_height", "Smoke layer height", HOUSE_BLUE)],
-            "Height above floor (m)",
+            [("clear_height", "Smoke Layer Height", HOUSE_BLUE)],
+            "Smoke Layer Height (m)",
             hlines=height_lines,
             vlines=markers,
         ),
