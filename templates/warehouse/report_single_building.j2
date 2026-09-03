@@ -70,7 +70,7 @@ The available safe escape time must be greater than the required safe escape tim
 
 ## Calculation of ASET
 The ASET has been calculated using the methodology provided in Drysdale[4] and BS 7974-2[5]. Full details of the calculations, and the numerical assumptions made, are provided in this section.
-The calculations below are deployed at one second intervals to allow the temperature, depth and volume of the smoke layer to be measured over time. A {{ assessment_minutes }}-minute assessment period has been adopted, which is sufficient to account for the time taken to evacuate the space.{% if aset_triggered %} The calculations are terminated 30 seconds after the smoke layer breaches 2m height.{% endif %}
+The calculations below are deployed at one second intervals to allow the temperature, depth and volume of the smoke layer to be measured over time. A {{ assessment_minutes }}-minute assessment period has been adopted, which is sufficient to account for the time taken to evacuate the space.{% if aset_triggered %} The calculations are terminated 30 seconds after the smoke layer breaches {{ tenability_height }}m height.{% endif %}
 ### Heat Release Rate of the Fire
 An uncapped growing fire has been assumed. For a given time, the heat release rate can be calculated as per equation 22 of BS 7974-1[6], as follows:
 [[eq_hrr]]
@@ -97,9 +97,9 @@ As scaled on the drawings, the floor area of the space is approximately {{ room_
 {% endif %}
 Using these calculations, the temperature and depth of the smoke layer are shown below in Figure {fig:temperature{{ k }}} and Figure {fig:height{{ k }}}.
 {% if aset_triggered %}
-The smoke layer descends to below 2m above ground level within the {{ assessment_minutes }}-minute reference period. The figures cover the time up to 30 seconds after the ASET, taken to be when the 2m height is breached. The ASET time is plotted, as is the 2m height. The calculated ASET value before which escape would be possible is {{ aset }} seconds.
+The smoke layer descends to below {{ tenability_height }}m above ground level within the {{ assessment_minutes }}-minute reference period. The figures cover the time up to 30 seconds after the ASET, taken to be when the {{ tenability_height }}m height is breached. The ASET time is plotted, as is the {{ tenability_height }}m height. The calculated ASET value before which escape would be possible is {{ aset }} seconds.
 {% else %}
-The figures cover the full length of the {{ assessment_minutes }}-minute reference period. It can be seen that in this time, the smoke layer descends to just over {{ final_height }}m above ground level. As this is greater than 2m, escape would still be possible at this time but given a lack of further data, the ASET is taken to be {{ assessment_minutes }} minutes.
+The figures cover the full length of the {{ assessment_minutes }}-minute reference period. It can be seen that in this time, the smoke layer descends to just over {{ final_height }}m above ground level. As this is greater than {{ tenability_height }}m, escape would still be possible at this time but given a lack of further data, the ASET is taken to be {{ assessment_minutes }} minutes.
 {% endif %}
 !fig temperature{{ k }} | Calculated Smoke Layer Temperature vs Time.
 !fig height{{ k }} | Calculated Smoke Layer Height Above Floor vs Time.

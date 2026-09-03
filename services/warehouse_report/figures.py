@@ -6,8 +6,9 @@ constants.py) so the FDG report figures read as one family: Segoe UI, light grey
 and axes, hairline grid, thin mid-blue and coral series, legend centred below the
 axes with no frame, axes pinned to the origin. Every static line has its own colour
 and dash pattern so none can be confused in the legend (agreed with Ian, Sep 2026):
-tenability limit red dash-dot, reference height grey dashed, RSET blue dotted,
-ASET green dashed.
+tenability limit red dash-dot, RSET blue dotted, ASET green dashed. The tenability
+limit is drawn at the run's tenability height, which is the height that defines ASET
+(head height, 2 m, unless the engineer set another).
 """
 
 import threading
@@ -50,11 +51,8 @@ SERIES_WIDTH = 0.75
 
 # (colour, linestyle, linewidth) per static line role.
 TENABILITY_STYLE = ("red", "-.", 0.75)
-REFERENCE_STYLE = (HOUSE_LIGHT_TEXT, "--", 0.75)
 RSET_STYLE = ("blue", ":", 1.0)
 ASET_STYLE = ("green", "--", 0.75)
-
-TENABILITY_HEIGHT = 2.0
 
 Series = Tuple[str, str, str]  # (attribute, label, colour)
 Line = Tuple[float, str, Tuple[object, str, float]]  # (value, label, style)
@@ -110,9 +108,8 @@ def report_figures(inputs: SmokeLayerInputs, results: SmokeLayerResults) -> Dict
 
 
 def _render(inputs: SmokeLayerInputs, results: SmokeLayerResults) -> Dict[str, BytesIO]:
-    height_lines: List[Line] = [(TENABILITY_HEIGHT, f"Tenability Limit ({TENABILITY_HEIGHT:g}m)", TENABILITY_STYLE)]
-    if inputs.reference_height != TENABILITY_HEIGHT:
-        height_lines.append((inputs.reference_height, f"Reference Height ({inputs.reference_height:g}m)", REFERENCE_STYLE))
+    limit = inputs.tenability_height
+    height_lines: List[Line] = [(limit, f"Tenability Limit ({limit:g}m)", TENABILITY_STYLE)]
 
     markers: List[Line] = []
     if results.steps and results.rset <= results.steps[-1].time:

@@ -167,6 +167,8 @@ def build_context(
         "room_height": _g(inputs.room_height),
         "fgr": _g(inputs.fgr),
         "assessment_minutes": assessment_minutes,
+        "tenability_height": _g(inputs.tenability_height),
+        "tenability_is_head_height": math.isclose(inputs.tenability_height, 2.0),
         "ambient_c": str(AMBIENT_K - 273),
         "ambient_k": str(AMBIENT_K),
         "rho_ambient": _g(RHO_AMBIENT),
@@ -249,7 +251,7 @@ SHARED_PARAMS = {
     "walking_speed": "walking speed",
     "flow_rate": "flow rate",
     "assessment_time": "assessment period",
-    "reference_height": "reference height",
+    "tenability_height": "tenability height",
 }
 
 
@@ -323,7 +325,8 @@ def build_multi_context(
         "project_name", "client_name", "project_location", "site_description", "intended_purpose",
         "site_plan_supplied", "fitout_known", "occupancy_known", "occupancy_basis", "occupancy_reference",
         "racking_source", "racking_source_given", "growth_rate_is_ultra_fast", "growth_rate_label", "fgr",
-        "assessment_minutes", "ambient_c", "ambient_k", "rho_ambient", "cp", "max_temp_c",
+        "assessment_minutes", "tenability_height", "tenability_is_head_height",
+        "ambient_c", "ambient_k", "rho_ambient", "cp", "max_temp_c",
         "detection_time", "pre_movement_time", "pre_movement_is_default", "walking_speed", "flow_rate",
         "flow_rate_is_default", "smoke_area_percent",
     )}

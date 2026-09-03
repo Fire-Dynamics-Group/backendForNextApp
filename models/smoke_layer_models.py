@@ -12,7 +12,7 @@ snake_case via the alias generator.
 import uuid
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from sqlalchemy import Column, DateTime, Text, UniqueConstraint, Uuid
 from sqlalchemy import JSON as JSONB
@@ -47,7 +47,13 @@ class SmokeLayerInputs(CamelModel):
     occupancy: float
 
     assessment_time: float
-    reference_height: float
+    # Clear height at which the layer is taken to compromise escape; ASET is when the
+    # layer reaches it (head height, 2 m, by default). Since 3 Sep 2026 this is the only
+    # height the model tracks. Older clients and saved runs called it the reference height.
+    tenability_height: float = Field(
+        2.0,
+        validation_alias=AliasChoices("tenabilityHeight", "tenability_height", "referenceHeight", "reference_height"),
+    )
     tstep: float
 
 
@@ -71,8 +77,6 @@ class SmokeLayerResults(CamelModel):
     aset: float
     aset_triggered: bool
     margin_of_safety: float
-    reference_height_breached: bool
-    breach_time: Optional[float] = None
     final_clear_height: float
     total_pre_evac: float
     people_per_second: float
