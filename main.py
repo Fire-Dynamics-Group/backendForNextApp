@@ -312,3 +312,13 @@ async def radiation_appendix(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail="Could not read file")
+# Word add-in task pane (fd-toolstation app/addin/word). The fee proposal router is the
+# shareable part and ships on its own; the sections/citations router is dev-only for now
+# and may be absent on a checkout that only carries the fee commit.
+from routers.word_fee import router as word_fee_router  # noqa: E402
+app.include_router(word_fee_router, prefix="/word", tags=["Word Add-in"])
+try:
+    from routers.word_addin import router as word_addin_router  # noqa: E402
+    app.include_router(word_addin_router, prefix="/word", tags=["Word Add-in (dev)"])
+except ImportError:
+    pass
