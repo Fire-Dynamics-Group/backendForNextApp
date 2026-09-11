@@ -304,13 +304,15 @@ class ReliabilityResult:
 
 @dataclass
 class ReliabilityDetails:
-    """A reliability run plus the per-sample data the report charts need."""
+    """A reliability run plus the per-sample data the report charts and the
+    QA results table need."""
     result: ReliabilityResult
     fld: np.ndarray                # sampled fuel-load density (n_sim,) MJ/m2
     glazing_breakage: np.ndarray   # sampled open fraction (n_sim,), 0-1
     peak_temp: np.ndarray          # peak steel temperature per sample (n_sim,)
     time_min: np.ndarray           # strided series grid (minutes)
     steel_series: np.ndarray       # steel temps, (len(time_min), n_sim) float32
+    opening_factor: np.ndarray = None  # EC1 opening factor per sample (n_sim,), clamped [0.01, 0.2]
 
 
 def sample_stochastic_inputs(*, occupancy: str, n_sim: int, rng: np.random.Generator,
@@ -367,10 +369,12 @@ def _run_reliability(*, occupancy: str, total_area: float, floor_area: float,
 
     time_hours = np.arange(0, p.calc_time_hours + p.delta_t_s / 3600, p.delta_t_s / 3600)
     peak = np.empty(n_sim)
+    op_fac_all = np.empty(n_sim)
     series = None if keep is None else np.empty((len(keep), n_sim), dtype=np.float32)
     for start in range(0, n_sim, chunk_size):
         sl = slice(start, min(start + chunk_size, n_sim))
         op_fac = calc_op_fac(vent_widths, vent_heights, total_area, opening_perc[sl])
+        op_fac_all[sl] = op_fac
         qtd = fld[sl] * floor_area / total_area
         gas = parametric_fire_curves(time_hours, op_fac, qtd, p).astype(np.float32)
         peak[sl], chunk_series = _step_steel(gas, p, prot_thick_m, keep)
@@ -387,7 +391,7 @@ def _run_reliability(*, occupancy: str, total_area: float, floor_area: float,
                          "sprinkler": sprinkler_factor if is_sprinklered else 1.0},
         unprotected=unprotected, seed=seed,
     )
-    return result, fld, opening_perc, peak, series, time_hours, p
+    return result, fld, opening_perc, peak, series, time_hours, p, op_fac_all
 
 
 def compute_reliability(*, occupancy: str, total_area: float, floor_area: float,
@@ -432,7 +436,7 @@ def compute_reliability_details(*, occupancy: str, total_area: float, floor_area
     n_steps = int(np.arange(0, p.calc_time_hours + p.delta_t_s / 3600,
                             p.delta_t_s / 3600).size)
     keep = np.arange(0, n_steps, stride)
-    result, fld, opening_perc, peak, series, time_hours, _ = _run_reliability(
+    result, fld, opening_perc, peak, series, time_hours, _, op_fac = _run_reliability(
         occupancy=occupancy, total_area=total_area, floor_area=floor_area,
         vent_widths=vent_widths, vent_heights=vent_heights,
         fr_period_min=fr_period_min, n_sim=n_sim, is_sprinklered=is_sprinklered,
@@ -441,7 +445,8 @@ def compute_reliability_details(*, occupancy: str, total_area: float, floor_area
         unprotected=unprotected, keep=keep)
     return ReliabilityDetails(
         result=result, fld=fld, glazing_breakage=opening_perc, peak_temp=peak,
-        time_min=time_hours[keep] * 60.0, steel_series=series)
+        time_min=time_hours[keep] * 60.0, steel_series=series,
+        opening_factor=op_fac)
 
 
 UDF_README = """MACS+ user-defined fire curves (AnalyseUDF)

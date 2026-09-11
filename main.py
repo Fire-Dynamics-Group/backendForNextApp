@@ -359,6 +359,10 @@ class TimeEqReliabilityData(BaseModel):
     # True: skip protection sizing; bare-steel EC3 heat transfer vs critical temp.
     unprotected: bool = False
     seed: Optional[int] = None
+    # Charts endpoint only: include the per-sample QA table (one row per
+    # simulation: fuel load, glazing breakage, opening factor, peak steel temp,
+    # pass/fail) — the time-eq analogue of the full MACS+ report table.
+    includeSamples: bool = False
 
 
 @app.post("/timeEqReliability")
@@ -367,7 +371,11 @@ async def read_timeEq_reliability(data: TimeEqReliabilityData):
     survives a realistic fire in this compartment. Protected mode (default) sizes
     insulation to the FR rating; unprotected mode steps bare-steel heat transfer
     against a member-specific critical temperature. Returns JSON."""
-    from services.teq_reliability_run import reliability_http_body, run_reliability_from_payload
+    from services.teq_reliability_run import (
+        derived_geometry_echo,
+        reliability_http_body,
+        run_reliability_from_payload,
+    )
 
     try:
         result = await run_in_threadpool(
@@ -375,7 +383,9 @@ async def read_timeEq_reliability(data: TimeEqReliabilityData):
         )
     except ValueError as e:  # e.g. unknown occupancy — client error, not server fault
         raise HTTPException(status_code=400, detail=str(e))
-    return reliability_http_body(result, unprotected=data.unprotected)
+    body = reliability_http_body(result, unprotected=data.unprotected)
+    body["derived"] = derived_geometry_echo(data.model_dump())
+    return body
 
 
 @app.post("/timeEqReliabilityCharts")
@@ -388,8 +398,10 @@ async def read_timeEq_reliability_charts(data: TimeEqReliabilityData):
 
     from services.teq_reliability_charts import render_reliability_charts
     from services.teq_reliability_run import (
+        derived_geometry_echo,
         reliability_http_body,
         run_reliability_details_from_payload,
+        samples_for_qa,
     )
 
     try:
@@ -402,6 +414,9 @@ async def read_timeEq_reliability_charts(data: TimeEqReliabilityData):
     body = reliability_http_body(details.result, unprotected=data.unprotected)
     body["charts"] = {name: base64.b64encode(png).decode("ascii")
                       for name, png in charts.items()}
+    body["derived"] = derived_geometry_echo(data.model_dump())
+    if data.includeSamples:
+        body["samples"] = samples_for_qa(details)
     return body
 
 

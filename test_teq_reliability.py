@@ -291,3 +291,27 @@ class TestSeedEcho:
         r2 = tr.compute_reliability(**kw, seed=r1.seed)
         assert r2.n_failed == r1.n_failed
         assert r2.reliability == r1.reliability
+
+
+class TestDetailsOpeningFactor:
+    """QA needs the opening factor each sample actually ran with — it is the
+    third derived quantity (after fld and glazing) an engineer recomputes when
+    spot-checking a row."""
+
+    def test_opening_factor_per_sample_in_range(self):
+        d = tr.compute_reliability_details(
+            **PANATTONI, fr_period_min=60, n_sim=150,
+            combustion_factor=1.0, is_sprinklered=False, seed=42)
+        assert d.opening_factor.shape == (150,)
+        # calc_op_fac clamps to [0.01, 0.2]
+        assert np.all(d.opening_factor >= 0.01) and np.all(d.opening_factor <= 0.2)
+
+    def test_opening_factor_matches_direct_calc(self):
+        n = 100
+        d = tr.compute_reliability_details(
+            **PANATTONI, fr_period_min=60, n_sim=n,
+            combustion_factor=1.0, is_sprinklered=False, seed=7)
+        expected = tr.calc_op_fac(
+            PANATTONI["vent_widths"], PANATTONI["vent_heights"],
+            PANATTONI["total_area"], d.glazing_breakage)
+        assert np.allclose(d.opening_factor, expected)

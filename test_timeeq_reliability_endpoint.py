@@ -352,3 +352,36 @@ class TestReliabilityChartsEndpoint:
         r = client.post("/timeEqReliabilityCharts",
                         json=_payload(occupancy="Nonexistent", nSim=10))
         assert r.status_code == 400
+
+
+class TestFullResultsForQA:
+    """includeSamples=true returns the per-sample table and the derived
+    geometry echo, so an engineer can QA any row against a hand calc — the
+    time-eq equivalent of the full MACS+ report table."""
+
+    def test_samples_and_derived_returned(self):
+        r = client.post("/timeEqReliabilityCharts",
+                        json=_payload(nSim=60, seed=5, includeSamples=True))
+        assert r.status_code == 200, r.text
+        body = r.json()
+        samples = body["samples"]
+        assert len(samples) == 60
+        row = samples[0]
+        assert set(row) >= {"index", "fuelLoad", "glazingBreakage",
+                            "openingFactor", "peakSteelTemp", "failed"}
+        assert sum(s["failed"] for s in samples) == body["nFailed"]
+        derived = body["derived"]
+        assert derived["floorArea"] == pytest.approx(64 * 13)
+        assert derived["totalArea"] == pytest.approx(2203, abs=1)
+        assert derived["ventWidths"] == [64, 0, 0, 0]
+        assert derived["ventHeights"] == [3.5] * 4
+
+    def test_samples_omitted_by_default(self):
+        body = client.post("/timeEqReliabilityCharts",
+                           json=_payload(nSim=30, seed=5)).json()
+        assert "samples" not in body
+        assert "derived" in body  # geometry echo always helps QA
+
+    def test_reliability_endpoint_also_gets_derived(self):
+        body = client.post("/timeEqReliability", json=_payload(nSim=30, seed=5)).json()
+        assert body["derived"]["floorArea"] == pytest.approx(64 * 13)

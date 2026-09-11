@@ -80,6 +80,41 @@ def run_reliability_details_from_payload(payload: dict, *, n_sim_cap: int | None
     return compute_reliability_details(**_engine_kwargs(payload, n_sim_cap=n_sim_cap))
 
 
+def derived_geometry_echo(payload: dict) -> dict:
+    """The geometry-derived quantities the run used, echoed so an engineer can
+    QA them against the drawing — the values are otherwise invisible between
+    the canvas and the reliability number."""
+    height = float(payload["compartmentHeight"])
+    geo = derive_geometry(_elements(payload["convertedPoints"]), height)
+    vent_widths = payload.get("openableWidths")
+    if vent_widths is None:
+        vent_widths = geo.wall_lengths
+    return {
+        "floorArea": geo.floor_area,
+        "totalArea": geo.At,
+        "wallLengths": list(geo.wall_lengths),
+        "ventWidths": list(vent_widths),
+        "ventHeights": [height] * len(vent_widths),
+    }
+
+
+def samples_for_qa(details) -> list[dict]:
+    """The per-sample results table: one row per Monte Carlo sample, enough to
+    recompute any row by hand — the time-eq analogue of the MACS+ report table."""
+    critical = details.result.critical_temp
+    return [
+        {
+            "index": i,
+            "fuelLoad": float(details.fld[i]),
+            "glazingBreakage": float(details.glazing_breakage[i]),
+            "openingFactor": float(details.opening_factor[i]),
+            "peakSteelTemp": float(details.peak_temp[i]),
+            "failed": bool(details.peak_temp[i] > critical),
+        }
+        for i in range(details.result.n_sim)
+    ]
+
+
 def reliability_http_body(result, *, unprotected: bool = False) -> dict:
     body = {
         "reliability": result.reliability,
