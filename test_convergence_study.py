@@ -1,8 +1,9 @@
 """Tests for the convergence-study stats/batching logic (scripts/convergence_study.py).
 
 The study itself is an offline script (issue #13); these tests cover the pure logic —
-summary statistics, the analytic binomial overlay, seed derivation, the recommendation
-rule, and the sweep orchestration (via a stub engine, no Monte Carlo compute).
+summary statistics, the internal analytic-SE reference, seed derivation, the
+recommendation rule, and the sweep orchestration (via a stub engine, no Monte Carlo
+compute).
 """
 import os
 import sys
@@ -34,6 +35,10 @@ class TestSummarize:
         assert s["band_half_width"] == 0.0
         assert s["std"] == 0.0
 
+    def test_envelope_half_width(self):
+        s = cs.summarize([0.90, 0.92, 0.94, 0.96, 0.98])
+        assert s["envelope_half_width"] == pytest.approx((0.98 - 0.90) / 2)
+
 
 class TestAnalyticSe:
     def test_half_at_100(self):
@@ -45,6 +50,42 @@ class TestAnalyticSe:
 
     def test_shrinks_with_n(self):
         assert cs.analytic_se(0.9, 10000) < cs.analytic_se(0.9, 100)
+
+
+class TestGeometries:
+    """Geometry contrast presets: same-area square (ventilation-controlled
+    extreme) and EC1-validity cellular office (fuel-controlled extreme)."""
+
+    def test_presets_share_engine_keys(self):
+        for geo in cs.GEOMETRIES.values():
+            assert set(geo) == {"floor_area", "total_area",
+                                "vent_widths", "vent_heights"}
+
+    def test_square_same_floor_area_as_panattoni(self):
+        sq = cs.GEOMETRIES["square"]
+        assert sq["floor_area"] == pytest.approx(cs.PANATTONI["floor_area"])
+        side = 832 ** 0.5
+        assert sq["total_area"] == pytest.approx(2 * 832 + 4 * side * 3.5)
+        assert sq["vent_widths"][2] == pytest.approx(side)
+
+    def test_square_lowers_max_opening_factor(self):
+        def o_max(g):
+            w, h = g["vent_widths"][2], g["vent_heights"][2]
+            return w * h * h ** 0.5 / g["total_area"]
+        assert o_max(cs.GEOMETRIES["square"]) < 0.6 * o_max(cs.PANATTONI)
+
+    def test_cellular_within_ec1_validity(self):
+        cell = cs.GEOMETRIES["cellular"]
+        assert cell["floor_area"] <= 500        # EC1 Annex A limits
+        assert cell["vent_heights"][2] <= 4.0
+        assert cell["total_area"] == pytest.approx(88.6)
+
+    def test_run_study_records_geometry(self):
+        stub = lambda **kw: type("R", (), {"reliability": 0.9})()
+        study = cs.run_study([60], {100: 2}, base_seed=1, engine=stub,
+                             geometry="square")
+        assert study["geometry"] == "square"
+        assert "square" in study["scenario"]
 
 
 class TestSeedFor:
@@ -62,18 +103,26 @@ class TestSeedFor:
 
 
 class TestRecommendN:
+    """The recommendation rule runs on the min-max envelope (the CFDOpenPlan-appendix
+    measure, wider than the percentile band, so conservative)."""
+
     def test_picks_smallest_qualifying(self):
-        stats = {100: {"band_half_width": 0.04}, 1000: {"band_half_width": 0.009},
-                 5000: {"band_half_width": 0.003}}
+        stats = {100: {"envelope_half_width": 0.04}, 1000: {"envelope_half_width": 0.009},
+                 5000: {"envelope_half_width": 0.003}}
         assert cs.recommend_n(stats, tol=0.01) == 1000
 
     def test_none_when_no_n_qualifies(self):
-        stats = {100: {"band_half_width": 0.04}, 1000: {"band_half_width": 0.02}}
+        stats = {100: {"envelope_half_width": 0.04}, 1000: {"envelope_half_width": 0.02}}
         assert cs.recommend_n(stats, tol=0.005) is None
 
     def test_unsorted_input(self):
-        stats = {5000: {"band_half_width": 0.003}, 500: {"band_half_width": 0.008}}
+        stats = {5000: {"envelope_half_width": 0.003}, 500: {"envelope_half_width": 0.008}}
         assert cs.recommend_n(stats, tol=0.01) == 500
+
+    def test_falls_back_to_min_max_for_older_results(self):
+        # JSONs written before envelope_half_width existed still carry min/max
+        stats = {100: {"min": 0.90, "max": 0.94}, 1000: {"min": 0.917, "max": 0.923}}
+        assert cs.recommend_n(stats, tol=0.005) == 1000
 
 
 class TestRunStudy:
@@ -116,3 +165,12 @@ class TestRunStudy:
         assert out["schedule"] == {"100": 1}
         assert out["base_seed"] == 7
         assert "runtime_s" in out
+
+    def test_occupancy_defaults_to_office_and_is_recorded(self):
+        out = cs.run_study(fr_periods=[60], schedule={100: 1}, base_seed=7,
+                           engine=self._stub_engine([]))
+        assert out["occupancy"] == "Office"
+        out2 = cs.run_study(fr_periods=[60], schedule={100: 1}, base_seed=7,
+                            engine=self._stub_engine([]), occupancy="Restaurant")
+        assert out2["occupancy"] == "Restaurant"
+        assert "Restaurant" in out2["scenario"]

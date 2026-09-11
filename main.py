@@ -13,7 +13,7 @@ try:
 except ImportError as e:
     print(f"Warning: Optional modules not loaded: {e}")
 try:
-    from teq_reliability import compute_reliability, SteelParams
+    from teq_reliability import compute_reliability, export_udf_batch, SteelParams, tlim_hours_for
 except ImportError as e:
     print(f"Warning: teq_reliability not loaded: {e}")
 from routers.fee_proposal import router as fee_proposal_router
@@ -339,9 +339,13 @@ class TimeEqReliabilityData(BaseModel):
     convertedPoints: List[ConvertedElement]
     occupancy: str
     compartmentHeight: float
-    fireResistancePeriod: float
+    fireResistancePeriod: Optional[float] = None
     isSprinklered: bool = False
-    nSim: int = 2000
+    # 10,000 sims: reliability repeatable to +/-0.5% (min-max envelope of repeat
+    # runs) per the convergence study (scripts/convergence_out/), worst case across
+    # occupancies; the cap matches — larger runs need job-based execution, not a
+    # longer synchronous request.
+    nSim: int = 10000
     # per-wall openable width (party/fire walls = 0); defaults to full wall lengths if omitted
     openableWidths: Optional[List[float]] = None
     roomComposition: Optional[List[str]] = None  # for derived b-value
@@ -349,27 +353,84 @@ class TimeEqReliabilityData(BaseModel):
     bValue: Optional[float] = None
     sectionFactor: Optional[float] = None
     criticalTemp: Optional[float] = None
-    tLimMinutes: Optional[float] = None          # fire growth rate (medium=20)
+    tLimMinutes: Optional[float] = None          # growth-rate override; default derives from occupancy (tlim_hours_for)
     combustionFactor: float = 0.8
     sprinklerFactor: float = 0.65
+    # True: skip protection sizing; bare-steel EC3 heat transfer vs critical temp.
+    unprotected: bool = False
+    seed: Optional[int] = None
 
 
 @app.post("/timeEqReliability")
 async def read_timeEq_reliability(data: TimeEqReliabilityData):
-    """Monte Carlo time-equivalence reliability: probability that steel protected to the
-    given FR rating survives a realistic fire in this compartment. Returns JSON."""
+    """Monte Carlo time-equivalence reliability: probability that a steel member
+    survives a realistic fire in this compartment. Protected mode (default) sizes
+    insulation to the FR rating; unprotected mode steps bare-steel heat transfer
+    against a member-specific critical temperature. Returns JSON."""
+    from services.teq_reliability_run import reliability_http_body, run_reliability_from_payload
+
+    try:
+        result = await run_in_threadpool(
+            run_reliability_from_payload, data.model_dump(), n_sim_cap=10000,
+        )
+    except ValueError as e:  # e.g. unknown occupancy — client error, not server fault
+        raise HTTPException(status_code=400, detail=str(e))
+    return reliability_http_body(result, unprotected=data.unprotected)
+
+
+@app.post("/timeEqReliabilityCharts")
+async def read_timeEq_reliability_charts(data: TimeEqReliabilityData):
+    """The reliability run plus its two report charts (steel time-temperature
+    spaghetti with the critical-temperature line, and the pass/fail scatter),
+    PNG base64 in JSON. Send the ``seed`` echoed by /timeEqReliability to chart
+    the exact run the user was shown; the numbers are recomputed from it."""
+    import base64
+
+    from services.teq_reliability_charts import render_reliability_charts
+    from services.teq_reliability_run import (
+        reliability_http_body,
+        run_reliability_details_from_payload,
+    )
+
+    try:
+        details = await run_in_threadpool(
+            run_reliability_details_from_payload, data.model_dump(), n_sim_cap=10000,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    charts = await run_in_threadpool(render_reliability_charts, details)
+    body = reliability_http_body(details.result, unprotected=data.unprotected)
+    body["charts"] = {name: base64.b64encode(png).decode("ascii")
+                      for name, png in charts.items()}
+    return body
+
+
+class TimeEqFireCurveData(BaseModel):
+    convertedPoints: List[ConvertedElement]
+    occupancy: str
+    compartmentHeight: float
+    isSprinklered: bool = False
+    nSim: int = 10000
+    openableWidths: Optional[List[float]] = None
+    roomComposition: Optional[List[str]] = None
+    bValue: Optional[float] = None
+    tLimMinutes: Optional[float] = None
+    combustionFactor: float = 0.8
+    sprinklerFactor: float = 0.65
+    seed: Optional[int] = None
+
+
+@app.post("/timeEqFireCurves")
+async def export_timeEq_fire_curves(data: TimeEqFireCurveData):
+    """Sample N EC1 parametric fires (same path as /timeEqReliability) and return
+    a zip of MACS+ AnalyseUDF curves plus a provenance manifest."""
     geo = derive_geometry(data.convertedPoints, data.compartmentHeight)
     vent_widths = data.openableWidths if data.openableWidths is not None else geo.wall_lengths
     vent_heights = [data.compartmentHeight] * len(vent_widths)
 
-    params = SteelParams()
-    if data.sectionFactor is not None:
-        params.sect_factor = data.sectionFactor
-    if data.criticalTemp is not None:
-        params.steel_fail_temp = data.criticalTemp
+    params = SteelParams(t_lim_hours=tlim_hours_for(data.occupancy))
     if data.tLimMinutes is not None:
         params.t_lim_hours = data.tLimMinutes / 60.0
-    # b-value: explicit override > derived from composition > engine default
     if data.bValue is not None:
         params.thermal_inertia = data.bValue
     elif data.roomComposition:
@@ -378,28 +439,21 @@ async def read_timeEq_reliability(data: TimeEqReliabilityData):
             room_dimensions=geo.room_dimensions, At=geo.At)
 
     try:
-        result = await run_in_threadpool(
-            compute_reliability,
+        zip_bytes = await run_in_threadpool(
+            export_udf_batch,
             occupancy=data.occupancy, total_area=geo.At, floor_area=geo.floor_area,
             vent_widths=vent_widths, vent_heights=vent_heights,
-            fr_period_min=data.fireResistancePeriod, n_sim=min(max(data.nSim, 1), 10000),
+            n_sim=min(max(data.nSim, 1), 10000),
             is_sprinklered=data.isSprinklered, combustion_factor=data.combustionFactor,
-            sprinkler_factor=data.sprinklerFactor, params=params,
+            sprinkler_factor=data.sprinklerFactor, params=params, seed=data.seed,
         )
-    except ValueError as e:  # e.g. unknown occupancy — client error, not server fault
+    except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    return {
-        "reliability": result.reliability,
-        "reliabilityPercent": round(result.reliability * 100, 2),
-        "nFailed": result.n_failed,
-        "nSim": result.n_sim,
-        "frPeriod": result.fr_period,
-        "protectionThickness_mm": result.protection_thickness_mm,
-        "bValue": result.b_value,
-        "sectionFactor": result.section_factor,
-        "criticalTemp": result.critical_temp,
-        "factorsApplied": result.factors_applied,
-    }
+    return Response(
+        content=zip_bytes,
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=teq-udf-curves.zip"},
+    )
 
     # roomUse: str,
     # floorMaterial: str,
