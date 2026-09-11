@@ -63,7 +63,7 @@ class TestEndpointGrowthRate:
                 protection_thickness_mm=1, b_value=1200.0, section_factor=135.0,
                 critical_temp=500.0)
 
-        monkeypatch.setattr(main, "compute_reliability", stub)
+        monkeypatch.setattr("services.teq_reliability_run.compute_reliability", stub)
         rect = [(0, 0), (64, 0), (64, 13), (0, 13), (0, 0)]
         payload = dict(
             convertedPoints=[{"id": 0, "comments": "obstruction",

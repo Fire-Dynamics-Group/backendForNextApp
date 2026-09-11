@@ -102,7 +102,7 @@ accepts an **optional custom override**:
 | b-value (thermal inertia) | **derived from materials** | show per-material b (concrete ≈1741.6, brick ≈1674.8, plasterboard ≈421.5); custom override |
 | Combustibility factor | **0.8** | applied to fuel load |
 | Sprinkler factor | **0.65** | applied **only** when sprinklered |
-| `nSim` | **2000** | hard cap 10000 |
+| `nSim` | **10000** | hard cap 10000; per the convergence study (issue #13, `scripts/convergence_out/`): min–max envelope of repeat runs first within ±0.5% at 10k in the worst case across occupancies (Clothing store FR30 fast growth / FR60); larger runs await job-based execution (#16) |
 
 **Internal-only** (fixed named constants, *not* surfaced — they are numerical-method params, a
 wrong value is a bug not a judgement): `DELTA_T` = 5 s, `CALC_TIME` = 300 min.
