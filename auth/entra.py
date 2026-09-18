@@ -37,6 +37,7 @@ class TokenError(Exception):
 class Identity:
     email: str
     name: str
+    oid: str | None = None
     # "microsoft" for an Entra token, "password" for a fallback session token.
     via: str = "microsoft"
 
@@ -60,10 +61,13 @@ def verify_entra_token(token: str) -> Identity:
     except jwt.PyJWTError as e:
         raise TokenError(f"entra token rejected: {type(e).__name__}: {e}") from e
 
-    # An ID token, or an access token for Graph, carries no scp for our API.
-    # Refusing those keeps "any token from our registration" from being enough.
+    # Once the Entra registration exposes access_as_user, Canvas sends an API
+    # access token and we require that scope. Until then it sends an ID token
+    # issued specifically to this same client (Mail Marshal's working SSO
+    # configuration), which has no scp but still has the pinned audience.
     scopes = set(str(claims.get("scp") or "").split())
-    if AAD_API_SCOPE not in scopes:
+    is_identity_token_for_client = not scopes and claims.get("aud") == AAD_AUDIENCES[1]
+    if AAD_API_SCOPE not in scopes and not is_identity_token_for_client:
         raise TokenError(
             f"entra token missing scope {AAD_API_SCOPE!r} (scp={claims.get('scp')!r})"
         )
@@ -80,4 +84,5 @@ def verify_entra_token(token: str) -> Identity:
     name = claims.get("name")
     if not isinstance(name, str) or not name:
         name = email.split("@")[0]
-    return Identity(email=email, name=name, via="microsoft")
+    oid = claims.get("oid")
+    return Identity(email=email, name=name, oid=oid if isinstance(oid, str) and oid else None, via="microsoft")

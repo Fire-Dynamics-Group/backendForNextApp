@@ -213,7 +213,7 @@ async def read_item(item_id):
 async def read_users():
     return ["Rick", "Morty"]
 # TODO: change route from test
-@app.post("/fds")
+@app.post("/fds", dependencies=[Depends(current_user)])
 # async def read_elements(elements: List[Element]):
 async def read_elements(body: ElementsData):
     import traceback
@@ -313,7 +313,7 @@ def _read_elements_impl(body: ElementsData):
 
 # mockConvertedPoints = [ConvertedElement(finalPoints=[Point(x=0.2, y=0.0), Point(x=0.2, y=5.2), Point(x=0.0, y=5.2), Point(x=0.0, y=5.8), Point(x=9.7, y=5.8), Point(x=9.7, y=5.6), Point(x=10.0, y=5.6), Point(x=10.0, y=2.4), Point(x=10.4, y=2.4), Point(x=10.4, y=0.1), Point(x=7.3, y=0.1), Point(x=7.3, y=0.0), Point(x=0.2, y=0.0)], comments='obstruction'), ConvertedElement(finalPoints=[Point(x=10.0, y=5.5), Point(x=10.0, y=4.2)], comments='opening'), ConvertedElement(finalPoints=[Point(x=10.4, y=2.4), Point(x=10.4, y=0.1)], comments='opening')]
 mockConvertedPoints = [ConvertedElement(id=0, finalPoints=[Point(x=0.2, y=0.0), Point(x=0.2, y=5.2), Point(x=0.0, y=5.2), Point(x=0.0, y=5.8), Point(x=9.7, y=5.8), Point(x=9.7, y=5.6), Point(x=10.0, y=5.6), Point(x=10.0, y=2.4), Point(x=10.4, y=2.4), Point(x=10.4, y=0.1), Point(x=7.3, y=0.1), Point(x=7.3, y=0.0), Point(x=0.2, y=0.0)], comments='obstruction'), ConvertedElement(id=1, finalPoints=[Point(x=10.0, y=5.5), Point(x=10.0, y=4.2)], comments='opening'), ConvertedElement(id=2, finalPoints=[Point(x=10.4, y=2.4), Point(x=10.4, y=0.1)], comments='opening')]
-@app.post("/timeEq",
+@app.post("/timeEq", dependencies=[Depends(current_user)],
     responses = {
         200: {
             "content": {"image/jpeg": {}}
@@ -376,7 +376,7 @@ class TimeEqReliabilityData(BaseModel):
     includeSamples: bool = False
 
 
-@app.post("/timeEqReliability")
+@app.post("/timeEqReliability", dependencies=[Depends(current_user)])
 async def read_timeEq_reliability(data: TimeEqReliabilityData):
     """Monte Carlo time-equivalence reliability: probability that a steel member
     survives a realistic fire in this compartment. Protected mode (default) sizes
@@ -498,7 +498,7 @@ class RadiationData(BaseModel):
     docName: str
 
 from fastapi.responses import StreamingResponse
-@app.post("/radiation")
+@app.post("/radiation", dependencies=[Depends(current_user)])
 async def radiation_appendix(
     data: RadiationData
 ):

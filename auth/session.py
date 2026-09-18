@@ -70,7 +70,8 @@ def verify_session_token(token: str) -> Identity:
     name = claims.get("name")
     if not isinstance(name, str) or not name:
         name = email.split("@")[0]
-    return Identity(email=email, name=name, via="password")
+    oid = claims.get("oid")
+    return Identity(email=email, name=name, oid=oid if isinstance(oid, str) and oid else None, via="password")
 
 
 def issuer_of(token: str) -> str | None:

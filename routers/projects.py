@@ -18,14 +18,25 @@ from models.project_schemas import (
     ProjectSummary,
     ProjectUpdate,
 )
+from auth.deps import current_user
+from auth.entra import Identity
 
 router = APIRouter()
 
 
 @router.post("", response_model=ProjectSummary, status_code=201)
-async def create_project(body: ProjectCreate, db: AsyncSession = Depends(get_db)):
+async def create_project(
+    body: ProjectCreate,
+    db: AsyncSession = Depends(get_db),
+    user: Identity | None = Depends(current_user),
+):
     project = Project(
-        name=body.name, mode=body.mode, settings=body.settings, created_by=body.created_by
+        name=body.name,
+        mode=body.mode,
+        settings=body.settings,
+        # In enforce mode this is always the verified Entra oid; the body field
+        # remains only so the log-mode rollout does not break existing clients.
+        created_by=(user.oid or user.email) if user else body.created_by,
     )
     db.add(project)
     await db.commit()
