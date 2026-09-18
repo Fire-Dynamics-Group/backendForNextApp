@@ -63,6 +63,51 @@ async def _seed_text_blocks():
         print(f"Warning: fee text block setup failed: {e}")
 
 
+async def _ensure_projects_mode_column():
+    """Add projects.mode if this database predates alembic d4e8f2a7b310.
+
+    Railway starts uvicorn only. create_all will not ALTER an existing
+    projects table, so GET /projects?mode=... selects a missing column.
+    Postgres then parses `projects.mode` as the ordered-set aggregate
+    mode() and raises ``WITHIN GROUP is required for ordered-set aggregate
+    mode``. The 500 has no ACAO headers, so browsers report CORS.
+
+    Idempotent: no-op when the column (and index) already exist, and when
+    the projects table has not been created yet.
+    """
+    import database
+    if database.async_session is None or database.engine is None:
+        return
+    try:
+        from sqlalchemy import inspect, text
+
+        async with database.engine.begin() as conn:
+            def _projects_mode_state(sync_conn):
+                insp = inspect(sync_conn)
+                if "projects" not in insp.get_table_names():
+                    return False, False
+                cols = {c["name"] for c in insp.get_columns("projects")}
+                indexes = {ix["name"] for ix in insp.get_indexes("projects")}
+                return "mode" not in cols, "ix_projects_mode" not in indexes
+
+            missing_col, missing_idx = await conn.run_sync(_projects_mode_state)
+            if missing_col:
+                await conn.execute(
+                    text(
+                        "ALTER TABLE projects ADD COLUMN mode TEXT NOT NULL DEFAULT 'fdsGen'"
+                    )
+                )
+                missing_idx = True
+            if missing_idx:
+                await conn.execute(
+                    text(
+                        "CREATE INDEX IF NOT EXISTS ix_projects_mode ON projects (mode)"
+                    )
+                )
+    except Exception as e:  # noqa: BLE001 — setup must never block startup
+        print(f"Warning: projects.mode column setup failed: {e}")
+
+
 async def _ensure_tool_search_tables():
     """Create tool_search_logs / tool_search_clicks if alembic has not run.
 
@@ -87,6 +132,7 @@ async def _ensure_tool_search_tables():
 
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
+    await _ensure_projects_mode_column()
     await _seed_text_blocks()
     await _ensure_tool_search_tables()
     if _MCP_AVAILABLE:

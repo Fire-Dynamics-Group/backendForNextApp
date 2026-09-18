@@ -22,11 +22,19 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column(
-        'projects',
-        sa.Column('mode', sa.Text(), nullable=False, server_default='fdsGen'),
-    )
-    op.create_index('ix_projects_mode', 'projects', ['mode'])
+    # Idempotent: uvicorn boot may already have added the column via
+    # _ensure_projects_mode_column (Railway does not run alembic on start).
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    cols = {c["name"] for c in inspector.get_columns("projects")}
+    if "mode" not in cols:
+        op.add_column(
+            'projects',
+            sa.Column('mode', sa.Text(), nullable=False, server_default='fdsGen'),
+        )
+    indexes = {ix["name"] for ix in sa.inspect(bind).get_indexes("projects")}
+    if "ix_projects_mode" not in indexes:
+        op.create_index('ix_projects_mode', 'projects', ['mode'])
 
 
 def downgrade() -> None:
