@@ -22,6 +22,24 @@ def _get_client():
     )
 
 
+def storage_available() -> bool:
+    """Is the configured bucket reachable? Read-only, never raises.
+
+    Backs the storage leg of /health. Deliberately head_bucket rather than
+    anything that creates: a probe that repairs the fault it is meant to report
+    would have hidden the MinIO outage that prompted this check.
+
+    Any failure - missing credentials, DNS, timeout, 404 on the bucket - is
+    "not available". The health endpoint must stay answerable so it can *tell*
+    us storage is down.
+    """
+    try:
+        _get_client().head_bucket(Bucket=S3_BUCKET_NAME)
+        return True
+    except Exception:  # noqa: BLE001 - any failure to reach the bucket is a no
+        return False
+
+
 def s3_key_for_pdf(project_id: str, floor_id: str) -> str:
     return f"projects/{project_id}/floors/{floor_id}/plan.pdf"
 

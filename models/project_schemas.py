@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 class ProjectCreate(BaseModel):
     name: str
+    mode: str = "fdsGen"
     settings: dict[str, Any] = {}
     created_by: Optional[str] = None
 
@@ -23,6 +24,7 @@ class ProjectUpdate(BaseModel):
 class ProjectSummary(BaseModel):
     id: uuid.UUID
     name: str
+    mode: str = "fdsGen"
     created_by: Optional[str] = None
     updated_at: Optional[datetime] = None
 

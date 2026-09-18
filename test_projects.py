@@ -244,6 +244,83 @@ async def test_api_bulk_save(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_save_preserves_floor_id(client: AsyncClient):
+    """Floor ids must be stable across saves.
+
+    The frontend caches floorId (from the first save) and reuses it for PDF
+    upload/fetch. A delete-then-recreate save mints a new floor uuid each time,
+    leaving that cached id stale -> mid-session PDF calls 404. Saving the same
+    floor_number twice must keep the same floor id.
+    """
+    resp = await client.post("/projects", json={"name": "Stable Floor"})
+    project_id = resp.json()["id"]
+
+    payload = {
+        "settings": {},
+        "floors": [{"floor_number": 0, "name": "Fire Floor", "elements": [
+            {"element_index": 0, "type": "polyline", "points": [{"x": 0, "y": 0}], "comments": "obstruction"},
+        ]}],
+    }
+    first = await client.post(f"/projects/{project_id}/save", json=payload)
+    second = await client.post(f"/projects/{project_id}/save", json=payload)
+
+    assert second.json()["floors"][0]["id"] == first.json()["floors"][0]["id"]
+
+
+@pytest.mark.asyncio
+async def test_save_preserves_pdf_key_and_updates_elements(client: AsyncClient, test_session: AsyncSession):
+    """A re-save must keep a previously-attached PDF and apply element edits.
+
+    The PDF is attached out-of-band (S3 upload sets pdf_s3_key); here we set it
+    directly. A subsequent save that adds an element must not drop the PDF.
+    """
+    from sqlalchemy import select
+
+    resp = await client.post("/projects", json={"name": "PDF Keep"})
+    project_id = resp.json()["id"]
+    payload = {"settings": {}, "floors": [{"floor_number": 0, "name": "F", "elements": [
+        {"element_index": 0, "type": "rect", "points": [{"x": 0, "y": 0}], "comments": "mesh"},
+    ]}]}
+    first = await client.post(f"/projects/{project_id}/save", json=payload)
+    floor_id = first.json()["floors"][0]["id"]
+
+    floor = (await test_session.execute(
+        select(Floor).where(Floor.id == uuid.UUID(floor_id))
+    )).scalar_one()
+    floor.pdf_s3_key = "plans/floor0.pdf"
+    await test_session.commit()
+
+    payload["floors"][0]["elements"].append(
+        {"element_index": 1, "type": "point", "points": [{"x": 5, "y": 5}], "comments": "fire"}
+    )
+    await client.post(f"/projects/{project_id}/save", json=payload)
+
+    detail = (await client.get(f"/projects/{project_id}/floors/{floor_id}")).json()
+    assert detail["pdf_s3_key"] == "plans/floor0.pdf"
+    assert len(detail["elements"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_save_removes_floor_dropped_from_payload(client: AsyncClient):
+    """A floor no longer present in the payload is deleted (cascading elements)."""
+    resp = await client.post("/projects", json={"name": "Drop Floor"})
+    project_id = resp.json()["id"]
+
+    two = await client.post(f"/projects/{project_id}/save", json={"settings": {}, "floors": [
+        {"floor_number": 0, "name": "Fire", "elements": []},
+        {"floor_number": 1, "name": "Level 1", "elements": []},
+    ]})
+    floor0_id = next(f["id"] for f in two.json()["floors"] if f["floor_number"] == 0)
+
+    one = await client.post(f"/projects/{project_id}/save", json={"settings": {}, "floors": [
+        {"floor_number": 0, "name": "Fire", "elements": []},
+    ]})
+    floors = one.json()["floors"]
+    assert len(floors) == 1
+    assert floors[0]["id"] == floor0_id  # surviving floor kept its id
+
+
+@pytest.mark.asyncio
 async def test_api_replace_elements(client: AsyncClient):
     # Create project with a floor via bulk save
     resp = await client.post("/projects", json={"name": "Elements Test"})
@@ -271,3 +348,52 @@ async def test_api_replace_elements(client: AsyncClient):
     assert resp.status_code == 200
     assert len(resp.json()) == 2
     assert resp.json()[0]["comments"] == "wall"
+
+
+# --- Project mode (fdsGen / timeEq / ...) ---
+
+@pytest.mark.asyncio
+async def test_api_project_mode_defaults_to_fdsgen(client: AsyncClient):
+    resp = await client.post("/projects", json={"name": "Legacy-style create"})
+    assert resp.status_code == 201
+    assert resp.json()["mode"] == "fdsGen"
+
+    detail = await client.get(f"/projects/{resp.json()['id']}")
+    assert detail.json()["mode"] == "fdsGen"
+
+
+@pytest.mark.asyncio
+async def test_api_create_project_with_mode(client: AsyncClient):
+    resp = await client.post("/projects", json={"name": "TEQ", "mode": "timeEq"})
+    assert resp.status_code == 201
+    assert resp.json()["mode"] == "timeEq"
+
+
+@pytest.mark.asyncio
+async def test_api_list_projects_filters_by_mode(client: AsyncClient):
+    fds = (await client.post("/projects", json={"name": "FDS one"})).json()
+    teq = (await client.post("/projects", json={"name": "TEQ one", "mode": "timeEq"})).json()
+
+    # unfiltered list returns everything (backwards compatible)
+    everything = {p["id"] for p in (await client.get("/projects")).json()}
+    assert {fds["id"], teq["id"]} <= everything
+
+    teq_only = (await client.get("/projects", params={"mode": "timeEq"})).json()
+    assert [p["id"] for p in teq_only] == [teq["id"]]
+    assert all(p["mode"] == "timeEq" for p in teq_only)
+
+    fds_only = {p["id"] for p in (await client.get("/projects", params={"mode": "fdsGen"})).json()}
+    assert fds["id"] in fds_only
+    assert teq["id"] not in fds_only
+
+
+@pytest.mark.asyncio
+async def test_bulk_save_does_not_change_mode(client: AsyncClient):
+    teq = (await client.post("/projects", json={"name": "TEQ", "mode": "timeEq"})).json()
+    resp = await client.post(
+        f"/projects/{teq['id']}/save",
+        json={"name": "TEQ renamed", "settings": {"timeEqInputs": {"use": "Office"}}, "floors": []},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["mode"] == "timeEq"
+    assert resp.json()["settings"]["timeEqInputs"] == {"use": "Office"}

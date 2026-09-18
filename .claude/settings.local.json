@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(env/Scripts/python -m uvicorn main:app --reload)"
+    ]
+  }
+}

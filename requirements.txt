@@ -3,6 +3,7 @@ uvicorn[standard]
 numpy
 pandas
 matplotlib
+scipy
 docxtpl
 docx-mailmerge2
 python-docx
@@ -17,3 +18,4 @@ httpx
 pytest
 pytest-asyncio
 aiosqlite
+PyJWT[crypto]>=2.10
