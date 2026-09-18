@@ -17,6 +17,7 @@ from database import Base  # noqa: E402
 from models.db_models import Project, Floor, Element  # noqa: E402, F401
 from models.cfd_models import CfdSimulation, CfdRunnerState  # noqa: E402, F401
 from models.smoke_layer_models import SmokeLayerRun  # noqa: E402, F401
+from models.tool_search import ToolSearchClick, ToolSearchLog  # noqa: E402, F401
 
 config = context.config
 
