@@ -15,6 +15,7 @@ from routers.fee_proposal import router as fee_proposal_router
 from routers.efs import router as efs_router
 from routers.cfd_dashboard import router as cfd_dashboard_router
 from routers.smoke_layer import router as smoke_layer_router
+from routers.tool_search import router as tool_search_router
 
 _MCP_IMPORT_ERROR = None
 try:
@@ -55,9 +56,32 @@ async def _seed_text_blocks():
         print(f"Warning: fee text block setup failed: {e}")
 
 
+async def _ensure_tool_search_tables():
+    """Create tool_search_logs / tool_search_clicks if alembic has not run.
+
+    Railway start command is uvicorn only (no `alembic upgrade`). Idempotent
+    create_all of just these two tables so homepage search can persist without
+    a separate migration step.
+    """
+    import database
+    if database.async_session is None or database.engine is None:
+        return
+    try:
+        from database import Base
+        from models.tool_search import ToolSearchClick, ToolSearchLog
+        async with database.engine.begin() as conn:
+            await conn.run_sync(
+                Base.metadata.create_all,
+                tables=[ToolSearchLog.__table__, ToolSearchClick.__table__],
+            )
+    except Exception as e:  # noqa: BLE001 — setup must never block startup
+        print(f"Warning: tool search analytics table setup failed: {e}")
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
     await _seed_text_blocks()
+    await _ensure_tool_search_tables()
     if _MCP_AVAILABLE:
         async with mcp_lifespan(app):
             yield
@@ -88,6 +112,7 @@ app.include_router(fee_proposal_router, prefix="/fee-proposals", tags=["Fee Prop
 app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"])
 app.include_router(cfd_dashboard_router, prefix="/cfd-dashboard", tags=["CFD Dashboard"])
 app.include_router(smoke_layer_router, prefix="/smoke-layer", tags=["Warehouse Smoke Layer"])
+app.include_router(tool_search_router, prefix="/tool-search", tags=["Tool Search"])
 
 try:
     from routers.projects import router as projects_router
