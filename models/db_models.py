@@ -29,7 +29,11 @@ class Project(Base):
     # Which canvas mode owns this project (fdsGen / timeEq / ...). Each mode
     # has its own dashboard; a project is only ever opened by the mode that
     # created it, because the settings/floor payloads are mode-specific.
-    mode = Column(Text, nullable=False, default="fdsGen", server_default="fdsGen")
+    # Existing Railway DBs are healed on boot by _ensure_projects_mode_column
+    # (create_all will not ALTER a table that already exists).
+    mode = Column(
+        Text, nullable=False, default="fdsGen", server_default="fdsGen", index=True
+    )
     settings = Column(JSONB, default=dict)
     created_by = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
