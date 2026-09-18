@@ -140,6 +140,13 @@ Service(
 and env vars, deep checks pointing at a `/health` path), so a malformed entry
 fails the suite rather than silently monitoring nothing.
 
+## Upload Canvas project-list smoke
+
+`ops/projects_smoke.py` (CLI: `python scripts/smoke_projects_modes.py`) is the
+post-deploy gate for `GET /projects?mode=` on `fdsGen`, `timeEq`, `radiation`,
+and `efs`. Empty lists pass; 500 / non-JSON / missing CORS fail. It never
+drives Entra. See `docs/projects-mode-smoke.md`.
+
 ## Next
 
 - **Deploy the cron service (above) — until then nothing runs on a schedule.**

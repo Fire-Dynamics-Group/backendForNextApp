@@ -15,6 +15,15 @@ FastAPI backend for the Fire Dynamics upload-canvas app (fire engineering calcs:
 
 Vercel branch previews follow `<project>-git-<branch>-fire-dynamics-projects.vercel.app`.
 
+**Post-deploy smoke** (all four Upload Canvas modes; empty lists OK, 500/missing CORS not):
+see `docs/projects-mode-smoke.md`. After Railway:
+
+```
+SMOKE_BASE_URL=https://backendfornextapp-production.up.railway.app \
+SMOKE_EMAIL=ian@firedynamicsgroup.com SMOKE_PASSWORD=… \
+python scripts/smoke_projects_modes.py
+```
+
 **Related services** (see `ops/daily.py` for the full probe list):
 - mobile backend: https://web-production-44b8.up.railway.app
 - MinIO, upload-canvas bucket: https://bucket-production-fd13.up.railway.app
