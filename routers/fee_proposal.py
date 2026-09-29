@@ -237,21 +237,36 @@ async def reset_text_block(key: str, body: ActorOnly, db: AsyncSession = Depends
 
 @router.get("/text-blocks/{key}/history", response_model=List[HistoryOut])
 async def text_block_history(key: str, db: AsyncSession = Depends(get_db)):
-    await _require_block(db, key)
+    block = await _require_block(db, key)
     rows = (await db.execute(
         select(FeeTextBlockHistory)
         .where(FeeTextBlockHistory.key == key)
-        .order_by(FeeTextBlockHistory.id.desc())
+        .order_by(FeeTextBlockHistory.id.asc())
     )).scalars().all()
-    return [HistoryOut(id=r.id, content=r.content, edited_by=r.edited_by, created_at=r.created_at) for r in rows]
+    # The original wording is an immutable baseline, not an edit event, so
+    # expose it as a virtual first history entry without writing on a GET.
+    baseline = HistoryOut(
+        id=0,
+        content=block.default_content,
+        edited_by="Original wording",
+    )
+    saved_versions = [
+        HistoryOut(id=r.id, content=r.content, edited_by=r.edited_by, created_at=r.created_at)
+        for r in rows
+    ]
+    return [baseline, *saved_versions]
 
 
 @router.post("/text-blocks/{key}/restore/{history_id}", response_model=TextBlockOut)
 async def restore_text_block(key: str, history_id: int, body: ActorOnly, db: AsyncSession = Depends(get_db)):
     block = await _require_block(db, key)
     actor = _require_actor(body.edited_by)
-    snapshot = await db.get(FeeTextBlockHistory, history_id)
-    if snapshot is None or snapshot.key != key:
-        raise HTTPException(status_code=404, detail="History entry not found for this block")
-    await _set_content(db, block, snapshot.content, actor)
+    if history_id == 0:
+        content = block.default_content
+    else:
+        snapshot = await db.get(FeeTextBlockHistory, history_id)
+        if snapshot is None or snapshot.key != key:
+            raise HTTPException(status_code=404, detail="History entry not found for this block")
+        content = snapshot.content
+    await _set_content(db, block, content, actor)
     return _block_out(block)
