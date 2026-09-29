@@ -170,7 +170,7 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     if not third_party:
         riba_stages = determine_riba_stages(data)
         riba_text = format_riba_stages(riba_stages)
-        p.add_run(f"It is understood that our involvement is required during RIBA {riba_text}.")
+        p.add_run(f" It is understood that our involvement is required during RIBA {riba_text}.")
     else:
         nm = s14.peer_review.num_models
         nm_text = number_to_word(nm) if nm and nm <= 10 else (str(nm) if nm else "N/A")
