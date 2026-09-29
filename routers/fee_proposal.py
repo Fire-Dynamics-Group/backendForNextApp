@@ -16,7 +16,7 @@ from database import get_db
 from models.db_models import FeeTextBlock, FeeTextBlockHistory
 from models.fee_proposal_models import FeeProposalRequest, EngineerResponse
 from services.fee_document_service import generate_proposal, get_proposal_filename, rendered_block_keys
-from services.fee_text_blocks import build_text_map, token_errors
+from services.fee_text_blocks import WORD_ADDIN_PREFIX, build_text_map, token_errors
 
 router = APIRouter()
 
@@ -84,7 +84,9 @@ async def _load_text_map(data: FeeProposalRequest):
         from models.db_models import FeeTextBlock
 
         async with database.async_session() as session:
-            rows = (await session.execute(select(FeeTextBlock))).scalars().all()
+            rows = (await session.execute(
+                select(FeeTextBlock).where(~FeeTextBlock.key.like(f"{WORD_ADDIN_PREFIX}%"))
+            )).scalars().all()
         return build_text_map([(r.key, r.kind, r.content) for r in rows], overrides=overrides)
     except Exception as e:  # noqa: BLE001 — never fail generation over text loading
         print(f"Warning: failed to load fee text blocks, using constants: {e}")
@@ -177,7 +179,11 @@ async def _set_content(db: AsyncSession, block: FeeTextBlock, content: str, edit
 
 @router.get("/text-blocks", response_model=List[TextBlockOut])
 async def list_text_blocks(db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(select(FeeTextBlock).order_by(FeeTextBlock.sort_order))).scalars().all()
+    rows = (await db.execute(
+        select(FeeTextBlock)
+        .where(~FeeTextBlock.key.like(f"{WORD_ADDIN_PREFIX}%"))
+        .order_by(FeeTextBlock.sort_order)
+    )).scalars().all()
     return [_block_out(b) for b in rows]
 
 

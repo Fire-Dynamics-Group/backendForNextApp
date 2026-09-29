@@ -18,6 +18,7 @@ from services import fee_text_templates as txt
 EXCLUDE = {"OFFICE_ADDRESS", "HOURLY_RATES"}
 
 _PLACEHOLDER_RE = re.compile(r"\{(\w+)\}")
+WORD_ADDIN_PREFIX = "word_addin:"
 
 # Prefix -> human group label, checked in order (first match wins).
 _GROUP_RULES = [
@@ -46,6 +47,30 @@ _GROUP_RULES = [
     ("TERMS_", "Terms of Business"),
     ("EXCL", "Exclusions"),
 ]
+
+_WORD_STRUCTURAL_GROUPS = (
+    ("TMA_STRUCTURAL", "TMA Structural Fire Engineering"),
+    ("TIME_EQUIVALENCY_STRUCTURAL", "Time-Equivalency Structural Fire Engineering"),
+    ("FEM_STRUCTURAL", "FEM Structural Fire Engineering"),
+)
+_WORD_STRUCTURAL_CONTENT = (
+    ("PROPOSAL_INTRO", txt.INTRO_WAREHOUSE_STRUCTURAL),
+    ("FE_INTRO", txt.STRUCTURAL_FE_INTRO),
+    ("FE_SCOPE", txt.STRUCTURAL_FE_SCOPE),
+    ("FE_SUB_BULLETS_1", txt.STRUCTURAL_FE_SUB_BULLETS_1),
+    ("FE_SCOPE_2", txt.STRUCTURAL_FE_SCOPE_2),
+    ("FE_SUB_BULLETS_2", txt.STRUCTURAL_FE_SUB_BULLETS_2),
+    ("FE_SCOPE_3", txt.STRUCTURAL_FE_SCOPE_3),
+)
+_WORD_STRUCTURAL_LABELS = {
+    "PROPOSAL_INTRO": "Proposal Introduction",
+    "FE_INTRO": "Scope Introduction",
+    "FE_SCOPE": "Study Scope",
+    "FE_SUB_BULLETS_1": "Fire Scenarios",
+    "FE_SCOPE_2": "Structural Assessment",
+    "FE_SUB_BULLETS_2": "Assessment Outcomes",
+    "FE_SCOPE_3": "Reporting and Approvals",
+}
 
 
 def _is_str_list(value):
@@ -93,6 +118,28 @@ def get_seed_blocks():
             "sort_order": order,
         })
         order += 1
+    return blocks
+
+
+def get_word_addin_seed_blocks():
+    """Return shared wording plus Word-only, per-service structural wording."""
+    blocks = get_seed_blocks()
+    sort_order = max((block["sort_order"] for block in blocks), default=-1) + 1
+    for prefix, group_name in _WORD_STRUCTURAL_GROUPS:
+        for suffix, value in _WORD_STRUCTURAL_CONTENT:
+            kind, content = _classify(value)
+            key = f"{prefix}_{suffix}"
+            blocks.append({
+                "key": key,
+                "kind": kind,
+                "default_content": content,
+                "content": content,
+                "placeholders": sorted(set(_PLACEHOLDER_RE.findall(content))),
+                "label": _WORD_STRUCTURAL_LABELS[suffix],
+                "group_name": group_name,
+                "sort_order": sort_order,
+            })
+            sort_order += 1
     return blocks
 
 
@@ -156,6 +203,20 @@ async def seed_fee_text_blocks(session: AsyncSession) -> int:
         if block["key"] in existing:
             continue
         session.add(FeeTextBlock(**block))
+        inserted += 1
+    await session.commit()
+    return inserted
+
+
+async def seed_word_addin_text_blocks(session: AsyncSession) -> int:
+    """Seed a separate set of wording blocks for the Word add-in renderer."""
+    existing = set((await session.execute(select(FeeTextBlock.key))).scalars().all())
+    inserted = 0
+    for block in get_word_addin_seed_blocks():
+        word_block = {**block, "key": WORD_ADDIN_PREFIX + block["key"]}
+        if word_block["key"] in existing:
+            continue
+        session.add(FeeTextBlock(**word_block))
         inserted += 1
     await session.commit()
     return inserted

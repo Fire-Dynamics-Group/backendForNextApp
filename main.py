@@ -54,11 +54,14 @@ async def _seed_text_blocks():
                 Base.metadata.create_all,
                 tables=[FeeTextBlock.__table__, FeeTextBlockHistory.__table__],
             )
-        from services.fee_text_blocks import seed_fee_text_blocks
+        from services.fee_text_blocks import seed_fee_text_blocks, seed_word_addin_text_blocks
         async with database.async_session() as session:
             inserted = await seed_fee_text_blocks(session)
             if inserted:
                 print(f"Seeded {inserted} fee text block(s)")
+            word_inserted = await seed_word_addin_text_blocks(session)
+            if word_inserted:
+                print(f"Seeded {word_inserted} Word add-in text block(s)")
     except Exception as e:  # noqa: BLE001 — setup must never block startup
         print(f"Warning: fee text block setup failed: {e}")
 

@@ -93,7 +93,9 @@ def determine_riba_stages(data) -> List[int]:
         stages.append(3)
     if (s14.stage_4.included or s14.peer_review.included or
         s14.common_corridor_cfd.included or s14.open_plan_cfd.included or
-        s14.warehouse_cfd.included or s14.warehouse_structural.included):
+        s14.warehouse_cfd.included or s14.warehouse_structural.included or
+        s14.tma_structural.included or s14.time_equivalency_structural.included or
+        s14.fem_structural.included):
         stages.append(4)
     if (s5.construction_advice.included or s5.site_visits.included or
         s5.cfsmp.included or s5.phased_occupation.included or
@@ -121,6 +123,9 @@ def build_input_data(data) -> List[Dict[str, Any]]:
         (s14.common_corridor_cfd, "Common Corridor CFD Modelling", "common_corridor_cfd"),
         (s14.open_plan_cfd, "Open Plan Apartments CFD Modelling", "open_plan_cfd"),
         (s14.warehouse_cfd, "CFD Modelling of the Warehouse", "warehouse_cfd"),
+        (s14.tma_structural, "TMA Structural Fire Engineering", "tma_structural"),
+        (s14.time_equivalency_structural, "Time-Equivalency Structural Fire Engineering", "time_equivalency_structural"),
+        (s14.fem_structural, "FEM Structural Fire Engineering", "fem_structural"),
         (s14.warehouse_structural, "Structural Fire Engineering Assessment", "warehouse_structural"),
         (s14.peer_review, "Peer Review", "peer_review"),
         (s5.client_monitoring, "RIBA Stage 5: Client Monitoring Strategy", "client_monitoring"),

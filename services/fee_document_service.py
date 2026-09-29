@@ -49,6 +49,14 @@ class _TextAccessor:
         return getattr(txt, name)
 
 
+def _word_structural_text(T, key, fallback):
+    """Use a Word-only structural block when available, else retain shared wording."""
+    try:
+        return getattr(T, key)
+    except AttributeError:
+        return fallback
+
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates", "styles.docx")
 SIGNATURES_DIR = os.path.join(BASE_DIR, "signatures")
@@ -185,6 +193,14 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
         _add_para(doc, T.INTRO_OPEN_PLAN, "Standard_Text")
     if s14.warehouse_cfd.included:
         _add_para(doc, T.INTRO_WAREHOUSE_CFD, "Standard_Text")
+    for structural_key in ("tma_structural", "time_equivalency_structural", "fem_structural"):
+        if getattr(s14, structural_key).included:
+            intro_key = f"{structural_key.upper()}_PROPOSAL_INTRO"
+            _add_para(
+                doc,
+                _word_structural_text(T, intro_key, T.INTRO_WAREHOUSE_STRUCTURAL),
+                "Standard_Text",
+            )
     if s14.warehouse_structural.included:
         _add_para(doc, T.INTRO_WAREHOUSE_STRUCTURAL, "Standard_Text")
     if s14.london_plan.included and s14.gateway.included:
@@ -317,7 +333,12 @@ def _write_appendix_a(doc, data, input_data, legislation, T):
     cc = _find_service(input_data, "common_corridor_cfd")
     op = _find_service(input_data, "open_plan_cfd")
     wcfd = _find_service(input_data, "warehouse_cfd")
-    ws = _find_service(input_data, "warehouse_structural")
+    structural_services = (
+        ("tma_structural", "TMA_STRUCTURAL"),
+        ("time_equivalency_structural", "TIME_EQUIVALENCY_STRUCTURAL"),
+        ("fem_structural", "FEM_STRUCTURAL"),
+        ("warehouse_structural", None),
+    )
     pr = _find_service(input_data, "peer_review")
     ca = _find_service(input_data, "construction_advice")
     sv = _find_service(input_data, "site_visits")
@@ -435,19 +456,26 @@ def _write_appendix_a(doc, data, input_data, legislation, T):
         for t in T.WAREHOUSE_CFD_SCOPE:
             _add_para(doc, _safe_format(t, num_models=nmt), "ASTUTE_Bullet_Points")
 
-    if ws:
-        _add_para(doc, f"Scope of Works - Structural Fire Engineering Assessment{_get_opt(ws)}", "ASTUTE SubHeader")
-        _add_para(doc, T.STRUCTURAL_FE_INTRO, "Standard_Text")
-        for t in T.STRUCTURAL_FE_SCOPE:
-            _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in T.STRUCTURAL_FE_SUB_BULLETS_1:
-            _add_para(doc, t, "sub_bullets")
-        for t in T.STRUCTURAL_FE_SCOPE_2:
-            _add_para(doc, t, "ASTUTE_Bullet_Points")
-        for t in T.STRUCTURAL_FE_SUB_BULLETS_2:
-            _add_para(doc, t, "sub_bullets")
-        for t in T.STRUCTURAL_FE_SCOPE_3:
-            _add_para(doc, t, "ASTUTE_Bullet_Points")
+    for key, text_prefix in structural_services:
+        structural_service = _find_service(input_data, key)
+        if structural_service:
+            _add_para(doc, f"Scope of Works - Structural Fire Engineering Assessment{_get_opt(structural_service)}", "ASTUTE SubHeader")
+            def structural_text(suffix, fallback):
+                if text_prefix is None:
+                    return fallback
+                return _word_structural_text(T, f"{text_prefix}_{suffix}", fallback)
+
+            _add_para(doc, structural_text("FE_INTRO", T.STRUCTURAL_FE_INTRO), "Standard_Text")
+            for t in structural_text("FE_SCOPE", T.STRUCTURAL_FE_SCOPE):
+                _add_para(doc, t, "ASTUTE_Bullet_Points")
+            for t in structural_text("FE_SUB_BULLETS_1", T.STRUCTURAL_FE_SUB_BULLETS_1):
+                _add_para(doc, t, "sub_bullets")
+            for t in structural_text("FE_SCOPE_2", T.STRUCTURAL_FE_SCOPE_2):
+                _add_para(doc, t, "ASTUTE_Bullet_Points")
+            for t in structural_text("FE_SUB_BULLETS_2", T.STRUCTURAL_FE_SUB_BULLETS_2):
+                _add_para(doc, t, "sub_bullets")
+            for t in structural_text("FE_SCOPE_3", T.STRUCTURAL_FE_SCOPE_3):
+                _add_para(doc, t, "ASTUTE_Bullet_Points")
 
     if ca:
         _add_para(doc, f"Scope of Works \u2013 RIBA Stage 5: Technical Support{_get_opt(ca)}", "ASTUTE SubHeader")
@@ -561,7 +589,13 @@ def _write_appendix_b(doc, data, input_data, T):
         p = _add_para(doc, "", "ASTUTE_Bullet_Points")
         n = p.add_run("Structural Fire Engineering")
         n.font.underline = True
-        n2 = p.add_run(T.EXCL_STRUCTURAL_FE_INCLUDED if s14.warehouse_structural.included else T.EXCL_STRUCTURAL_FE_NOT_INCLUDED)
+        structural_fe_included = any((
+            s14.warehouse_structural.included,
+            s14.tma_structural.included,
+            s14.time_equivalency_structural.included,
+            s14.fem_structural.included,
+        ))
+        n2 = p.add_run(T.EXCL_STRUCTURAL_FE_INCLUDED if structural_fe_included else T.EXCL_STRUCTURAL_FE_NOT_INCLUDED)
         n2.font.underline = False
 
         p = _add_para(doc, "", "ASTUTE_Bullet_Points")
