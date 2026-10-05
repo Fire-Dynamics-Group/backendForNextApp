@@ -152,7 +152,7 @@ async def test_generate_endpoint_accepts_custom_legislation_for_other_country():
         "client": {"first_name": "Test", "surname": "Client", "address_lines": ["1 Test St"]},
         "project": {"project_name": "Mill Court", "project_location": "Guernsey",
                     "country": "OTHER", "vat_applicable": False,
-                    "legislation": "Building Bye Laws (Guernsey) 2012"},
+                    "legislation": "Test Legislation Reference"},
         "fee_options": {"engineer_name": "Sam Bennett"},
         "design_stages_1_4": {"stage_3": {"included": True, "fee": 9000}},
     }
@@ -162,5 +162,5 @@ async def test_generate_endpoint_accepts_custom_legislation_for_other_country():
 
     assert resp.status_code == 200
     text = "\n".join(p.text for p in Document(io.BytesIO(resp.content)).paragraphs)
-    assert "Building Bye Laws (Guernsey) 2012" in text
+    assert "Test Legislation Reference" in text
     assert "Building Regulations 2010" not in text

@@ -150,9 +150,9 @@ class TestLegislationByCountry:
 
     def test_other_country_quotes_its_own_legislation(self):
         text = _all_text(generate_proposal(_country_request(
-            CountryEnum.OTHER, legislation="Building Bye Laws (Guernsey) 2012",
+            CountryEnum.OTHER, legislation="Test Legislation Reference",
             stages_1_4=self._STAGE_3)))
-        assert "requirements of Building Bye Laws (Guernsey) 2012 and will also include:" in text
+        assert "requirements of Test Legislation Reference and will also include:" in text
         assert "Building Regulations 2010" not in text
 
     def test_other_country_without_custom_legislation_falls_back(self):
@@ -167,12 +167,12 @@ class TestLegislationByCountry:
 
     def test_england_wales_ignores_custom_legislation(self):
         text = _all_text(generate_proposal(_country_request(
-            CountryEnum.ENGLAND_WALES, legislation="Building Bye Laws (Guernsey) 2012",
+            CountryEnum.ENGLAND_WALES, legislation="Test Legislation Reference",
             stages_1_4=self._STAGE_3)))
         assert "requirements of Building Regulations 2010 (Part B)" in text
 
     def test_jersey_ignores_custom_legislation(self):
         text = _all_text(generate_proposal(_country_request(
-            CountryEnum.JERSEY, legislation="Building Bye Laws (Guernsey) 2012",
+            CountryEnum.JERSEY, legislation="Test Legislation Reference",
             stages_1_4=self._STAGE_3)))
         assert "requirements of Building Bye Laws (Jersey) 2007 (Part 2)" in text
