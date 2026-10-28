@@ -1,0 +1,35 @@
+---
+description: Fire Dynamics owner overrides to vendored pstack (always win)
+alwaysApply: true
+---
+# Fire Dynamics overrides pstack. When a pstack skill conflicts with this rule, follow this rule.
+
+## Never land, never deploy
+
+- Never auto-merge. Never land overnight. Never deploy.
+- `autopilot-full` is off. The shipping playbook's landing step is off.
+- Use **autopilot-stack** only: build and verify PRs. The human lands them.
+- Railway auto-deploys from the default branch (`master`). Merging to `master` is a deploy. Do not merge.
+
+## Do not treat "never block on the human" as a merge/deploy grant
+
+Ignore **principle-never-block-on-the-human** for merges, deploys, secrets, and paid changes. Stop and leave those to the human.
+
+## Bug fixes
+
+- Play the gesture back first.
+- Reproduce and verify on the matching surface where the human saw it (their tab, device, or prod URL).
+- A pass on another surface (for example headless Playwright) is a proxy, not a pass.
+- After two failed fixes on the same gate, write down and test the premise before a third attempt.
+- Never repeat a "hard refresh and try again" handback.
+
+## Quality gates
+
+- Red-green TDD.
+- Production typecheck/build gate (`tsc` / `next build` for TS/Next). This backend is FastAPI; run the repo's pytest (and any typed/build gate that applies to files you touched).
+- e2e of post-push integration.
+- Before/after evidence (screenshots or equivalent) in the PR.
+
+## PR shape
+
+- One PR per concern. Stack if needed. Do not merge the stack.
