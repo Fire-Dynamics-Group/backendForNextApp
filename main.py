@@ -530,7 +530,7 @@ async def read_timeEq_reliability(data: TimeEqReliabilityData):
     return body
 
 
-@app.post("/timeEqReliabilityCharts")
+@app.post("/timeEqReliabilityCharts", dependencies=[Depends(current_user)])
 async def read_timeEq_reliability_charts(data: TimeEqReliabilityData):
     """The reliability run plus its two report charts (steel time-temperature
     spaghetti with the critical-temperature line, and the pass/fail scatter),
@@ -577,7 +577,7 @@ class TimeEqFireCurveData(BaseModel):
     seed: Optional[int] = None
 
 
-@app.post("/timeEqFireCurves")
+@app.post("/timeEqFireCurves", dependencies=[Depends(current_user)])
 async def export_timeEq_fire_curves(data: TimeEqFireCurveData):
     """Sample N EC1 parametric fires (same path as /timeEqReliability) and return
     a zip of MACS+ AnalyseUDF curves plus a provenance manifest."""
