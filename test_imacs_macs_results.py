@@ -1,66 +1,64 @@
-"""Tests for the i-macs -> upload-canvas MACS results hand-off.
+"""Tests for the reworked i-macs <-> upload-canvas MACs link and run history.
 
-The i-macs Windows desktop app (Tauri + Python sidecar driving MACS+) POSTs
-its reliability results ("fd-macs-reliability/1" envelope, i-macs issue #48)
-against an upload-canvas project so the time-equivalence popup can read
-critical temperature and section factor (Ap/V) automatically.
-
-Contract under test:
-
-  * `/imacs/*` is protected ONLY by a shared app key in `X-IMACS-App-Key`,
-    read from env `IMACS_APP_KEY` at request time.
-      - env unset/empty  -> every request rejected with 503 (service not
-        configured), even if a header is sent (fail closed)
-      - header missing   -> 401
-      - header wrong     -> 403
-  * The app key is NOT accepted anywhere else: the upload-canvas read
-    endpoint `GET /projects/{id}/macs-results` stays on `current_user`.
-  * Envelope is validated strictly (unknown schema / extra fields -> 422).
-
-Real HTTP path: the FastAPI app from main.py through httpx ASGITransport,
-with the DB dependency overridden onto a throwaway SQLite file (same pattern
-as test_projects.py). Entra bearer tokens are minted with the helpers from
-test_auth.py (throwaway RSA key standing in for Microsoft's JWKS).
+Model:
+  * i-macs desktop app can run before any upload-canvas project exists.
+  * Handoffs: POST /imacs/handoffs (app key) -> {handoff_id, expires_at}.
+    GET /handoffs/{id} (current_user/Entra) lets upload-canvas prefill.
+    Claim on project create (POST /projects with handoff_id) or via
+    POST /projects/{id}/macs-handoffs/{handoff_id}/claim.
+  * Run history: POST /imacs/projects/{id}/macs-runs (app key) adds a run to an
+    existing project. Full history is returned newest first via
+    GET /projects/{id}/macs-runs (current_user).
+  * Job link: client-generated imacs_job_id mapped to project_id. Endpoints to
+    link, unlink, and relink.
+  * Summary: GET /imacs/jobs/{imacs_job_id}/summary (app key) returns linked project
+    id and name, last_sent_at, and the latest time-eq outcome stored on the project
+    (or null if not stored).
+  * App key works only on /imacs/*; Entra / current_user on browser routes.
 """
+from __future__ import annotations
+
 import os
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-# Unique filename so this module never collides with other SQLite-backed tests.
 TEST_DB_FILE = "./test_imacs_macs_results.db"
 TEST_DATABASE_URL = f"sqlite+aiosqlite:///{TEST_DB_FILE}"
 
-# Prevent a real DB connection when main.py is imported.
 os.environ["DATABASE_URL"] = ""
 
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
 
-from auth import entra
-from database import Base
-from models.db_models import Project
-from test_auth import _FakeJwks, entra_token
+from auth import entra  # noqa: E402
+from database import Base  # noqa: E402
+from models.db_models import Project  # noqa: E402
+from test_auth import _FakeJwks, entra_token  # noqa: E402
 
 APP_KEY = "test-imacs-app-key-not-a-real-secret"
 KEY_HEADER = "X-IMACS-App-Key"
 
-VALID_ENVELOPE = {
+VALID_RUN = {
     "schema": "fd-macs-reliability/1",
     "critical_temp": 690,
     "governing_side": "B",
     "section": "IPE_500",
     "exposure": "3-sided",
     "section_factor": 152,
-}
-
-VALID_BODY = {
-    **VALID_ENVELOPE,
     "windows_user": "jbloggs",
+    "machine_name": "WORKSTATION-01",
     "client_timestamp": "2026-11-02T13:55:00Z",
+    "client_version": "i-macs 0.9.0",
+    "run_id": "run-xyz-123",
+    "label": "Perimeter beam B1",
+    "inputs": {"span1": 9.0, "span2": 6.0, "numbeam": 2},
+    "imacs_job_id": "job-777",
 }
 
 
@@ -72,13 +70,8 @@ def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-# --- Fixtures ---
-
-
 @pytest.fixture(autouse=True)
 def imacs_env(monkeypatch):
-    """App key configured; Entra enforcement ON, to prove /imacs/* does not
-    depend on (or get blocked by) the per-user sign-in."""
     monkeypatch.setenv("IMACS_APP_KEY", APP_KEY)
     monkeypatch.setenv("AUTH_MODE", "enforce")
 
@@ -118,12 +111,11 @@ async def client(test_engine, session_factory):
 
 @pytest_asyncio.fixture
 async def make_project(session_factory):
-    """Insert a project straight into the DB (the /projects API needs a bearer
-    in enforce mode and is not what is under test here)."""
-
-    async def _make(name: str = "TEQ project", mode: str = "timeEq") -> str:
+    async def _make(
+        name: str = "TEQ project", mode: str = "timeEq", settings: dict | None = None
+    ) -> str:
         async with session_factory() as session:
-            project = Project(name=name, mode=mode)
+            project = Project(name=name, mode=mode, settings=settings or {})
             session.add(project)
             await session.commit()
             await session.refresh(project)
@@ -145,309 +137,473 @@ def signing_keys():
 
 @pytest.fixture
 def user_headers(monkeypatch, signing_keys):
-    """Authorization header carrying a valid (fake-JWKS) Entra access token."""
     private_pem, public = signing_keys
     monkeypatch.setattr(entra, "_jwks", _FakeJwks(public))
     return bearer(entra_token(private_pem))
 
 
-# --- 1. App key: missing -> 401, wrong -> 403 ---
+# ==============================================================================
+# 1. Auth enforcement on /imacs/* (App key required, wrong -> 403, unset -> 503)
+# ==============================================================================
 
 
 @pytest.mark.asyncio
-async def test_post_without_key_header_401(client: AsyncClient, make_project):
+async def test_imacs_routes_without_key_header_401(client: AsyncClient, make_project):
     pid = await make_project()
-    resp = await client.post(f"/imacs/projects/{pid}/macs-results", json=VALID_BODY)
-    assert resp.status_code == 401
+    assert (await client.post(f"/imacs/projects/{pid}/macs-runs", json=VALID_RUN)).status_code == 401
+    assert (await client.post("/imacs/handoffs", json=VALID_RUN)).status_code == 401
+    assert (await client.get("/imacs/projects")).status_code == 401
+    assert (await client.get("/imacs/jobs/job-1/summary")).status_code == 401
+    assert (
+        await client.post("/imacs/jobs/job-1/link", json={"project_id": pid})
+    ).status_code == 401
+    assert (await client.delete("/imacs/jobs/job-1/link")).status_code == 401
 
 
 @pytest.mark.asyncio
-async def test_post_with_wrong_key_403(client: AsyncClient, make_project):
+async def test_imacs_routes_with_wrong_key_403(client: AsyncClient, make_project):
     pid = await make_project()
-    resp = await client.post(
-        f"/imacs/projects/{pid}/macs-results", json=VALID_BODY, headers=key_headers("wrong-key")
-    )
-    assert resp.status_code == 403
+    wrong = key_headers("wrong-key")
+    assert (
+        await client.post(f"/imacs/projects/{pid}/macs-runs", json=VALID_RUN, headers=wrong)
+    ).status_code == 403
+    assert (await client.post("/imacs/handoffs", json=VALID_RUN, headers=wrong)).status_code == 403
+    assert (await client.get("/imacs/projects", headers=wrong)).status_code == 403
+    assert (await client.get("/imacs/jobs/job-1/summary", headers=wrong)).status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_project_lookup_without_key_header_401(client: AsyncClient, make_project):
-    await make_project()
-    resp = await client.get("/imacs/projects")
-    assert resp.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_project_lookup_with_wrong_key_403(client: AsyncClient, make_project):
-    await make_project()
-    resp = await client.get("/imacs/projects", headers=key_headers("wrong-key"))
-    assert resp.status_code == 403
-
-
-@pytest.mark.asyncio
-async def test_rejected_post_stores_nothing(client: AsyncClient, make_project, user_headers):
-    pid = await make_project()
-    await client.post(f"/imacs/projects/{pid}/macs-results", json=VALID_BODY)
-    await client.post(
-        f"/imacs/projects/{pid}/macs-results", json=VALID_BODY, headers=key_headers("wrong-key")
-    )
-    resp = await client.get(f"/projects/{pid}/macs-results", headers=user_headers)
-    assert resp.status_code == 200
-    assert resp.json() == []
-
-
-# --- 2. IMACS_APP_KEY unset/empty -> fail closed (503) ---
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("env_value", [None, ""])
+@pytest.mark.parametrize("env_val", [None, ""])
 async def test_unset_or_empty_app_key_env_rejects_everything_503(
-    client: AsyncClient, make_project, monkeypatch, env_value
+    client: AsyncClient, make_project, monkeypatch, env_val
 ):
     pid = await make_project()
-    if env_value is None:
+    if env_val is None:
         monkeypatch.delenv("IMACS_APP_KEY", raising=False)
     else:
-        monkeypatch.setenv("IMACS_APP_KEY", env_value)
+        monkeypatch.setenv("IMACS_APP_KEY", env_val)
 
-    # Header sent (even an empty one that would "match" an empty env) is still rejected.
-    for headers in (key_headers(APP_KEY), key_headers(""), {}):
-        post = await client.post(
-            f"/imacs/projects/{pid}/macs-results", json=VALID_BODY, headers=headers
-        )
-        assert post.status_code == 503
-        listing = await client.get("/imacs/projects", headers=headers)
-        assert listing.status_code == 503
+    for h in (key_headers(APP_KEY), key_headers(""), {}):
+        assert (
+            await client.post(f"/imacs/projects/{pid}/macs-runs", json=VALID_RUN, headers=h)
+        ).status_code == 503
+        assert (await client.post("/imacs/handoffs", json=VALID_RUN, headers=h)).status_code == 503
+        assert (await client.get("/imacs/projects", headers=h)).status_code == 503
 
 
-# --- 3. Valid envelope with correct key -> 201 and stored ---
+# ==============================================================================
+# 2. POST /imacs/projects/{id}/macs-runs & GET /projects/{id}/macs-runs (History)
+# ==============================================================================
 
 
 @pytest.mark.asyncio
-async def test_valid_envelope_201_stored_and_visible_via_read_get(
+async def test_post_macs_run_stores_record_with_history(
     client: AsyncClient, make_project, user_headers
 ):
     pid = await make_project()
 
-    resp = await client.post(
-        f"/imacs/projects/{pid}/macs-results", json=VALID_BODY, headers=key_headers()
+    # Post run 1
+    run1_payload = {**VALID_RUN, "critical_temp": 620.0, "label": "Run 1"}
+    r1 = await client.post(
+        f"/imacs/projects/{pid}/macs-runs", json=run1_payload, headers=key_headers()
     )
-    assert resp.status_code == 201, resp.text
-    stored = resp.json()
-    assert stored["id"]
-    assert stored["project_id"] == pid
-    assert stored["critical_temp"] == 690
-    assert stored["section_factor"] == 152
-    assert stored["governing_side"] == "B"
-    assert stored["section"] == "IPE_500"
-    assert stored["exposure"] == "3-sided"
-    assert stored["windows_user"] == "jbloggs"
-    assert stored["client_timestamp"].startswith("2026-11-02T13:55:00")
-    assert stored["received_at"]  # server-side timestamp, not client-supplied
+    assert r1.status_code == 201, r1.text
+    d1 = r1.json()
+    assert d1["id"]
+    assert d1["project_id"] == pid
+    assert d1["critical_temp"] == 620.0
+    assert d1["section_factor"] == 152.0
+    assert d1["governing_side"] == "B"
+    assert d1["section"] == "IPE_500"
+    assert d1["exposure"] == "3-sided"
+    assert d1["windows_user"] == "jbloggs"
+    assert d1["machine_name"] == "WORKSTATION-01"
+    assert d1["inputs"] == {"span1": 9.0, "span2": 6.0, "numbeam": 2}
+    assert d1["label"] == "Run 1"
+    assert d1["received_at"]
 
-    read = await client.get(f"/projects/{pid}/macs-results", headers=user_headers)
+    # Post run 2 on the same project
+    run2_payload = {**VALID_RUN, "critical_temp": 710.0, "label": "Run 2"}
+    r2 = await client.post(
+        f"/imacs/projects/{pid}/macs-runs", json=run2_payload, headers=key_headers()
+    )
+    assert r2.status_code == 201
+    d2 = r2.json()
+
+    # Web app reads history: newest first
+    read = await client.get(f"/projects/{pid}/macs-runs", headers=user_headers)
     assert read.status_code == 200
-    rows = read.json()
-    assert [r["id"] for r in rows] == [stored["id"]]
-    assert rows[0]["critical_temp"] == 690
-    assert rows[0]["section_factor"] == 152
-    assert rows[0]["windows_user"] == "jbloggs"
+    history = read.json()
+    assert len(history) == 2
+    assert [h["id"] for h in history] == [d2["id"], d1["id"]]
+    assert history[0]["critical_temp"] == 710.0
+    assert history[1]["critical_temp"] == 620.0
 
 
 @pytest.mark.asyncio
-async def test_optional_client_metadata_accepted_and_returned(
-    client: AsyncClient, make_project
-):
-    pid = await make_project()
-    body = {
-        **VALID_BODY,
-        "client_version": "0.4.2",
-        "run_id": "run-0001",
-        "label": "Level 3 perimeter beam",
-    }
+async def test_macs_run_rejects_missing_project_404(client: AsyncClient):
+    missing_id = uuid.uuid4()
     resp = await client.post(
-        f"/imacs/projects/{pid}/macs-results", json=body, headers=key_headers()
+        f"/imacs/projects/{missing_id}/macs-runs", json=VALID_RUN, headers=key_headers()
     )
-    assert resp.status_code == 201, resp.text
-    stored = resp.json()
-    assert stored["client_version"] == "0.4.2"
-    assert stored["run_id"] == "run-0001"
-    assert stored["label"] == "Level 3 perimeter beam"
+    assert resp.status_code == 404
+    assert "project" in resp.json()["detail"].lower()
 
 
 @pytest.mark.asyncio
-async def test_read_get_lists_newest_first(client: AsyncClient, make_project, user_headers):
+async def test_get_macs_runs_without_user_auth_401(client: AsyncClient, make_project):
     pid = await make_project()
-    first = await client.post(
-        f"/imacs/projects/{pid}/macs-results",
-        json={**VALID_BODY, "critical_temp": 600},
-        headers=key_headers(),
-    )
-    second = await client.post(
-        f"/imacs/projects/{pid}/macs-results",
-        json={**VALID_BODY, "critical_temp": 700},
-        headers=key_headers(),
-    )
-    assert first.status_code == 201 and second.status_code == 201
-
-    rows = (await client.get(f"/projects/{pid}/macs-results", headers=user_headers)).json()
-    assert [r["id"] for r in rows] == [second.json()["id"], first.json()["id"]]
+    # Unauthenticated
+    assert (await client.get(f"/projects/{pid}/macs-runs")).status_code == 401
+    # App key alone is NOT accepted on user route
+    assert (
+        await client.get(f"/projects/{pid}/macs-runs", headers=key_headers())
+    ).status_code == 401
 
 
-# --- 4. Invalid envelope -> 422 ---
+# ==============================================================================
+# 3. Validation: strict schema & field validation (422)
+# ==============================================================================
 
-_BAD_BODIES = {
-    "bad schema string": {**VALID_BODY, "schema": "fd-macs-reliability/2"},
-    "empty schema string": {**VALID_BODY, "schema": ""},
-    "missing schema": {k: v for k, v in VALID_BODY.items() if k != "schema"},
-    "missing critical_temp": {k: v for k, v in VALID_BODY.items() if k != "critical_temp"},
-    "zero critical_temp": {**VALID_BODY, "critical_temp": 0},
-    "negative critical_temp": {**VALID_BODY, "critical_temp": -5},
-    "absurd critical_temp": {**VALID_BODY, "critical_temp": 5000},
-    "non-numeric critical_temp": {**VALID_BODY, "critical_temp": "hot"},
-    "negative section_factor": {**VALID_BODY, "section_factor": -1},
-    "zero section_factor": {**VALID_BODY, "section_factor": 0},
-    "absurd section_factor": {**VALID_BODY, "section_factor": 100000},
-    "missing section_factor": {k: v for k, v in VALID_BODY.items() if k != "section_factor"},
-    "bad governing_side": {**VALID_BODY, "governing_side": "E"},
-    "lowercase governing_side": {**VALID_BODY, "governing_side": "b"},
-    "empty section": {**VALID_BODY, "section": ""},
-    "bad exposure": {**VALID_BODY, "exposure": "2-sided"},
-    "extra field": {**VALID_BODY, "surprise": "nope"},
-    "missing windows_user": {k: v for k, v in VALID_BODY.items() if k != "windows_user"},
-    "empty windows_user": {**VALID_BODY, "windows_user": ""},
-    "missing client_timestamp": {k: v for k, v in VALID_BODY.items() if k != "client_timestamp"},
-    "bad client_timestamp": {**VALID_BODY, "client_timestamp": "yesterday-ish"},
+_INVALID_RUN_CASES = {
+    "unknown schema": {**VALID_RUN, "schema": "fd-macs-reliability/99"},
+    "missing schema": {k: v for k, v in VALID_RUN.items() if k != "schema"},
+    "missing critical_temp": {k: v for k, v in VALID_RUN.items() if k != "critical_temp"},
+    "zero critical_temp": {**VALID_RUN, "critical_temp": 0},
+    "negative critical_temp": {**VALID_RUN, "critical_temp": -10},
+    "over 1200 critical_temp": {**VALID_RUN, "critical_temp": 1201},
+    "non-numeric critical_temp": {**VALID_RUN, "critical_temp": "600"},
+    "zero section_factor": {**VALID_RUN, "section_factor": 0},
+    "negative section_factor": {**VALID_RUN, "section_factor": -5},
+    "over 1000 section_factor": {**VALID_RUN, "section_factor": 1001},
+    "invalid governing_side": {**VALID_RUN, "governing_side": "E"},
+    "lowercase governing_side": {**VALID_RUN, "governing_side": "b"},
+    "empty section": {**VALID_RUN, "section": ""},
+    "invalid exposure": {**VALID_RUN, "exposure": "2-sided"},
+    "empty windows_user": {**VALID_RUN, "windows_user": ""},
+    "missing client_timestamp": {k: v for k, v in VALID_RUN.items() if k != "client_timestamp"},
+    "bad client_timestamp": {**VALID_RUN, "client_timestamp": "not-a-date"},
+    "unrecognized extra field": {**VALID_RUN, "disallowed_extra_field": "bad"},
 }
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("body", list(_BAD_BODIES.values()), ids=list(_BAD_BODIES.keys()))
-async def test_invalid_envelope_422(client: AsyncClient, make_project, user_headers, body):
+@pytest.mark.parametrize("payload", list(_INVALID_RUN_CASES.values()), ids=list(_INVALID_RUN_CASES.keys()))
+async def test_invalid_run_rejected_422(client: AsyncClient, make_project, payload):
     pid = await make_project()
     resp = await client.post(
-        f"/imacs/projects/{pid}/macs-results", json=body, headers=key_headers()
+        f"/imacs/projects/{pid}/macs-runs", json=payload, headers=key_headers()
     )
-    assert resp.status_code == 422, resp.text
-
-    # ...and nothing was stored.
-    rows = (await client.get(f"/projects/{pid}/macs-results", headers=user_headers)).json()
-    assert rows == []
+    assert resp.status_code == 422
 
 
-# --- 5. Unknown project -> 404 ---
+# ==============================================================================
+# 4. Handoffs: POST /imacs/handoffs -> GET /handoffs/{id} -> Claiming
+# ==============================================================================
 
 
 @pytest.mark.asyncio
-async def test_post_to_missing_project_404(client: AsyncClient):
+async def test_handoff_lifecycle_and_claim_on_project_create(
+    client: AsyncClient, user_headers
+):
+    # 1. i-macs creates a handoff
+    create_resp = await client.post(
+        "/imacs/handoffs",
+        json={**VALID_RUN, "critical_temp": 680.0, "imacs_job_id": "job-handoff-1"},
+        headers=key_headers(),
+    )
+    assert create_resp.status_code == 201, create_resp.text
+    hdata = create_resp.json()
+    assert "handoff_id" in hdata
+    assert "expires_at" in hdata
+    hid = hdata["handoff_id"]
+
+    # 2. upload-canvas inspects handoff via GET /handoffs/{id} (current_user)
+    get_resp = await client.get(f"/handoffs/{hid}", headers=user_headers)
+    assert get_resp.status_code == 200, get_resp.text
+    hdetail = get_resp.json()
+    assert hdetail["handoff_id"] == hid
+    assert hdetail["imacs_job_id"] == "job-handoff-1"
+    run_info = hdetail["run"]
+    assert run_info["critical_temp"] == 680.0
+    assert run_info["section"] == "IPE_500"
+
+    # GET /handoffs without auth is 401; with app key is 401
+    assert (await client.get(f"/handoffs/{hid}")).status_code == 401
+    assert (await client.get(f"/handoffs/{hid}", headers=key_headers())).status_code == 401
+
+    # 3. upload-canvas creates project pre-filling from handoff and claims it
+    proj_resp = await client.post(
+        "/projects",
+        json={"name": "Handoff Created Project", "mode": "timeEq", "handoff_id": hid},
+        headers=user_headers,
+    )
+    assert proj_resp.status_code == 201, proj_resp.text
+    pid = proj_resp.json()["id"]
+
+    # Check that run is now attached to this project
+    runs_resp = await client.get(f"/projects/{pid}/macs-runs", headers=user_headers)
+    assert runs_resp.status_code == 200
+    runs = runs_resp.json()
+    assert len(runs) == 1
+    assert runs[0]["project_id"] == pid
+    assert runs[0]["critical_temp"] == 680.0
+
+    # Job link is recorded!
+    sum_resp = await client.get(
+        "/imacs/jobs/job-handoff-1/summary", headers=key_headers()
+    )
+    assert sum_resp.status_code == 200
+    summary = sum_resp.json()
+    assert summary is not None
+    assert summary["project_id"] == pid
+    assert summary["project_name"] == "Handoff Created Project"
+
+    # Cannot claim already claimed handoff
+    claim_again = await client.post(
+        f"/projects/{pid}/macs-handoffs/{hid}/claim", headers=user_headers
+    )
+    assert claim_again.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_claim_handoff_onto_existing_project(
+    client: AsyncClient, make_project, user_headers
+):
+    pid = await make_project("Existing Project")
+
+    # Create handoff
+    create_resp = await client.post(
+        "/imacs/handoffs",
+        json={**VALID_RUN, "critical_temp": 640.0, "imacs_job_id": "job-handoff-2"},
+        headers=key_headers(),
+    )
+    assert create_resp.status_code == 201
+    hid = create_resp.json()["handoff_id"]
+
+    # Claim onto existing project
+    claim_resp = await client.post(
+        f"/projects/{pid}/macs-handoffs/{hid}/claim", headers=user_headers
+    )
+    assert claim_resp.status_code == 200, claim_resp.text
+    claimed_run = claim_resp.json()
+    assert claimed_run["project_id"] == pid
+    assert claimed_run["critical_temp"] == 640.0
+
+    # Verify run is in project history
+    runs_resp = await client.get(f"/projects/{pid}/macs-runs", headers=user_headers)
+    assert runs_resp.status_code == 200
+    assert len(runs_resp.json()) == 1
+
+    # Verify link is recorded
+    sum_resp = await client.get(
+        "/imacs/jobs/job-handoff-2/summary", headers=key_headers()
+    )
+    assert sum_resp.status_code == 200
+    summary = sum_resp.json()
+    assert summary["project_id"] == pid
+
+
+@pytest.mark.asyncio
+async def test_claim_missing_handoff_or_project_404(
+    client: AsyncClient, make_project, user_headers
+):
+    pid = await make_project()
+    random_hid = uuid.uuid4()
+    # Unknown handoff
+    r1 = await client.post(
+        f"/projects/{pid}/macs-handoffs/{random_hid}/claim", headers=user_headers
+    )
+    assert r1.status_code == 404
+
+    # Create valid handoff
+    create_resp = await client.post(
+        "/imacs/handoffs", json=VALID_RUN, headers=key_headers()
+    )
+    hid = create_resp.json()["handoff_id"]
+
+    # Unknown project
+    r2 = await client.post(
+        f"/projects/{uuid.uuid4()}/macs-handoffs/{hid}/claim", headers=user_headers
+    )
+    assert r2.status_code == 404
+
+
+# ==============================================================================
+# 5. Job links: link, unlink, relink & summary endpoint
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_job_summary_empty_when_not_linked(client: AsyncClient):
+    resp = await client.get("/imacs/jobs/unlinked-job/summary", headers=key_headers())
+    assert resp.status_code == 200
+    assert resp.json() is None
+
+
+@pytest.mark.asyncio
+async def test_job_link_unlink_and_relink(client: AsyncClient, make_project):
+    p1 = await make_project("Building 1")
+    p2 = await make_project("Building 2")
+    job_id = "desktop-job-99"
+
+    # Link to Building 1
+    link_resp = await client.post(
+        f"/imacs/jobs/{job_id}/link", json={"project_id": p1}, headers=key_headers()
+    )
+    assert link_resp.status_code == 200
+    assert link_resp.json()["project_id"] == p1
+
+    # Summary reflects Building 1
+    s1 = await client.get(f"/imacs/jobs/{job_id}/summary", headers=key_headers())
+    assert s1.status_code == 200
+    assert s1.json()["project_id"] == p1
+    assert s1.json()["project_name"] == "Building 1"
+    assert s1.json()["last_sent_at"] is None
+
+    # Relink to Building 2
+    relink_resp = await client.post(
+        f"/imacs/jobs/{job_id}/link", json={"project_id": p2}, headers=key_headers()
+    )
+    assert relink_resp.status_code == 200
+    assert relink_resp.json()["project_id"] == p2
+
+    s2 = await client.get(f"/imacs/jobs/{job_id}/summary", headers=key_headers())
+    assert s2.json()["project_id"] == p2
+    assert s2.json()["project_name"] == "Building 2"
+
+    # Unlink
+    unlink_resp = await client.delete(f"/imacs/jobs/{job_id}/link", headers=key_headers())
+    assert unlink_resp.status_code == 200
+
+    s3 = await client.get(f"/imacs/jobs/{job_id}/summary", headers=key_headers())
+    assert s3.json() is None
+
+
+@pytest.mark.asyncio
+async def test_job_summary_reports_last_sent_at_and_stored_time_eq_outcome(
+    client: AsyncClient, make_project
+):
+    outcome_data = {
+        "reliability": 0.985,
+        "reliabilityPercent": 98.5,
+        "nFailed": 30,
+        "nSim": 2000,
+        "frPeriod": 60,
+        "criticalTemp": 690.0,
+    }
+    pid = await make_project(
+        "Warehouse A", settings={"timeEqResult": outcome_data}
+    )
+    job_id = "wh-job-01"
+
+    # Post a run for this project and job
+    run_resp = await client.post(
+        f"/imacs/projects/{pid}/macs-runs",
+        json={**VALID_RUN, "imacs_job_id": job_id},
+        headers=key_headers(),
+    )
+    assert run_resp.status_code == 201
+    sent_time = run_resp.json()["received_at"]
+
+    # Summary reports project id, name, last_sent_at, and outcome
+    sum_resp = await client.get(f"/imacs/jobs/{job_id}/summary", headers=key_headers())
+    assert sum_resp.status_code == 200
+    summary = sum_resp.json()
+    assert summary["project_id"] == pid
+    assert summary["project_name"] == "Warehouse A"
+    assert summary["last_sent_at"] == sent_time
+    assert summary["outcome"] == outcome_data
+
+
+# ==============================================================================
+# 6. GET /imacs/projects (Search & mode filter)
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_imacs_projects_filtering_and_search(client: AsyncClient, make_project):
+    teq1 = await make_project("Alpha Complex", mode="timeEq")
+    teq2 = await make_project("Beta Tower", mode="timeEq")
+    fds = await make_project("Alpha CFD", mode="fdsGen")
+
+    # Mode filter
+    r_mode = await client.get("/imacs/projects", params={"mode": "timeEq"}, headers=key_headers())
+    assert r_mode.status_code == 200
+    ids_mode = {p["id"] for p in r_mode.json()}
+    assert teq1 in ids_mode and teq2 in ids_mode and fds not in ids_mode
+
+    # Query search
+    r_q = await client.get(
+        "/imacs/projects", params={"mode": "timeEq", "q": "alpha"}, headers=key_headers()
+    )
+    assert r_q.status_code == 200
+    ids_q = {p["id"] for p in r_q.json()}
+    assert teq1 in ids_q
+    assert teq2 not in ids_q
+
+
+# ==============================================================================
+# 7. Additional Edge Cases: Expiration, empty lists, schema 2
+# ==============================================================================
+
+
+@pytest.mark.asyncio
+async def test_expired_handoff_returns_410(client: AsyncClient, session_factory, user_headers):
+    from models.db_models import MacsHandoff
+
+    # Create a handoff
+    create_resp = await client.post(
+        "/imacs/handoffs", json=VALID_RUN, headers=key_headers()
+    )
+    assert create_resp.status_code == 201
+    hid = create_resp.json()["handoff_id"]
+
+    # Manually expire it in the DB
+    async with session_factory() as session:
+        handoff = (
+            await session.execute(select(MacsHandoff).where(MacsHandoff.id == uuid.UUID(hid)))
+        ).scalar_one()
+        handoff.expires_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+        await session.commit()
+
+    # GET /handoffs/{id} -> 410
+    get_resp = await client.get(f"/handoffs/{hid}", headers=user_headers)
+    assert get_resp.status_code == 410
+
+    # Claim -> 410
+    proj_resp = await client.post(
+        "/projects",
+        json={"name": "Expired Handoff Project", "mode": "timeEq", "handoff_id": hid},
+        headers=user_headers,
+    )
+    assert proj_resp.status_code == 410
+
+
+@pytest.mark.asyncio
+async def test_schema_2_envelope_accepted(client: AsyncClient, make_project):
+    pid = await make_project()
+    payload = {**VALID_RUN, "schema": "fd-macs-reliability/2"}
     resp = await client.post(
-        f"/imacs/projects/{uuid.uuid4()}/macs-results", json=VALID_BODY, headers=key_headers()
+        f"/imacs/projects/{pid}/macs-runs", json=payload, headers=key_headers()
     )
-    assert resp.status_code == 404
-    # A real "project missing" answer, not the router's generic unrouted 404.
-    assert "project" in resp.json()["detail"].lower()
-
-
-# --- 6. Read endpoint: per-project scoping, bearer only (key not accepted) ---
+    assert resp.status_code == 201
+    assert resp.json()["schema"] == "fd-macs-reliability/2"
 
 
 @pytest.mark.asyncio
-async def test_read_get_scoped_to_project_with_entra_bearer(
-    client: AsyncClient, make_project, user_headers
-):
-    a = await make_project("Project A")
-    b = await make_project("Project B")
-
-    a_post = await client.post(
-        f"/imacs/projects/{a}/macs-results",
-        json={**VALID_BODY, "critical_temp": 650},
-        headers=key_headers(),
-    )
-    b_post = await client.post(
-        f"/imacs/projects/{b}/macs-results",
-        json={**VALID_BODY, "critical_temp": 720, "section": "HEB_300"},
-        headers=key_headers(),
-    )
-    assert a_post.status_code == 201 and b_post.status_code == 201
-
-    rows_a = (await client.get(f"/projects/{a}/macs-results", headers=user_headers)).json()
-    assert [r["id"] for r in rows_a] == [a_post.json()["id"]]
-    assert all(r["project_id"] == a for r in rows_a)
-    assert b_post.json()["id"] not in {r["id"] for r in rows_a}
-
-    rows_b = (await client.get(f"/projects/{b}/macs-results", headers=user_headers)).json()
-    assert [r["id"] for r in rows_b] == [b_post.json()["id"]]
-
-
-@pytest.mark.asyncio
-async def test_read_get_with_only_app_key_401(client: AsyncClient, make_project):
-    pid = await make_project()
-    await client.post(
-        f"/imacs/projects/{pid}/macs-results", json=VALID_BODY, headers=key_headers()
-    )
-
-    resp = await client.get(f"/projects/{pid}/macs-results", headers=key_headers())
-    assert resp.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_read_get_without_any_credentials_401(client: AsyncClient, make_project):
-    pid = await make_project()
-    resp = await client.get(f"/projects/{pid}/macs-results")
-    assert resp.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_app_key_not_accepted_on_other_project_routes(client: AsyncClient, make_project):
-    await make_project()
-    resp = await client.get("/projects", headers=key_headers())
-    assert resp.status_code == 401
-
-
-@pytest.mark.asyncio
-async def test_bearer_alone_does_not_open_imacs_endpoints(
+async def test_project_with_no_macs_runs_returns_empty_list(
     client: AsyncClient, make_project, user_headers
 ):
     pid = await make_project()
-    post = await client.post(
-        f"/imacs/projects/{pid}/macs-results", json=VALID_BODY, headers=user_headers
-    )
-    assert post.status_code == 401
-    listing = await client.get("/imacs/projects", headers=user_headers)
-    assert listing.status_code == 401
-
-
-# --- 7. GET /imacs/projects ---
+    resp = await client.get(f"/projects/{pid}/macs-runs", headers=user_headers)
+    assert resp.status_code == 200
+    assert resp.json() == []
 
 
 @pytest.mark.asyncio
-async def test_imacs_projects_lists_time_eq_projects_with_key(client: AsyncClient, make_project):
-    teq = await make_project("TEQ one", mode="timeEq")
-    fds = await make_project("FDS one", mode="fdsGen")
-
-    resp = await client.get("/imacs/projects", params={"mode": "timeEq"}, headers=key_headers())
+async def test_unlink_nonexistent_job_is_idempotent_200(client: AsyncClient):
+    resp = await client.delete("/imacs/jobs/does-not-exist/link", headers=key_headers())
     assert resp.status_code == 200
-    rows = resp.json()
-    ids = {r["id"] for r in rows}
-    assert teq in ids
-    assert fds not in ids
-    assert all(r["mode"] == "timeEq" for r in rows)
-    row = next(r for r in rows if r["id"] == teq)
-    assert row["name"] == "TEQ one"
-    assert row["updated_at"]
-    # Minimal projection only: no settings / floors leaking to the app-key caller.
-    assert set(row) == {"id", "name", "mode", "updated_at"}
+    assert resp.json()["unlinked"] is True
 
-
-@pytest.mark.asyncio
-async def test_imacs_projects_search_query(client: AsyncClient, make_project):
-    wanted = await make_project("Tower Block Alpha", mode="timeEq")
-    other = await make_project("Warehouse Beta", mode="timeEq")
-
-    resp = await client.get(
-        "/imacs/projects", params={"mode": "timeEq", "q": "tower"}, headers=key_headers()
-    )
-    assert resp.status_code == 200
-    ids = {r["id"] for r in resp.json()}
-    assert wanted in ids
-    assert other not in ids

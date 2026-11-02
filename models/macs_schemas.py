@@ -1,9 +1,4 @@
-"""Pydantic schemas for the i-macs -> upload-canvas MACS results hand-off.
-
-The envelope follows i-macs issue #48 ("fd-macs-reliability/1"). Everything is
-`extra="forbid"`: an unknown field or schema version is a 422, never silently
-dropped.
-"""
+"""Pydantic schemas for the i-macs <-> upload-canvas MACS link and run history."""
 
 from __future__ import annotations
 
@@ -13,58 +8,94 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-MACS_SCHEMA = "fd-macs-reliability/1"
+MACS_SCHEMA_1 = "fd-macs-reliability/1"
+MACS_SCHEMA_2 = "fd-macs-reliability/2"
 
 NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
-class MacsEnvelope(BaseModel):
-    """The i-macs reliability envelope, exactly as the sidecar emits it."""
+class MacsRunCreate(BaseModel):
+    """Upload wrapper for a MACS+ run: envelope + metadata."""
 
-    model_config = ConfigDict(extra="forbid", populate_by_name=False)
+    model_config = ConfigDict(extra="forbid")
 
-    # `schema` shadows a BaseModel attribute, so the field is `schema_` with the
-    # wire name `schema`.
-    schema_: Literal["fd-macs-reliability/1"] = Field(alias="schema")
-    # Governing (lowest) perimeter-beam critical temperature, degC.
+    schema_: Literal["fd-macs-reliability/1", "fd-macs-reliability/2"] = Field(
+        alias="schema"
+    )
     critical_temp: float = Field(gt=0, le=1200, strict=True)
     governing_side: Literal["A", "B", "C", "D"]
     section: NonEmptyStr
     exposure: Literal["3-sided", "4-sided"]
-    # Ap/V in 1/m.
     section_factor: float = Field(gt=0, le=1000, strict=True)
-
-
-class MacsResultCreate(MacsEnvelope):
-    """Upload wrapper: the envelope plus client-supplied metadata."""
-
     windows_user: NonEmptyStr
     client_timestamp: datetime
+    machine_name: str | None = None
     client_version: str | None = None
     run_id: str | None = None
     label: str | None = None
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    imacs_job_id: str | None = None
 
 
-ENVELOPE_FIELDS = frozenset(MacsEnvelope.model_fields)
+# Backwards compat alias
+MacsResultCreate = MacsRunCreate
 
 
-class MacsResultOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+class MacsRunOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
     id: uuid.UUID
-    project_id: uuid.UUID
-    envelope: dict[str, Any]
+    project_id: uuid.UUID | None = None
+    schema_: str = Field(alias="schema")
     critical_temp: float
     section_factor: float
     governing_side: str
     section: str
     exposure: str
     windows_user: str
+    machine_name: str | None = None
     client_timestamp: datetime
     client_version: str | None = None
     run_id: str | None = None
     label: str | None = None
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    imacs_job_id: str | None = None
     received_at: datetime
+
+
+# Backwards compat alias
+MacsResultOut = MacsRunOut
+
+
+class MacsHandoffResponse(BaseModel):
+    handoff_id: uuid.UUID
+    expires_at: datetime
+
+
+class MacsHandoffDetail(BaseModel):
+    handoff_id: uuid.UUID
+    expires_at: datetime
+    created_at: datetime
+    imacs_job_id: str | None = None
+    run: MacsRunOut
+
+
+class ImacsJobLinkCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    project_id: uuid.UUID
+
+
+class ImacsJobLinkOut(BaseModel):
+    imacs_job_id: str
+    project_id: uuid.UUID
+    linked: bool = True
+
+
+class ImacsJobSummary(BaseModel):
+    project_id: uuid.UUID
+    project_name: str
+    last_sent_at: datetime | None = None
+    outcome: dict[str, Any] | None = None
 
 
 class ImacsProjectOut(BaseModel):

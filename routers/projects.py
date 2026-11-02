@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime, timezone
-
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -8,19 +7,18 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from auth.deps import current_user
+from auth.entra import Identity
 from database import get_db
-from models.db_models import Element, Floor, MacsResult, Project
-from models.macs_schemas import MacsResultOut
+from models.db_models import Element, Floor, ImacsJobLink, MacsHandoff, MacsRun, Project
+from models.macs_schemas import MacsRunOut
 from models.project_schemas import (
-    FloorSavePayload,
     ProjectCreate,
     ProjectDetail,
     ProjectSavePayload,
     ProjectSummary,
     ProjectUpdate,
 )
-from auth.deps import current_user
-from auth.entra import Identity
 
 router = APIRouter()
 
@@ -31,6 +29,23 @@ async def create_project(
     db: AsyncSession = Depends(get_db),
     user: Identity | None = Depends(current_user),
 ):
+    handoff = None
+    if body.handoff_id is not None:
+        handoff = (
+            await db.execute(
+                select(MacsHandoff)
+                .where(MacsHandoff.id == body.handoff_id)
+                .options(selectinload(MacsHandoff.run))
+            )
+        ).scalar_one_or_none()
+        if handoff is None:
+            raise HTTPException(404, "Handoff not found")
+        if handoff.claimed_at is not None:
+            raise HTTPException(409, "Handoff has already been claimed")
+        exp = handoff.expires_at if handoff.expires_at.tzinfo else handoff.expires_at.replace(tzinfo=timezone.utc)
+        if exp < datetime.now(timezone.utc):
+            raise HTTPException(410, "Handoff has expired")
+
     project = Project(
         name=body.name,
         mode=body.mode,
@@ -40,6 +55,24 @@ async def create_project(
         created_by=(user.oid or user.email) if user else body.created_by,
     )
     db.add(project)
+    await db.flush()
+
+    if handoff is not None:
+        handoff.run.project_id = project.id
+        handoff.claimed_at = datetime.now(timezone.utc)
+        handoff.claimed_project_id = project.id
+        if handoff.imacs_job_id:
+            link = (
+                await db.execute(
+                    select(ImacsJobLink).where(ImacsJobLink.imacs_job_id == handoff.imacs_job_id)
+                )
+            ).scalar_one_or_none()
+            if link is not None:
+                link.project_id = project.id
+                link.updated_at = datetime.now(timezone.utc)
+            else:
+                db.add(ImacsJobLink(imacs_job_id=handoff.imacs_job_id, project_id=project.id))
+
     await db.commit()
     await db.refresh(project)
     return project
@@ -57,24 +90,78 @@ async def list_projects(
     return result.scalars().all()
 
 
-@router.get("/{project_id}/macs-results", response_model=list[MacsResultOut])
-async def list_macs_results(
+@router.get("/{project_id}/macs-runs", response_model=list[MacsRunOut])
+@router.get(
+    "/{project_id}/macs-results", response_model=list[MacsRunOut], include_in_schema=False
+)
+async def list_macs_runs(
     project_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    """MACS results posted by i-macs for this project, newest first. Read by the
-    upload-canvas time-equivalence popup (user auth; the i-macs app key is not
-    accepted here)."""
+    """MACS runs posted by i-macs for this project, newest first. Read by the
+    upload-canvas web app (user auth; the i-macs app key is not accepted here)."""
     exists = (
         await db.execute(select(Project.id).where(Project.id == project_id))
     ).scalar_one_or_none()
     if exists is None:
         raise HTTPException(404, "Project not found")
     result = await db.execute(
-        select(MacsResult)
-        .where(MacsResult.project_id == project_id)
-        .order_by(MacsResult.received_at.desc())
+        select(MacsRun)
+        .where(MacsRun.project_id == project_id)
+        .order_by(MacsRun.received_at.desc())
     )
     return result.scalars().all()
+
+
+@router.post(
+    "/{project_id}/macs-handoffs/{handoff_id}/claim",
+    response_model=MacsRunOut,
+)
+async def claim_macs_handoff(
+    project_id: uuid.UUID,
+    handoff_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Claim a handoff onto an existing project, attaching the run and recording the link."""
+    project = (
+        await db.execute(select(Project.id).where(Project.id == project_id))
+    ).scalar_one_or_none()
+    if project is None:
+        raise HTTPException(404, "Project not found")
+
+    handoff = (
+        await db.execute(
+            select(MacsHandoff)
+            .where(MacsHandoff.id == handoff_id)
+            .options(selectinload(MacsHandoff.run))
+        )
+    ).scalar_one_or_none()
+    if handoff is None:
+        raise HTTPException(404, "Handoff not found")
+    if handoff.claimed_at is not None:
+        raise HTTPException(409, "Handoff has already been claimed")
+    exp = handoff.expires_at if handoff.expires_at.tzinfo else handoff.expires_at.replace(tzinfo=timezone.utc)
+    if exp < datetime.now(timezone.utc):
+        raise HTTPException(410, "Handoff has expired")
+
+    handoff.run.project_id = project_id
+    handoff.claimed_at = datetime.now(timezone.utc)
+    handoff.claimed_project_id = project_id
+
+    if handoff.imacs_job_id:
+        link = (
+            await db.execute(
+                select(ImacsJobLink).where(ImacsJobLink.imacs_job_id == handoff.imacs_job_id)
+            )
+        ).scalar_one_or_none()
+        if link is not None:
+            link.project_id = project_id
+            link.updated_at = datetime.now(timezone.utc)
+        else:
+            db.add(ImacsJobLink(imacs_job_id=handoff.imacs_job_id, project_id=project_id))
+
+    await db.commit()
+    await db.refresh(handoff.run)
+    return handoff.run
 
 
 @router.get("/{project_id}", response_model=ProjectDetail)

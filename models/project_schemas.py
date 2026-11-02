@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 # --- Projects ---
@@ -14,6 +14,7 @@ class ProjectCreate(BaseModel):
     mode: str = "fdsGen"
     settings: dict[str, Any] = {}
     created_by: Optional[str] = None
+    handoff_id: Optional[uuid.UUID] = None
 
 
 class ProjectUpdate(BaseModel):
