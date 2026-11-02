@@ -17,6 +17,7 @@ try:
 except ImportError as e:
     print(f"Warning: teq_reliability not loaded: {e}")
 from routers.fee_proposal import router as fee_proposal_router
+from routers.imacs import router as imacs_router
 from routers.efs import router as efs_router
 from routers.cfd_dashboard import router as cfd_dashboard_router
 from routers.smoke_layer import router as smoke_layer_router
@@ -133,9 +134,32 @@ async def _ensure_tool_search_tables():
         print(f"Warning: tool search analytics table setup failed: {e}")
 
 
+async def _ensure_macs_results_table():
+    """Create macs_results (i-macs MACS+ results) if alembic has not run.
+
+    Railway start command is uvicorn only (no `alembic upgrade`). Idempotent
+    create_all of just this table (checkfirst) so the i-macs endpoints work
+    without a separate migration step. Needs `projects` to exist (FK).
+    """
+    import database
+    if database.async_session is None or database.engine is None:
+        return
+    try:
+        from database import Base
+        from models.db_models import MacsResult
+        async with database.engine.begin() as conn:
+            await conn.run_sync(
+                Base.metadata.create_all,
+                tables=[MacsResult.__table__],
+            )
+    except Exception as e:  # noqa: BLE001 — setup must never block startup
+        print(f"Warning: macs_results table setup failed: {e}")
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
     await _ensure_projects_mode_column()
+    await _ensure_macs_results_table()
     await _seed_text_blocks()
     await _ensure_tool_search_tables()
     if _MCP_AVAILABLE:
@@ -226,6 +250,9 @@ app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"], dep
 app.include_router(cfd_dashboard_router, prefix="/cfd-dashboard", tags=["CFD Dashboard"])
 app.include_router(smoke_layer_router, prefix="/smoke-layer", tags=["Warehouse Smoke Layer"], dependencies=_user_gated)
 app.include_router(tool_search_router, prefix="/tool-search", tags=["Tool Search"])
+# i-macs desktop app: shared app key (X-IMACS-App-Key), deliberately NOT _user_gated.
+# The router carries its own require_imacs_app dependency. See auth/imacs.py.
+app.include_router(imacs_router, prefix="/imacs", tags=["i-macs"])
 
 try:
     from routers.projects import router as projects_router

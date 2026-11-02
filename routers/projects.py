@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, select
@@ -9,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from database import get_db
-from models.db_models import Element, Floor, Project
+from models.db_models import Element, Floor, MacsResult, Project
+from models.macs_schemas import MacsResultOut
 from models.project_schemas import (
     FloorSavePayload,
     ProjectCreate,
@@ -53,6 +54,26 @@ async def list_projects(
     if mode is not None:
         query = query.where(Project.mode == mode)
     result = await db.execute(query.order_by(Project.updated_at.desc()))
+    return result.scalars().all()
+
+
+@router.get("/{project_id}/macs-results", response_model=list[MacsResultOut])
+async def list_macs_results(
+    project_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """MACS results posted by i-macs for this project, newest first. Read by the
+    upload-canvas time-equivalence popup (user auth; the i-macs app key is not
+    accepted here)."""
+    exists = (
+        await db.execute(select(Project.id).where(Project.id == project_id))
+    ).scalar_one_or_none()
+    if exists is None:
+        raise HTTPException(404, "Project not found")
+    result = await db.execute(
+        select(MacsResult)
+        .where(MacsResult.project_id == project_id)
+        .order_by(MacsResult.received_at.desc())
+    )
     return result.scalars().all()
 
 

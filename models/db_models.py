@@ -65,6 +65,35 @@ class Floor(Base):
     )
 
 
+class MacsResult(Base):
+    """A MACS+ reliability result posted by the i-macs desktop app against an
+    upload-canvas project (envelope "fd-macs-reliability/1"). The time-equivalence
+    popup reads critical_temp / section_factor from the newest row.
+
+    Created on boot by _ensure_macs_results_table (Railway does not run alembic).
+    """
+
+    __tablename__ = "macs_results"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    project_id = Column(
+        Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    schema_ = Column("schema", Text, nullable=False)
+    envelope = Column(JSONB, nullable=False)
+    critical_temp = Column(Float, nullable=False)
+    section_factor = Column(Float, nullable=False)
+    governing_side = Column(Text, nullable=False)
+    section = Column(Text, nullable=False)
+    exposure = Column(Text, nullable=False)
+    windows_user = Column(Text, nullable=False)
+    client_timestamp = Column(DateTime(timezone=True), nullable=False)
+    client_version = Column(Text, nullable=True)
+    run_id = Column(Text, nullable=True)
+    label = Column(Text, nullable=True)
+    received_at = Column(DateTime(timezone=True), nullable=False, default=utcnow)
+
+
 class FeeTextBlock(Base):
     __tablename__ = "fee_text_block"
 
