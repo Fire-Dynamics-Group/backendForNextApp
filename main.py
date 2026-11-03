@@ -147,11 +147,15 @@ async def _ensure_macs_tables():
         return
     try:
         from database import Base
-        from models.db_models import MacsResult
+        from models.db_models import ImacsJobLink, MacsHandoff, MacsRun
         async with database.engine.begin() as conn:
             await conn.run_sync(
                 Base.metadata.create_all,
-                tables=[MacsResult.__table__],
+                tables=[
+                    MacsRun.__table__,
+                    MacsHandoff.__table__,
+                    ImacsJobLink.__table__,
+                ],
             )
     except Exception as e:  # noqa: BLE001 — setup must never block startup
         print(f"Warning: macs_results table setup failed: {e}")
