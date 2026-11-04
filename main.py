@@ -49,6 +49,7 @@ async def _seed_text_blocks():
     if database.async_session is None or database.engine is None:
         return
     try:
+        from sqlalchemy import text
         from database import Base
         from models.db_models import FeeTextBlock, FeeTextBlockHistory
         async with database.engine.begin() as conn:
@@ -124,6 +125,7 @@ async def _ensure_tool_search_tables():
     if database.async_session is None or database.engine is None:
         return
     try:
+        from sqlalchemy import text
         from database import Base
         from models.tool_search import ToolSearchClick, ToolSearchLog
         async with database.engine.begin() as conn:
@@ -146,6 +148,7 @@ async def _ensure_macs_tables():
     if database.async_session is None or database.engine is None:
         return
     try:
+        from sqlalchemy import text
         from database import Base
         from models.db_models import ImacsJobLink, MacsHandoff, MacsRun
         async with database.engine.begin() as conn:
@@ -157,6 +160,15 @@ async def _ensure_macs_tables():
                     ImacsJobLink.__table__,
                 ],
             )
+            for col, col_type in [
+                ('outputs', 'JSONB DEFAULT \'{}\'::jsonb'),
+                ('checks', 'JSONB DEFAULT \'[]\'::jsonb'),
+                ('time_series', 'JSONB DEFAULT \'[]\'::jsonb'),
+            ]:
+                try:
+                    await conn.execute(text(f'ALTER TABLE macs_runs ADD COLUMN IF NOT EXISTS {col} {col_type}'))
+                except Exception:
+                    pass
     except Exception as e:  # noqa: BLE001 — setup must never block startup
         print(f"Warning: macs_results table setup failed: {e}")
 
