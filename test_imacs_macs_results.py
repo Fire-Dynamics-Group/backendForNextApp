@@ -607,3 +607,269 @@ async def test_unlink_nonexistent_job_is_idempotent_200(client: AsyncClient):
     assert resp.status_code == 200
     assert resp.json()["unlinked"] is True
 
+
+@pytest.mark.asyncio
+async def test_macs_run_with_full_outputs_checks_and_timeseries(
+    client: AsyncClient, make_project, user_headers
+):
+    pid = await make_project()
+    ts = [
+        {
+            'time_step': 1,
+            'time_min': 1.0,
+            'fire_temp': 349.2,
+            'lofl_temp': 120.5,
+            'mesh_temp': 95.0,
+            'slabtop_temp': 22.0,
+            'slabbot_temp': 180.4,
+            'beam_hot_capacity': 450.2,
+            'deflection': 12.4,
+            'slab_yield': 1.0,
+            'enhancement': 1.0,
+            'slab_cap': 310.0,
+            'total_plate_capacity': 760.2,
+            'utilization_factor': 0.42,
+        }
+    ]
+    outputs = {
+        'uf_max': 0.85,
+        'max_deflection': 88.0,
+        'max_temperature': 650.0,
+        'comp_failure': 0,
+        'side_a_critical_temp': 685.0,
+        'side_a_load_ratio': 0.32,
+        'side_b_critical_temp': 631.0,
+        'side_b_load_ratio': 0.45,
+    }
+    checks = [
+        {'name': 'Composite failure', 'pass': True},
+        {'name': 'UF max check', 'pass': True, 'value': 0.85},
+    ]
+    payload = {
+        **VALID_RUN,
+        'outputs': outputs,
+        'checks': checks,
+        'time_series': ts,
+    }
+    resp = await client.post(
+        f'/imacs/projects/{pid}/macs-runs', json=payload, headers=key_headers()
+    )
+    assert resp.status_code == 201
+    data = resp.json()
+    assert data['outputs']['uf_max'] == 0.85
+    assert len(data['checks']) == 2
+    assert len(data['time_series']) == 1
+    assert data['time_series'][0]['fire_temp'] == 349.2
+
+    # Verify retrieval via GET /projects/{pid}/macs-runs
+    list_resp = await client.get(f'/projects/{pid}/macs-runs', headers=user_headers)
+    assert list_resp.status_code == 200
+    runs = list_resp.json()
+    assert len(runs) == 1
+    assert runs[0]['outputs']['uf_max'] == 0.85
+    assert len(runs[0]['time_series']) == 1
+
+    # Verify retrieval via GET /projects/macs-runs/{run_id}
+    run_id = data['id']
+    single_resp = await client.get(f'/projects/macs-runs/{run_id}', headers=user_headers)
+    assert single_resp.status_code == 200
+    assert single_resp.json()['id'] == run_id
+
+    # Verify global list GET /projects/macs-runs
+    all_resp = await client.get('/projects/macs-runs', headers=user_headers)
+    assert all_resp.status_code == 200
+    assert any(r['id'] == run_id for r in all_resp.json())
+
+
+@pytest.mark.asyncio
+async def test_macs_batch_persisted_on_push_and_retrieved(client, user_headers):
+    create_resp = await client.post(
+        "/projects",
+        json={"name": "Project Batch Test", "mode": "timeEq", "settings": {}},
+        headers=user_headers,
+    )
+    assert create_resp.status_code == 201
+    pid = create_resp.json()["id"]
+
+    sample_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    macs_batch = {
+        "batch_id": "b-test-123",
+        "name": "Batch Test 123",
+        "run_count": 100,
+        "pass_count": 98,
+        "fail_count": 2,
+        "error_count": 0,
+        "reliability_percent": 98.0,
+        "setup": {
+            "run_count": 100,
+            "groups": [
+                {
+                    "title": "Geometry",
+                    "fields": [
+                        {"key": "span1", "label": "Span 1", "unit": "m", "value": 12.0, "varies": False}
+                    ]
+                }
+            ]
+        },
+        "shear_check": {
+            "batch_id": "b-test-123",
+            "checked": 100,
+            "sub_limit_runs": []
+        },
+        "charts": {
+            "scatter": sample_b64,
+            "totalCapacity": sample_b64,
+            "beamTemp": sample_b64,
+            "meshTemp": sample_b64,
+        }
+    }
+
+    payload = {
+        **VALID_RUN,
+        "macs_batch": macs_batch,
+    }
+    push_resp = await client.post(
+        f"/imacs/projects/{pid}/macs-runs", json=payload, headers=key_headers()
+    )
+    assert push_resp.status_code == 201
+
+    # Check project settings
+    proj_resp = await client.get(f"/projects/{pid}", headers=user_headers)
+    assert proj_resp.status_code == 200
+    assert proj_resp.json()["settings"]["macsBatch"]["batch_id"] == "b-test-123"
+
+    # Check GET /projects/{pid}/macs-batch/{batch_id} returns from settings without needing IMACS_DB_PATH
+    batch_resp = await client.get(f"/projects/{pid}/macs-batch/b-test-123", headers=user_headers)
+    assert batch_resp.status_code == 200
+    batch_data = batch_resp.json()
+    assert batch_data["batch_id"] == "b-test-123"
+    assert batch_data["reliability_percent"] == 98.0
+    assert "charts" in batch_data
+
+
+@pytest.mark.asyncio
+async def test_macs_batch_persisted_on_handoff_claim(client, user_headers):
+    sample_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    macs_batch = {
+        "batch_id": "b-handoff-456",
+        "name": "Handoff Batch",
+        "run_count": 50,
+        "pass_count": 50,
+        "fail_count": 0,
+        "error_count": 0,
+        "reliability_percent": 100.0,
+        "setup": {"run_count": 50, "groups": []},
+        "shear_check": {"batch_id": "b-handoff-456", "checked": 50, "sub_limit_runs": []},
+        "charts": {"scatter": sample_b64, "totalCapacity": sample_b64, "beamTemp": sample_b64, "meshTemp": sample_b64}
+    }
+    payload = {
+        **VALID_RUN,
+        "macs_batch": macs_batch,
+    }
+    handoff_resp = await client.post("/imacs/handoffs", json=payload, headers=key_headers())
+    assert handoff_resp.status_code == 201
+    hid = handoff_resp.json()["handoff_id"]
+
+    # Claim into new project
+    claim_resp = await client.post(
+        "/projects",
+        json={"name": "Handoff Project", "mode": "timeEq", "handoff_id": hid},
+        headers=user_headers,
+    )
+    assert claim_resp.status_code == 201
+    pid = claim_resp.json()["id"]
+
+    # Verify settings has macsBatch
+    proj_resp = await client.get(f"/projects/{pid}", headers=user_headers)
+    assert proj_resp.status_code == 200
+    assert proj_resp.json()["settings"]["macsBatch"]["batch_id"] == "b-handoff-456"
+
+
+@pytest.mark.asyncio
+async def test_structural_fire_report_endpoint(client, user_headers):
+    sample_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    macs_batch = {
+        "batch_id": "b-rpt-1",
+        "name": "Report Batch",
+        "run_count": 100,
+        "pass_count": 99,
+        "fail_count": 1,
+        "error_count": 0,
+        "reliability_percent": 99.0,
+        "setup": {
+            "run_count": 100,
+            "groups": [
+                {"title": "Geometry", "fields": [{"key": "span1", "label": "Span 1", "unit": "m", "value": 12.0, "varies": False}]}
+            ]
+        },
+        "shear_check": {"batch_id": "b-rpt-1", "checked": 100, "sub_limit_runs": []},
+        "charts": {"scatter": sample_b64, "totalCapacity": sample_b64, "beamTemp": sample_b64, "meshTemp": sample_b64}
+    }
+    time_eq_inputs = {
+        "mcOccupancy": "Office",
+        "fireResistancePeriod": 60,
+        "compartmentHeight": 3.5,
+        "isSprinklered": True,
+        "criticalTemp": 540,
+        "sectionFactor": 140,
+        "customBValue": "1200",
+    }
+    time_eq_result = {
+        "failure_prob": 0.02,
+        "reliabilityPercent": 98.0,
+        "seed": 42,
+        "nSim": 1000,
+        "nFailed": 20,
+        "charts": {
+            "steelTempSpaghetti": sample_b64,
+            "passFailScatter": sample_b64,
+        }
+    }
+
+    create_resp = await client.post(
+        "/projects",
+        json={
+            "name": "Panattoni California Drive",
+            "mode": "timeEq",
+            "settings": {
+                "macsBatch": macs_batch,
+                "timeEqInputs": time_eq_inputs,
+                "timeEqResult": time_eq_result,
+            }
+        },
+        headers=user_headers,
+    )
+    assert create_resp.status_code == 201
+    pid = create_resp.json()["id"]
+
+    # Also push a run with side critical temps so perimeter beam breakdown is present
+    payload = {
+        **VALID_RUN,
+        "outputs": {
+            "side_a_critical_temp": 580.0,
+            "side_b_critical_temp": 540.0,
+            "side_c_critical_temp": 600.0,
+            "side_d_critical_temp": 610.0,
+        }
+    }
+    await client.post(f"/imacs/projects/{pid}/macs-runs", json=payload, headers=key_headers())
+
+    report_resp = await client.post(
+        f"/projects/{pid}/structural-fire-report",
+        headers=user_headers,
+    )
+    assert report_resp.status_code == 200
+    assert report_resp.headers["content-type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    assert "attachment; filename=" in report_resp.headers["content-disposition"]
+    docx_bytes = report_resp.content
+    assert len(docx_bytes) > 1000
+
+    # Parse with python-docx
+    import io
+    from docx import Document
+    doc = Document(io.BytesIO(docx_bytes))
+    full_text = "\n".join([p.text for p in doc.paragraphs])
+    assert "MACS+" in full_text or "Composite Slab" in full_text
+    assert "Monte Carlo" in full_text or "Time Equivalence" in full_text
+    assert "Panattoni California Drive" in full_text
+

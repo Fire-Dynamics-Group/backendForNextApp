@@ -1,8 +1,11 @@
+import os
+import sqlite3
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -61,6 +64,11 @@ async def create_project(
         handoff.run.project_id = project.id
         handoff.claimed_at = datetime.now(timezone.utc)
         handoff.claimed_project_id = project.id
+        macs_batch = (handoff.run.outputs or {}).get("macs_batch")
+        if macs_batch:
+            from sqlalchemy.orm.attributes import flag_modified
+            project.settings = {**(project.settings or {}), "macsBatch": macs_batch}
+            flag_modified(project, "settings")
         if handoff.imacs_job_id:
             link = (
                 await db.execute(
@@ -90,6 +98,36 @@ async def list_projects(
     return result.scalars().all()
 
 
+@router.get("/macs-runs", response_model=list[MacsRunOut])
+async def list_all_macs_runs(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+):
+    """List recent MACS runs across all projects or unlinked, newest first."""
+    result = await db.execute(
+        select(MacsRun)
+        .order_by(MacsRun.received_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return result.scalars().all()
+
+
+@router.get("/macs-runs/{run_id}", response_model=MacsRunOut)
+async def get_macs_run(
+    run_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Retrieve full details of a specific MACS run."""
+    run = (
+        await db.execute(select(MacsRun).where(MacsRun.id == run_id))
+    ).scalar_one_or_none()
+    if run is None:
+        raise HTTPException(404, "MACS run not found")
+    return run
+
+
 @router.get("/{project_id}/macs-runs", response_model=list[MacsRunOut])
 @router.get(
     "/{project_id}/macs-results", response_model=list[MacsRunOut], include_in_schema=False
@@ -112,6 +150,280 @@ async def list_macs_runs(
     return result.scalars().all()
 
 
+IMACS_DB_PATH = os.environ.get(
+    "IMACS_DB_PATH",
+    r"C:\Users\IanShaw\Documents\localProgramming\fd\i-macs\results.db",
+)
+
+
+@router.get("/{project_id}/macs-batch/{batch_id}")
+async def get_batch_summary(
+    project_id: uuid.UUID,
+    batch_id: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Retrieve full batch summary, metadata, setup, and shear connection checks."""
+    # 1. Return project.settings["macsBatch"] first if available
+    project = (
+        await db.execute(select(Project).where(Project.id == project_id))
+    ).scalar_one_or_none()
+    if project and project.settings and "macsBatch" in project.settings:
+        cached = project.settings["macsBatch"]
+        if isinstance(cached, dict) and (str(cached.get("batch_id")) == str(batch_id) or not cached.get("batch_id")):
+            return cached
+
+    db_path = IMACS_DB_PATH
+    if not os.path.exists(db_path):
+        alt = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "i-macs", "results.db")
+        )
+        if os.path.exists(alt):
+            db_path = alt
+
+    if not os.path.exists(db_path):
+        raise HTTPException(500, f"MACS results database not found at {db_path}")
+
+    imacs_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "i-macs")
+    )
+    if imacs_root not in sys.path:
+        sys.path.insert(0, imacs_root)
+
+    try:
+        from macs_automation.db import ResultsDB
+        from macs_automation.app import _batch_response
+        from macs_automation.batch_setup import derive_setup
+        from macs_automation.shear_check import flags_for_run
+
+        db = ResultsDB(db_path)
+        batches = db.get_batches()
+        row = next((r for r in batches if r["batch_id"] == batch_id), None)
+        if row is None:
+            db.close()
+            raise HTTPException(404, f"Batch {batch_id} not found")
+
+        resp = _batch_response(db, row)
+        runs = db.get_batch_runs(batch_id)
+        resp["setup"] = derive_setup(runs)
+        sub_limit = [
+            {"run_id": r.get("id"), "flags": flags}
+            for r in runs
+            if (flags := flags_for_run(r))
+        ]
+        resp["shear_check"] = {
+            "batch_id": batch_id,
+            "checked": len(runs),
+            "sub_limit_runs": sub_limit,
+        }
+        total = resp.get("run_count") or 0
+        passes = resp.get("pass_count") or 0
+        resp["reliability_percent"] = round((passes / total) * 100, 2) if total > 0 else 0
+        db.close()
+        return resp
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, f"Failed to retrieve batch {batch_id}: {e}")
+
+
+@router.get("/{project_id}/macs-batch/{batch_id}/distribution")
+async def get_batch_distribution(
+    project_id: uuid.UUID,
+    batch_id: str,
+    column: Annotated[str, Query()],
+    spaghetti_n: Annotated[int, Query()] = 500,
+):
+    """Return spaghetti + exact server-side average for a batch's distribution curves."""
+    imacs_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "i-macs")
+    )
+    if imacs_root not in sys.path:
+        sys.path.insert(0, imacs_root)
+
+    try:
+        from macs_automation.app import api_batch_distribution
+        resp = api_batch_distribution(batch_id, column, spaghetti_n)
+        if hasattr(resp, "body"):
+            import json
+            return json.loads(resp.body)
+        return resp
+    except Exception as e:
+        raise HTTPException(500, f"Failed to compute distribution for {column}: {e}")
+
+
+@router.get("/{project_id}/macs-batch/{batch_id}/runs")
+async def list_batch_runs(
+    project_id: uuid.UUID,
+    batch_id: str,
+    page: Annotated[int, Query(ge=1)] = 1,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    search: Annotated[Optional[str], Query()] = None,
+    status: Annotated[Optional[str], Query()] = None,
+    sort_by: Annotated[str, Query()] = "id",
+    sort_order: Annotated[str, Query()] = "asc",
+):
+    """List runs within a specific MACS batch with pagination, search, and sorting."""
+    db_path = IMACS_DB_PATH
+    if not os.path.exists(db_path):
+        alt = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "i-macs", "results.db")
+        )
+        if os.path.exists(alt):
+            db_path = alt
+
+    if not os.path.exists(db_path):
+        raise HTTPException(500, f"MACS results database not found at {db_path}")
+
+    con = sqlite3.connect(db_path)
+    con.row_factory = sqlite3.Row
+    cur = con.cursor()
+
+    where_clauses = ["batch_id = ?"]
+    params: list[object] = [batch_id]
+
+    if search and search.strip():
+        s = search.strip()
+        where_clauses.append("(CAST(id AS TEXT) LIKE ? OR uuid LIKE ?)")
+        params.extend([f"%{s}%", f"%{s}%"])
+
+    if status == "pass":
+        where_clauses.append(
+            "(uf_max <= 1.001 AND (comp_failure = 0 OR comp_failure IS NULL) AND error IS NULL)"
+        )
+    elif status == "fail":
+        where_clauses.append(
+            "(uf_max > 1.001 OR comp_failure = 1 OR error IS NOT NULL)"
+        )
+
+    where_sql = " AND ".join(where_clauses)
+
+    cur.execute(f"SELECT COUNT(*) FROM runs WHERE {where_sql}", params)
+    total_count = cur.fetchone()[0]
+
+    col_map = {
+        "id": "id",
+        "qf": "qf",
+        "window_percent": "window_percent",
+        "uf_max": "uf_max",
+        "crit_temp": "COALESCE(side_a_critical_temp, side_b_critical_temp, 0)",
+        "deflection": "max_deflection",
+        "temperature": "max_temperature",
+    }
+    order_col = col_map.get(sort_by, "id")
+    direction = "DESC" if sort_order.lower() == "desc" else "ASC"
+
+    offset = (page - 1) * limit
+    cur.execute(
+        f"""
+        SELECT id, uuid, qf, window_percent, uf_max, max_temperature, max_deflection, 
+               side_a_critical_temp, side_a_load_ratio,
+               side_b_critical_temp, side_b_load_ratio,
+               side_c_critical_temp, side_c_load_ratio,
+               side_d_critical_temp, side_d_load_ratio,
+               comp_failure, error
+        FROM runs 
+        WHERE {where_sql} 
+        ORDER BY {order_col} {direction} 
+        LIMIT ? OFFSET ?
+        """,
+        params + [limit, offset],
+    )
+    rows = [dict(r) for r in cur.fetchall()]
+    con.close()
+
+    items = []
+    for r in rows:
+        temps = [
+            ("A", r.get("side_a_critical_temp")),
+            ("B", r.get("side_b_critical_temp")),
+            ("C", r.get("side_c_critical_temp")),
+            ("D", r.get("side_d_critical_temp")),
+        ]
+        valid_temps = [(s, t) for s, t in temps if t is not None and t > 0]
+        gov_side, gov_temp = min(valid_temps, key=lambda x: x[1]) if valid_temps else (None, None)
+        is_pass = bool(
+            (r.get("uf_max") or 0) <= 1.001
+            and not r.get("comp_failure")
+            and not r.get("error")
+        )
+
+        items.append({
+            "id": r["id"],
+            "uuid": r["uuid"],
+            "qf": round(r["qf"], 1) if r.get("qf") is not None else None,
+            "window_percent": (
+                round(r["window_percent"], 1)
+                if r.get("window_percent") is not None
+                else None
+            ),
+            "uf_max": round(r["uf_max"], 3) if r.get("uf_max") is not None else None,
+            "max_temperature": (
+                round(r["max_temperature"])
+                if r.get("max_temperature") is not None
+                else None
+            ),
+            "max_deflection": (
+                round(r["max_deflection"], 1)
+                if r.get("max_deflection") is not None
+                else None
+            ),
+            "governing_temp": round(gov_temp) if gov_temp is not None else None,
+            "governing_side": gov_side,
+            "pass": is_pass,
+            "error": r.get("error"),
+        })
+
+    return {
+        "batch_id": batch_id,
+        "total": total_count,
+        "page": page,
+        "limit": limit,
+        "total_pages": (total_count + limit - 1) // limit if limit > 0 else 1,
+        "runs": items,
+    }
+
+
+@router.get("/{project_id}/macs-batch/{batch_id}/runs/{run_id}")
+async def get_batch_run_detail(
+    project_id: uuid.UUID,
+    batch_id: str,
+    run_id: int,
+):
+    """Retrieve full run details, time-series curves, and FRACOF checks for an arbitrary run in the batch."""
+    db_path = IMACS_DB_PATH
+    if not os.path.exists(db_path):
+        alt = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "i-macs", "results.db")
+        )
+        if os.path.exists(alt):
+            db_path = alt
+
+    if not os.path.exists(db_path):
+        raise HTTPException(500, f"MACS results database not found at {db_path}")
+
+    imacs_root = os.path.abspath(
+        os.path.join(os.path.dirname(__file__), "..", "..", "i-macs")
+    )
+    if imacs_root not in sys.path:
+        sys.path.insert(0, imacs_root)
+
+    try:
+        from macs_automation.db import ResultsDB
+        from macs_automation.upload_canvas import build_macs_run_payload
+
+        db = ResultsDB(db_path)
+        run_row = db.get_run(run_id)
+        if not run_row:
+            db.close()
+            raise HTTPException(404, f"Run #{run_id} not found in batch {batch_id}")
+
+        payload = build_macs_run_payload(run_row, imacs_job_id=batch_id, db=db)
+        db.close()
+        return payload
+    except Exception as e:
+        raise HTTPException(500, f"Failed to load run #{run_id}: {e}")
+
+
 @router.post(
     "/{project_id}/macs-handoffs/{handoff_id}/claim",
     response_model=MacsRunOut,
@@ -123,7 +435,7 @@ async def claim_macs_handoff(
 ):
     """Claim a handoff onto an existing project, attaching the run and recording the link."""
     project = (
-        await db.execute(select(Project.id).where(Project.id == project_id))
+        await db.execute(select(Project).where(Project.id == project_id))
     ).scalar_one_or_none()
     if project is None:
         raise HTTPException(404, "Project not found")
@@ -146,6 +458,12 @@ async def claim_macs_handoff(
     handoff.run.project_id = project_id
     handoff.claimed_at = datetime.now(timezone.utc)
     handoff.claimed_project_id = project_id
+
+    macs_batch = (handoff.run.outputs or {}).get("macs_batch")
+    if macs_batch:
+        from sqlalchemy.orm.attributes import flag_modified
+        project.settings = {**(project.settings or {}), "macsBatch": macs_batch}
+        flag_modified(project, "settings")
 
     if handoff.imacs_job_id:
         link = (
@@ -276,3 +594,37 @@ async def save_project(
         .options(selectinload(Project.floors))
     )
     return result.scalar_one()
+
+
+@router.post("/{project_id}/structural-fire-report")
+async def generate_structural_fire_report_endpoint(
+    project_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[Optional[Identity], Depends(current_user)] = None,
+):
+    project = (
+        await db.execute(select(Project).where(Project.id == project_id))
+    ).scalar_one_or_none()
+    if project is None:
+        raise HTTPException(404, "Project not found")
+
+    runs_result = await db.execute(
+        select(MacsRun)
+        .where(MacsRun.project_id == project_id)
+        .order_by(MacsRun.received_at.desc())
+    )
+    latest_run = runs_result.scalars().first()
+
+    from services.structural_fire_report import build_structural_fire_report_docx
+    docx_bytes = build_structural_fire_report_docx(project, latest_run)
+
+    import re
+    safe_name = re.sub(r"[^\w\s-]", "", project.name or "Project").strip().replace(" ", "_")
+    filename = f"Structural_Fire_Report_{safe_name}.docx"
+
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+

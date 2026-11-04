@@ -56,10 +56,17 @@ async def _save_macs_run(
     body: MacsRunCreate,
     project_id: uuid.UUID | None,
 ) -> MacsRun:
+    outputs = dict(body.outputs or {})
+    if body.macs_batch:
+        outputs["macs_batch"] = body.macs_batch
+
     row = MacsRun(
         project_id=project_id,
         schema_=body.schema_,
         inputs=body.inputs,
+        outputs=outputs,
+        checks=body.checks,
+        time_series=body.time_series,
         section=body.section,
         exposure=body.exposure,
         critical_temp=body.critical_temp,
@@ -77,17 +84,27 @@ async def _save_macs_run(
     db.add(row)
     await db.flush()
 
-    if project_id is not None and body.imacs_job_id:
-        link = (
-            await db.execute(
-                select(ImacsJobLink).where(ImacsJobLink.imacs_job_id == body.imacs_job_id)
-            )
-        ).scalar_one_or_none()
-        if link is not None:
-            link.project_id = project_id
-            link.updated_at = datetime.now(timezone.utc)
-        else:
-            db.add(ImacsJobLink(imacs_job_id=body.imacs_job_id, project_id=project_id))
+    if project_id is not None:
+        if body.macs_batch:
+            project = (
+                await db.execute(select(Project).where(Project.id == project_id))
+            ).scalar_one_or_none()
+            if project is not None:
+                from sqlalchemy.orm.attributes import flag_modified
+                project.settings = {**(project.settings or {}), "macsBatch": body.macs_batch}
+                flag_modified(project, "settings")
+
+        if body.imacs_job_id:
+            link = (
+                await db.execute(
+                    select(ImacsJobLink).where(ImacsJobLink.imacs_job_id == body.imacs_job_id)
+                )
+            ).scalar_one_or_none()
+            if link is not None:
+                link.project_id = project_id
+                link.updated_at = datetime.now(timezone.utc)
+            else:
+                db.add(ImacsJobLink(imacs_job_id=body.imacs_job_id, project_id=project_id))
 
     return row
 

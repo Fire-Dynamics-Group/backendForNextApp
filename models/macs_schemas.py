@@ -34,7 +34,11 @@ class MacsRunCreate(BaseModel):
     run_id: str | None = None
     label: str | None = None
     inputs: dict[str, Any] = Field(default_factory=dict)
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    checks: list[dict[str, Any]] = Field(default_factory=list)
+    time_series: list[dict[str, Any]] = Field(default_factory=list)
     imacs_job_id: str | None = None
+    macs_batch: dict[str, Any] | None = None
 
 
 # Backwards compat alias
@@ -59,7 +63,11 @@ class MacsRunOut(BaseModel):
     run_id: str | None = None
     label: str | None = None
     inputs: dict[str, Any] = Field(default_factory=dict)
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    checks: list[dict[str, Any]] = Field(default_factory=list)
+    time_series: list[dict[str, Any]] = Field(default_factory=list)
     imacs_job_id: str | None = None
+    macs_batch: dict[str, Any] | None = None
     received_at: datetime
 
 
