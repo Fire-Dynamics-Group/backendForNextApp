@@ -70,11 +70,43 @@ async def create_project(
         handoff.run.project_id = project.id
         handoff.claimed_at = datetime.now(timezone.utc)
         handoff.claimed_project_id = project.id
-        macs_batch = (handoff.run.outputs or {}).get("macs_batch")
+        macs_batch = dict((handoff.run.outputs or {}).get("macs_batch") or {})
+
+        # If project name is default/generic, adopt the batch/project name from desktop
+        resolved_name = (
+            macs_batch.get("project_name")
+            or handoff.run.label
+            or macs_batch.get("name")
+        )
+        if resolved_name and resolved_name != "MACS Run" and (not project.name or project.name in ("Untitled Project", "MACS Run", "Structural Fire Assessment")):
+            project.name = resolved_name
+
+        # Ensure governing section & critical temp are populated on macs_batch
+        if handoff.run.section and not macs_batch.get("governing_section"):
+            macs_batch["governing_section"] = handoff.run.section
+        if handoff.run.critical_temp is not None and macs_batch.get("critical_temp") is None:
+            macs_batch["critical_temp"] = handoff.run.critical_temp
+        if handoff.run.section_factor is not None and macs_batch.get("section_factor") is None:
+            macs_batch["section_factor"] = handoff.run.section_factor
+
+        new_settings = dict(project.settings or {})
         if macs_batch:
-            from sqlalchemy.orm.attributes import flag_modified
-            project.settings = {**(project.settings or {}), "macsBatch": macs_batch}
-            flag_modified(project, "settings")
+            new_settings["macsBatch"] = macs_batch
+
+        time_eq_inputs = dict(new_settings.get("timeEqInputs") or {})
+        if not time_eq_inputs.get("section") and handoff.run.section:
+            time_eq_inputs["section"] = handoff.run.section
+        if not time_eq_inputs.get("criticalTemp") and handoff.run.critical_temp is not None:
+            time_eq_inputs["criticalTemp"] = handoff.run.critical_temp
+        if not time_eq_inputs.get("sectionFactor") and handoff.run.section_factor is not None:
+            time_eq_inputs["sectionFactor"] = handoff.run.section_factor
+        if not time_eq_inputs.get("macsRunId") and handoff.run.id:
+            time_eq_inputs["macsRunId"] = str(handoff.run.id)
+        new_settings["timeEqInputs"] = time_eq_inputs
+
+        from sqlalchemy.orm.attributes import flag_modified
+        project.settings = new_settings
+        flag_modified(project, "settings")
         if handoff.imacs_job_id:
             link = (
                 await db.execute(
@@ -465,11 +497,32 @@ async def claim_macs_handoff(
     handoff.claimed_at = datetime.now(timezone.utc)
     handoff.claimed_project_id = project_id
 
-    macs_batch = (handoff.run.outputs or {}).get("macs_batch")
+    macs_batch = dict((handoff.run.outputs or {}).get("macs_batch") or {})
+    if handoff.run.section and not macs_batch.get("governing_section"):
+        macs_batch["governing_section"] = handoff.run.section
+    if handoff.run.critical_temp is not None and macs_batch.get("critical_temp") is None:
+        macs_batch["critical_temp"] = handoff.run.critical_temp
+    if handoff.run.section_factor is not None and macs_batch.get("section_factor") is None:
+        macs_batch["section_factor"] = handoff.run.section_factor
+
+    new_settings = dict(project.settings or {})
     if macs_batch:
-        from sqlalchemy.orm.attributes import flag_modified
-        project.settings = {**(project.settings or {}), "macsBatch": macs_batch}
-        flag_modified(project, "settings")
+        new_settings["macsBatch"] = macs_batch
+
+    time_eq_inputs = dict(new_settings.get("timeEqInputs") or {})
+    if not time_eq_inputs.get("section") and handoff.run.section:
+        time_eq_inputs["section"] = handoff.run.section
+    if not time_eq_inputs.get("criticalTemp") and handoff.run.critical_temp is not None:
+        time_eq_inputs["criticalTemp"] = handoff.run.critical_temp
+    if not time_eq_inputs.get("sectionFactor") and handoff.run.section_factor is not None:
+        time_eq_inputs["sectionFactor"] = handoff.run.section_factor
+    if not time_eq_inputs.get("macsRunId") and handoff.run.id:
+        time_eq_inputs["macsRunId"] = str(handoff.run.id)
+    new_settings["timeEqInputs"] = time_eq_inputs
+
+    from sqlalchemy.orm.attributes import flag_modified
+    project.settings = new_settings
+    flag_modified(project, "settings")
 
     if handoff.imacs_job_id:
         link = (
