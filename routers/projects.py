@@ -44,7 +44,13 @@ async def create_project(
         if handoff is None:
             raise HTTPException(404, "Handoff not found")
         if handoff.claimed_at is not None:
-            raise HTTPException(409, "Handoff has already been claimed")
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "Handoff has already been claimed",
+                    "claimed_by_project_id": str(handoff.claimed_project_id) if handoff.claimed_project_id else None,
+                },
+            )
         exp = handoff.expires_at if handoff.expires_at.tzinfo else handoff.expires_at.replace(tzinfo=timezone.utc)
         if exp < datetime.now(timezone.utc):
             raise HTTPException(410, "Handoff has expired")

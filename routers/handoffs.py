@@ -41,7 +41,13 @@ async def get_handoff(
         raise HTTPException(404, "Handoff not found")
 
     if handoff.claimed_at is not None:
-        raise HTTPException(409, "Handoff has already been claimed")
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Handoff has already been claimed",
+                "claimed_by_project_id": str(handoff.claimed_project_id) if handoff.claimed_project_id else None,
+            },
+        )
 
     if handoff.expires_at.tzinfo is None:
         expires_at = handoff.expires_at.replace(tzinfo=timezone.utc)
