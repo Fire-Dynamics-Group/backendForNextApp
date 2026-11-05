@@ -385,3 +385,11 @@ class TestFullResultsForQA:
     def test_reliability_endpoint_also_gets_derived(self):
         body = client.post("/timeEqReliability", json=_payload(nSim=30, seed=5)).json()
         assert body["derived"]["floorArea"] == pytest.approx(64 * 13)
+
+
+def test_timeeq_endpoints_gated_in_enforce_mode(monkeypatch):
+    monkeypatch.setenv("AUTH_MODE", "enforce")
+    r1 = client.post("/timeEqReliabilityCharts", json=_payload(nSim=10))
+    assert r1.status_code == 401
+    r2 = client.post("/timeEqFireCurves", json=_payload(nSim=10))
+    assert r2.status_code == 401

@@ -51,8 +51,10 @@ def get_b_value(room_composition, room_dimensions, At):  #gets an average B_Valu
         room_b_values.append(material_b_values.get(i))
     b_value_weighted = []
     n = 0
+    default_b = room_b_values[0] if room_b_values else 1742
     while n < len(room_dimensions):
-        b_value_weighted.append(room_dimensions[n]*room_b_values[n]/At)  # weights b values based on the surface areas
+        b_val = room_b_values[n] if n < len(room_b_values) and room_b_values[n] is not None else default_b
+        b_value_weighted.append(room_dimensions[n]*b_val/At)  # weights b values based on the surface areas
         n=n+1
     b_value_weighted = sum(b_value_weighted)
     print(f"bvalue weighted = {b_value_weighted}")

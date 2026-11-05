@@ -17,6 +17,8 @@ try:
 except ImportError as e:
     print(f"Warning: teq_reliability not loaded: {e}")
 from routers.fee_proposal import router as fee_proposal_router
+from routers.imacs import router as imacs_router
+from routers.handoffs import router as handoffs_router
 from routers.efs import router as efs_router
 from routers.cfd_dashboard import router as cfd_dashboard_router
 from routers.smoke_layer import router as smoke_layer_router
@@ -47,6 +49,7 @@ async def _seed_text_blocks():
     if database.async_session is None or database.engine is None:
         return
     try:
+        from sqlalchemy import text
         from database import Base
         from models.db_models import FeeTextBlock, FeeTextBlockHistory
         async with database.engine.begin() as conn:
@@ -122,6 +125,7 @@ async def _ensure_tool_search_tables():
     if database.async_session is None or database.engine is None:
         return
     try:
+        from sqlalchemy import text
         from database import Base
         from models.tool_search import ToolSearchClick, ToolSearchLog
         async with database.engine.begin() as conn:
@@ -133,9 +137,46 @@ async def _ensure_tool_search_tables():
         print(f"Warning: tool search analytics table setup failed: {e}")
 
 
+async def _ensure_macs_tables():
+    """Create macs_results (i-macs MACS+ results) if alembic has not run.
+
+    Railway start command is uvicorn only (no `alembic upgrade`). Idempotent
+    create_all of just this table (checkfirst) so the i-macs endpoints work
+    without a separate migration step. Needs `projects` to exist (FK).
+    """
+    import database
+    if database.async_session is None or database.engine is None:
+        return
+    try:
+        from sqlalchemy import text
+        from database import Base
+        from models.db_models import ImacsJobLink, MacsHandoff, MacsRun
+        async with database.engine.begin() as conn:
+            await conn.run_sync(
+                Base.metadata.create_all,
+                tables=[
+                    MacsRun.__table__,
+                    MacsHandoff.__table__,
+                    ImacsJobLink.__table__,
+                ],
+            )
+            for col, col_type in [
+                ('outputs', 'JSONB DEFAULT \'{}\'::jsonb'),
+                ('checks', 'JSONB DEFAULT \'[]\'::jsonb'),
+                ('time_series', 'JSONB DEFAULT \'[]\'::jsonb'),
+            ]:
+                try:
+                    await conn.execute(text(f'ALTER TABLE macs_runs ADD COLUMN IF NOT EXISTS {col} {col_type}'))
+                except Exception:
+                    pass
+    except Exception as e:  # noqa: BLE001 — setup must never block startup
+        print(f"Warning: macs_results table setup failed: {e}")
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
     await _ensure_projects_mode_column()
+    await _ensure_macs_tables()
     await _seed_text_blocks()
     await _ensure_tool_search_tables()
     if _MCP_AVAILABLE:
@@ -226,6 +267,10 @@ app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"], dep
 app.include_router(cfd_dashboard_router, prefix="/cfd-dashboard", tags=["CFD Dashboard"])
 app.include_router(smoke_layer_router, prefix="/smoke-layer", tags=["Warehouse Smoke Layer"], dependencies=_user_gated)
 app.include_router(tool_search_router, prefix="/tool-search", tags=["Tool Search"])
+# i-macs desktop app: shared app key (X-IMACS-App-Key), deliberately NOT _user_gated.
+# The router carries its own require_imacs_app dependency. See auth/imacs.py.
+app.include_router(imacs_router, prefix="/imacs", tags=["i-macs"])
+app.include_router(handoffs_router, prefix="/handoffs", tags=["Handoffs"], dependencies=_user_gated)
 
 try:
     from routers.projects import router as projects_router
@@ -501,7 +546,7 @@ async def read_timeEq_reliability(data: TimeEqReliabilityData):
     return body
 
 
-@app.post("/timeEqReliabilityCharts")
+@app.post("/timeEqReliabilityCharts", dependencies=[Depends(current_user)])
 async def read_timeEq_reliability_charts(data: TimeEqReliabilityData):
     """The reliability run plus its two report charts (steel time-temperature
     spaghetti with the critical-temperature line, and the pass/fail scatter),
@@ -548,7 +593,7 @@ class TimeEqFireCurveData(BaseModel):
     seed: Optional[int] = None
 
 
-@app.post("/timeEqFireCurves")
+@app.post("/timeEqFireCurves", dependencies=[Depends(current_user)])
 async def export_timeEq_fire_curves(data: TimeEqFireCurveData):
     """Sample N EC1 parametric fires (same path as /timeEqReliability) and return
     a zip of MACS+ AnalyseUDF curves plus a provenance manifest."""

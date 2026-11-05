@@ -33,3 +33,18 @@ Ignore **principle-never-block-on-the-human** for merges, deploys, secrets, and 
 ## PR shape
 
 - One PR per concern. Stack if needed. Do not merge the stack.
+
+## Development servers & hot reload
+
+- **Servers should always run with reload for dev**: Any backend, sidecar, or API server must run with auto-reload (`--reload`) enabled in development.
+- **Why was the i-macs backend not running on hot reload?**
+  - Tauri's `spawn_sidecar` was launching the Python sidecar without a `--reload` option, and uvicorn was running in static single-process mode.
+  - We added the `--reload` CLI flag to `app.py` and updated `main.rs` to pass it in dev mode.
+  - When starting or orchestrating dev servers across `i-macs`, `backendForNextApp`, and `upload-canvas`, always ensure hot reload is active.
+
+## Honest engineering metrics (no fake / mock fallback data)
+
+- **Never display fake, hardcoded mock values, or invented success metrics as fallbacks in engineering assessment UI or API responses.**
+  - Real calculations and simulations must always reflect actual pipeline data.
+  - Fallbacks such as hardcoded run counts (`10,000 runs`), artificial pass counts (`9,999 pass`, `passCount ?? 9999`), or default success percentages (`?? 100% Rel.`) disguise broken pipelines and give false engineering confidence.
+  - If data is loading, missing, or an error occurs, return and display honest states: explicit loading indicators, skeletons, empty states (`—` or `0`), or clear error badges. Never show invented or optimistic defaults.
