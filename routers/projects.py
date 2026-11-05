@@ -55,13 +55,19 @@ async def create_project(
         if exp < datetime.now(timezone.utc):
             raise HTTPException(410, "Handoff has expired")
 
+    creator = None
+    if user:
+        creator = user.name or user.email or user.oid
+    if not creator:
+        creator = body.created_by
+    if not creator and handoff and handoff.run and handoff.run.windows_user:
+        creator = handoff.run.windows_user
+
     project = Project(
         name=body.name,
         mode=body.mode,
         settings=body.settings,
-        # In enforce mode this is always the verified Entra oid; the body field
-        # remains only so the log-mode rollout does not break existing clients.
-        created_by=(user.oid or user.email) if user else body.created_by,
+        created_by=creator,
     )
     db.add(project)
     await db.flush()
@@ -523,6 +529,11 @@ async def claim_macs_handoff(
     from sqlalchemy.orm.attributes import flag_modified
     project.settings = new_settings
     flag_modified(project, "settings")
+
+    if not project.created_by or project.created_by == "Unknown":
+        creator = (user.name or user.email) if user else (handoff.run.windows_user if handoff.run else None)
+        if creator:
+            project.created_by = creator
 
     if handoff.imacs_job_id:
         link = (
