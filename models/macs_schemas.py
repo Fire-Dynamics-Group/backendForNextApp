@@ -33,6 +33,7 @@ class MacsRunCreate(BaseModel):
     client_version: str | None = None
     run_id: str | None = None
     label: str | None = None
+    project_name: str | None = None
     inputs: dict[str, Any] = Field(default_factory=dict)
     outputs: dict[str, Any] = Field(default_factory=dict)
     checks: list[dict[str, Any]] = Field(default_factory=list)
