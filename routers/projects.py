@@ -476,6 +476,7 @@ async def claim_macs_handoff(
     project_id: uuid.UUID,
     handoff_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Identity | None = Depends(current_user),
 ):
     """Claim a handoff onto an existing project, attaching the run and recording the link."""
     project = (
