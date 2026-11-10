@@ -138,11 +138,16 @@ async def _ensure_tool_search_tables():
 
 
 async def _ensure_macs_tables():
-    """Create macs_results (i-macs MACS+ results) if alembic has not run.
+    """Create the MACs tables if alembic has not run.
 
     Railway start command is uvicorn only (no `alembic upgrade`). Idempotent
-    create_all of just this table (checkfirst) so the i-macs endpoints work
-    without a separate migration step. Needs `projects` to exist (FK).
+    create_all of macs_runs, macs_handoffs, and imacs_job_links so the i-macs
+    endpoints work without a separate migration step. Needs `projects` to
+    exist (FK). Does not create `projects`.
+
+    When the database is configured, a setup failure is raised so the process
+    does not serve routes that would 500 on the missing tables. `/health`
+    names the three tables.
     """
     import database
     if database.async_session is None or database.engine is None:
@@ -160,17 +165,23 @@ async def _ensure_macs_tables():
                     ImacsJobLink.__table__,
                 ],
             )
-            for col, col_type in [
-                ('outputs', 'JSONB DEFAULT \'{}\'::jsonb'),
-                ('checks', 'JSONB DEFAULT \'[]\'::jsonb'),
-                ('time_series', 'JSONB DEFAULT \'[]\'::jsonb'),
-            ]:
-                try:
-                    await conn.execute(text(f'ALTER TABLE macs_runs ADD COLUMN IF NOT EXISTS {col} {col_type}'))
-                except Exception:
-                    pass
-    except Exception as e:  # noqa: BLE001 — setup must never block startup
+            # Older alembic e5f1a9c3d7b2 created macs_runs without these.
+            # Postgres only: the JSONB default is not valid SQLite, and
+            # create_all already added the columns on SQLite.
+            if conn.dialect.name == "postgresql":
+                for col, col_type in [
+                    ("outputs", "JSONB DEFAULT '{}'::jsonb"),
+                    ("checks", "JSONB DEFAULT '[]'::jsonb"),
+                    ("time_series", "JSONB DEFAULT '[]'::jsonb"),
+                ]:
+                    await conn.execute(
+                        text(
+                            f"ALTER TABLE macs_runs ADD COLUMN IF NOT EXISTS {col} {col_type}"
+                        )
+                    )
+    except Exception as e:  # noqa: BLE001 — log, then fail startup when the DB is configured
         print(f"Warning: macs_results table setup failed: {e}")
+        raise
 
 
 @contextlib.asynccontextmanager

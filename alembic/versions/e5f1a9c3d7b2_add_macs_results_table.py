@@ -21,6 +21,29 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+# Columns the MacsRun ORM always inserts. The original revision stopped at
+# inputs, so a migration-only database 500s on POST /imacs/handoffs.
+_MACS_JSON_COLUMNS = (
+    ("outputs", "'{}'"),
+    ("checks", "'[]'"),
+    ("time_series", "'[]'"),
+)
+
+
+def _macs_json_column(name: str, default_sql: str) -> sa.Column:
+    return sa.Column(
+        name, sa.JSON(), nullable=False, server_default=sa.text(default_sql)
+    )
+
+
+def _ensure_macs_run_json_columns() -> None:
+    bind = op.get_bind()
+    existing = {col["name"] for col in sa.inspect(bind).get_columns("macs_runs")}
+    for name, default_sql in _MACS_JSON_COLUMNS:
+        if name not in existing:
+            op.add_column("macs_runs", _macs_json_column(name, default_sql))
+
+
 def upgrade() -> None:
     # Idempotent: uvicorn boot may already have created the tables via
     # _ensure_macs_tables (Railway does not run alembic on start).
@@ -34,6 +57,10 @@ def upgrade() -> None:
             sa.Column('project_id', sa.Uuid(), nullable=True),
             sa.Column('schema', sa.Text(), nullable=False),
             sa.Column('inputs', sa.JSON(), nullable=False),
+            *[
+                _macs_json_column(name, default_sql)
+                for name, default_sql in _MACS_JSON_COLUMNS
+            ],
             sa.Column('section', sa.Text(), nullable=False),
             sa.Column('exposure', sa.Text(), nullable=False),
             sa.Column('critical_temp', sa.Float(), nullable=False),
@@ -50,6 +77,10 @@ def upgrade() -> None:
             sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
             sa.PrimaryKeyConstraint('id'),
         )
+
+    # Table may already exist from an older copy of this revision, or from
+    # uvicorn create_all. Add the ORM JSON columns if they are still absent.
+    _ensure_macs_run_json_columns()
 
     runs_indexes = {ix["name"] for ix in sa.inspect(bind).get_indexes("macs_runs")}
     if "ix_macs_runs_project_id" not in runs_indexes:
