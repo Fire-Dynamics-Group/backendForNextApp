@@ -90,7 +90,11 @@ class DevcSampleIn(BaseModel):
 
 class SeriesPush(BaseModel):
     """Runner push. hrr points are {t, hrr} only. devc rows are one time
-    and the columns the runner is sampling."""
+    and the columns the runner is sampling.
+
+    design is the target HRR curve, {t, hrr} points or null. The runner
+    sends it once. Null and omission leave a curve already stored.
+    """
 
     run_id: str
     machine_name: Optional[str] = None
@@ -99,6 +103,7 @@ class SeriesPush(BaseModel):
     devc_columns: List[DevcColumnIn] = []
     hrr: List[HrrPointIn] = []
     devc: List[DevcSampleIn] = []
+    design: Optional[List[HrrPointIn]] = None
 
 
 def verify_api_key(x_api_key: str = Header(...)):
@@ -1025,6 +1030,9 @@ async def push_series(body: SeriesPush, db: AsyncSession = Depends(get_db)):
                 for column in body.devc_columns
             ],
             [(point.t, dict(point.values)) for point in body.devc],
+            None
+            if body.design is None
+            else [(point.t, point.hrr) for point in body.design],
         )
     except SeriesRejected as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

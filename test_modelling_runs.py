@@ -794,6 +794,7 @@ def test_health_lists_modelling_tables():
         "run_series_points",
         "run_series_counters",
         "run_devc_selections",
+        "run_hrr_designs",
     ):
         assert name in REQUIRED_TABLES
 
@@ -835,6 +836,7 @@ async def test_startup_creates_modelling_tables_and_is_idempotent(monkeypatch):
             "run_series_points",
             "run_series_counters",
             "run_devc_selections",
+            "run_hrr_designs",
         ):
             assert table in names
     finally:

@@ -7,7 +7,8 @@ Runner (fds-runner PR 2):
       "run_id", "machine_name", "case_name", "chid",
       "devc_columns": [{"id", "quantity", "unit"}] once,
       "hrr": [{"t", "hrr"}],
-      "devc": [{"t", "values": {id: number}}]
+      "devc": [{"t", "values": {id: number}}],
+      "design": [{"t", "hrr"}] or null, once
     }
     Response is exactly {"selected_devc": [...]}.
     The runner applies that list on the next push, and advances its file
@@ -17,7 +18,7 @@ Page (fd-toolstation PR 10):
     GET /cfd-dashboard/runs/{id}/series?since={cursor}&devices={id,id}
     {
       "cursor": "2",
-      "hrr": {"unit": "kW", "points": [{"t", "v"}], "design": null},
+      "hrr": {"unit": "kW", "points": [{"t", "v"}], "design": [{"t", "hrr"}] or null},
       "devices": [{"id", "quantity", "unit"}],
       "series": {"TC_01": [{"t", "v"}]}
     }
@@ -558,6 +559,206 @@ async def test_unselected_samples_are_evicted_past_the_column_cap(
     assert [column["id"] for column in body["devices"]] == ["D00", "D01", "D02"]
 
 
+# --- Design curve from the runner (fds-runner ac6d225). Sent once as
+# top-level design: [{t, hrr}] or null. Stored on the run. Returned as
+# hrr.design, null when no list has been stored. Sample caps and the
+# since cursor do not apply to it.
+
+
+DESIGN = [{"t": 0.0, "hrr": 0.0}, {"t": 0.4, "hrr": 12.0}, {"t": 30.0, "hrr": 1000.0}]
+
+
+@pytest.mark.asyncio
+async def test_design_curve_is_stored_on_the_run_and_returned_as_hrr_design(
+    client: AsyncClient,
+):
+    run_id = await _run(client)
+    pushed = await client.post(
+        PUSH,
+        json=_body(
+            run_id,
+            hrr=[{"t": 1.0, "hrr": 10.0}],
+            design=DESIGN,
+        ),
+        headers=API_KEY_HEADER,
+    )
+    assert pushed.status_code == 200
+    assert pushed.json() == {"selected_devc": []}
+
+    body = (
+        await client.get(_series(run_id), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert body["hrr"]["design"] == DESIGN
+    assert body["hrr"]["points"] == [{"t": 1.0, "v": 10.0}]
+    assert body["hrr"]["unit"] == "kW"
+    # Design is not a sample, so it does not consume the cursor.
+    assert body["cursor"] == "1"
+
+    again = await client.get(
+        _series(run_id),
+        params={"since": body["cursor"], "devices": ""},
+        headers=API_KEY_HEADER,
+    )
+    assert again.json()["hrr"]["points"] == []
+    assert again.json()["hrr"]["design"] == DESIGN
+    assert again.json()["cursor"] == "1"
+
+
+@pytest.mark.asyncio
+async def test_design_is_kept_when_later_pushes_omit_it_or_send_null(
+    client: AsyncClient,
+):
+    run_id = await _run(client)
+    first = await client.post(
+        PUSH,
+        json=_body(run_id, design=DESIGN, hrr=[{"t": 1.0, "hrr": 1.0}]),
+        headers=API_KEY_HEADER,
+    )
+    assert first.status_code == 200
+
+    omitted = await client.post(
+        PUSH,
+        json=_body(run_id, hrr=[{"t": 2.0, "hrr": 2.0}]),
+        headers=API_KEY_HEADER,
+    )
+    assert omitted.status_code == 200
+    kept = (
+        await client.get(_series(run_id), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert kept["hrr"]["design"] == DESIGN
+
+    cleared = await client.post(
+        PUSH,
+        json=_body(run_id, design=None, hrr=[{"t": 3.0, "hrr": 3.0}]),
+        headers=API_KEY_HEADER,
+    )
+    assert cleared.status_code == 200
+    still = (
+        await client.get(_series(run_id), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert still["hrr"]["design"] == DESIGN
+    assert [point["t"] for point in still["hrr"]["points"]] == [1.0, 2.0, 3.0]
+
+
+@pytest.mark.asyncio
+async def test_a_later_design_list_replaces_the_stored_curve(client: AsyncClient):
+    run_id = await _run(client)
+    await client.post(
+        PUSH, json=_body(run_id, design=DESIGN), headers=API_KEY_HEADER
+    )
+    replacement = [{"t": 0.0, "hrr": 0.0}, {"t": 10.0, "hrr": 500.0}]
+    replaced = await client.post(
+        PUSH, json=_body(run_id, design=replacement), headers=API_KEY_HEADER
+    )
+    assert replaced.status_code == 200
+    body = (
+        await client.get(_series(run_id), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert body["hrr"]["design"] == replacement
+    assert body["cursor"] == "0"
+
+
+@pytest.mark.asyncio
+async def test_design_null_with_no_curve_stays_null(client: AsyncClient):
+    run_id = await _run(client)
+    pushed = await client.post(
+        PUSH,
+        json=_body(run_id, design=None, hrr=[{"t": 1.0, "hrr": 4.0}]),
+        headers=API_KEY_HEADER,
+    )
+    assert pushed.status_code == 200
+    body = (
+        await client.get(_series(run_id), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert body["hrr"]["design"] is None
+    assert body["hrr"]["points"] == [{"t": 1.0, "v": 4.0}]
+
+
+@pytest.mark.asyncio
+async def test_design_curves_do_not_cross_runs(client: AsyncClient):
+    first = await _run(client, case_name="one.fds")
+    second = await _run(client, case_name="two.fds")
+    await client.post(
+        PUSH, json=_body(first, design=DESIGN), headers=API_KEY_HEADER
+    )
+    await client.post(
+        PUSH,
+        json=_body(second, case_name="two.fds", chid="two", design=None),
+        headers=API_KEY_HEADER,
+    )
+    one = (
+        await client.get(_series(first), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    two = (
+        await client.get(_series(second), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert one["hrr"]["design"] == DESIGN
+    assert two["hrr"]["design"] is None
+
+
+@pytest.mark.asyncio
+async def test_design_is_not_thinned_or_capped_like_samples(client: AsyncClient):
+    run_id = await _run(client)
+    design = [{"t": i * 0.25, "hrr": float(i)} for i in range(61)]
+    pushed = await client.post(
+        PUSH, json=_body(run_id, design=design), headers=API_KEY_HEADER
+    )
+    assert pushed.status_code == 200
+    body = (
+        await client.get(_series(run_id), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert body["hrr"]["design"] == design
+    assert body["hrr"]["points"] == []
+    assert body["cursor"] == "0"
+
+
+@pytest.mark.asyncio
+async def test_non_finite_design_is_rejected_and_leaves_the_stored_curve(
+    client: AsyncClient,
+):
+    run_id = await _run(client)
+    stored = await client.post(
+        PUSH, json=_body(run_id, design=DESIGN), headers=API_KEY_HEADER
+    )
+    assert stored.status_code == 200
+    rejected = await client.post(
+        PUSH,
+        json=_body(run_id, design=[{"t": 1.0, "hrr": "NaN"}]),
+        headers=API_KEY_HEADER,
+    )
+    assert rejected.status_code == 400
+    body = (
+        await client.get(_series(run_id), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert body["hrr"]["design"] == DESIGN
+
+
+@pytest.mark.asyncio
+async def test_completed_run_keeps_its_design_curve(client: AsyncClient):
+    run_id = await _run(client)
+    await client.post(
+        PUSH,
+        json=_body(run_id, design=DESIGN, hrr=[{"t": 1.0, "hrr": 40.0}]),
+        headers=API_KEY_HEADER,
+    )
+    done = await client.post(
+        "/cfd-dashboard/status",
+        json={
+            "event": "sim_completed",
+            "machine_name": "Superbot",
+            "run_id": run_id,
+            "case_name": "warehouse.fds",
+        },
+        headers=API_KEY_HEADER,
+    )
+    assert done.status_code == 200
+    body = (
+        await client.get(_series(run_id), params={"devices": ""}, headers=API_KEY_HEADER)
+    ).json()
+    assert body["hrr"]["design"] == DESIGN
+    assert body["hrr"]["points"] == [{"t": 1.0, "v": 40.0}]
+
+
 # --- A finished run keeps the series. The same GET still works. ---
 
 
@@ -648,5 +849,6 @@ def test_series_migration_follows_phase1_head():
         "run_series_points",
         "run_series_counters",
         "run_devc_selections",
+        "run_hrr_designs",
     ):
         assert name in body

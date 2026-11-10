@@ -217,6 +217,17 @@ class RunSeriesCounter(Base):
     last_seq = Column(Integer, nullable=False, default=0)
 
 
+class RunHrrDesign(Base):
+    """Design HRR curve for one run. Points stay {t, hrr}, as the runner sent them."""
+
+    __tablename__ = "run_hrr_designs"
+
+    run_id = Column(
+        Uuid, ForeignKey("runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    points = Column(JSONB, nullable=False)
+
+
 class RunDevcSelection(Base):
     """Columns the page asked the runner to sample, in picker order."""
 

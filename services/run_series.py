@@ -18,6 +18,12 @@ Seq is one counter per run and is never reused. The GET cursor is the
 newest seq included in that response, as a decimal string. Pass it back
 as since. Omit since to load history, which is what the page does when
 the selected device changes.
+
+design is the runner's target HRR curve: a list of {t, hrr}, sent once.
+A list replaces the curve stored on the run. Null or omission leaves it.
+GET returns that list as hrr.design, or null when no list is stored.
+The 1s / 60-point sample caps do not apply, and design does not move
+the cursor.
 """
 
 from __future__ import annotations
@@ -31,6 +37,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.cfd_models import (
     RunDevcSelection,
+    RunHrrDesign,
     RunSeriesColumn,
     RunSeriesCounter,
     RunSeriesPoint,
@@ -439,10 +446,51 @@ async def store_series(
     hrr: list[tuple[float, float]],
     devc_columns: list[tuple[str, Optional[str], Optional[str]]],
     devc: list[tuple[float, dict]],
+    design: Optional[list[tuple[float, float]]] = None,
 ) -> dict:
     hrr_stored = await _store_hrr(db, run_id, hrr)
     await _store_devc(db, run_id, devc_columns, devc)
+    await _store_design(db, run_id, design)
     return hrr_stored
+
+
+async def _store_design(
+    db: AsyncSession,
+    run_id: uuid.UUID,
+    design: Optional[list[tuple[float, float]]],
+) -> None:
+    """Store a design list as sent. None means this push did not include one."""
+    if design is None:
+        return
+    points = [
+        {
+            "t": _require_finite(raw_t, "t"),
+            "hrr": _require_finite(raw_hrr, "hrr"),
+        }
+        for raw_t, raw_hrr in design
+    ]
+    result = await db.execute(
+        select(RunHrrDesign).where(RunHrrDesign.run_id == run_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        db.add(RunHrrDesign(run_id=run_id, points=points))
+    else:
+        row.points = points
+    await db.flush()
+
+
+async def _read_design(db: AsyncSession, run_id: uuid.UUID):
+    result = await db.execute(
+        select(RunHrrDesign).where(RunHrrDesign.run_id == run_id)
+    )
+    row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return [
+        {"t": point["t"], "hrr": point["hrr"]}
+        for point in row.points
+    ]
 
 
 async def _store_hrr(
@@ -555,7 +603,11 @@ async def read_series(
         seqs.append(int(row.seq))
     return {
         "cursor": _cursor(seqs, since),
-        "hrr": {"unit": HRR_UNIT, "points": hrr_points, "design": None},
+        "hrr": {
+            "unit": HRR_UNIT,
+            "points": hrr_points,
+            "design": await _read_design(db, run_id),
+        },
         "devices": await _read_columns(db, run_id),
         "series": series,
     }

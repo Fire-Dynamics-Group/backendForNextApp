@@ -85,6 +85,15 @@ def upgrade() -> None:
             sa.PrimaryKeyConstraint("run_id"),
         )
 
+    if "run_hrr_designs" not in tables:
+        op.create_table(
+            "run_hrr_designs",
+            sa.Column("run_id", sa.Uuid(), nullable=False),
+            sa.Column("points", sa.JSON(), nullable=False),
+            sa.ForeignKeyConstraint(["run_id"], ["runs.id"], ondelete="CASCADE"),
+            sa.PrimaryKeyConstraint("run_id"),
+        )
+
     if "run_devc_selections" not in tables:
         op.create_table(
             "run_devc_selections",
@@ -99,6 +108,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     bind = op.get_bind()
     tables = set(sa.inspect(bind).get_table_names())
+    if "run_hrr_designs" in tables:
+        op.drop_table("run_hrr_designs")
     if "run_devc_selections" in tables:
         op.drop_table("run_devc_selections")
     if "run_series_counters" in tables:

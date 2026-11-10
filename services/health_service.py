@@ -32,6 +32,7 @@ REQUIRED_TABLES = (
     "run_series_points",
     "run_series_counters",
     "run_devc_selections",
+    "run_hrr_designs",
 )
 
 HEALTHY = "healthy"

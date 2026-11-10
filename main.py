@@ -193,6 +193,7 @@ async def _ensure_modelling_run_tables():
         RunCommand,
         RunDevcSelection,
         RunEvent,
+        RunHrrDesign,
         RunSeriesColumn,
         RunSeriesCounter,
         RunSeriesPoint,
@@ -207,6 +208,7 @@ async def _ensure_modelling_run_tables():
         RunSeriesPoint.__table__,
         RunSeriesCounter.__table__,
         RunDevcSelection.__table__,
+        RunHrrDesign.__table__,
     ]
     async with database.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all, tables=tables)
