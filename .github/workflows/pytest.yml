@@ -1,0 +1,44 @@
+name: Pytest
+
+# Pull-request gate for the local suite.
+#
+# On a pull request, projects-mode-smoke.yml runs only
+# test_smoke_projects_modes.py. Its live job (production by default) does
+# not run for pull_request. This workflow runs the full pytest collection
+# instead, including test_imacs_macs_results.py and
+# test_timeeq_reliability_endpoint.py.
+#
+# It does not run scripts/smoke_projects_modes.py. It does not set
+# SMOKE_BASE_URL, STAIRS_DEV_API, or any other API origin. With
+# STAIRS_DEV_API unset, test_stairs_dev_db.py skips before any request.
+# Ruff is not a step: this repo has no ruff config.
+#
+# scripts/mcp_smoke_test.py is a manual client for a local MCP server
+# (default http://127.0.0.1:8001/mcp/). The *_test.py name makes pytest
+# import it, and that import fails on current mcp, which aborts the run
+# before any test. Ignore it so the suite actually executes.
+
+on:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: Full local pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt -r requirements-dev.txt
+      - name: pytest
+        run: python -m pytest -q --tb=short --ignore=scripts/mcp_smoke_test.py
