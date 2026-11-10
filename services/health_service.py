@@ -13,13 +13,18 @@ from __future__ import annotations
 from typing import Mapping
 
 # The tables the API needs to serve its main routes. Missing ones mean the
-# migrations have not been run against this environment.
+# migrations have not been run against this environment. The three MACs tables
+# are included so a boot that could not create them shows up here.
+# smoke_layer_runs is not in this list.
 REQUIRED_TABLES = (
     "projects",
     "floors",
     "elements",
     "cfd_simulations",
     "cfd_runner_state",
+    "macs_runs",
+    "macs_handoffs",
+    "imacs_job_links",
 )
 
 HEALTHY = "healthy"
