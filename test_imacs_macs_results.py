@@ -18,6 +18,7 @@ Model:
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -38,7 +39,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
 
 from auth import entra  # noqa: E402
 from database import Base  # noqa: E402
-from models.db_models import Project  # noqa: E402
+from models.db_models import MacsHandoff, Project  # noqa: E402
 from test_auth import _FakeJwks, entra_token  # noqa: E402
 
 APP_KEY = "test-imacs-app-key-not-a-real-secret"
@@ -427,6 +428,192 @@ async def test_claim_missing_handoff_or_project_404(
         f"/projects/{uuid.uuid4()}/macs-handoffs/{hid}/claim", headers=user_headers
     )
     assert r2.status_code == 404
+
+
+def _is_handoff_read(statement) -> bool:
+    descriptions = getattr(statement, "column_descriptions", None) or []
+    return any(d.get("entity") is MacsHandoff for d in descriptions)
+
+
+def _hold_both_handoff_reads(monkeypatch):
+    """Release both claim reads only after each has loaded the unclaimed row.
+
+    Without this, SQLite often runs one request to commit before the other
+    starts, which hides the check-then-write race.
+    """
+    release = asyncio.Event()
+    state = {"n": 0}
+    real_execute = AsyncSession.execute
+
+    async def gated_execute(self, statement, *args, **kwargs):
+        result = await real_execute(self, statement, *args, **kwargs)
+        if _is_handoff_read(statement):
+            state["n"] += 1
+            if state["n"] >= 2:
+                release.set()
+            await release.wait()
+        return result
+
+    monkeypatch.setattr(AsyncSession, "execute", gated_execute)
+    return state
+
+
+def _response_snapshot(result) -> str:
+    if isinstance(result, Exception):
+        return f"{type(result).__name__}: {result}"
+    return f"{result.status_code} {result.text}"
+
+
+@pytest.mark.asyncio
+async def test_claim_conflict_body_matches_get_handoff(
+    client: AsyncClient, make_project, user_headers
+):
+    """A second claim returns the same JSON object as GET /handoffs/{id}."""
+    owner = await make_project("Already claimed")
+    other = await make_project("Late claim")
+    created = await client.post(
+        "/imacs/handoffs",
+        json={**VALID_RUN, "imacs_job_id": "job-claim-shape"},
+        headers=key_headers(),
+    )
+    assert created.status_code == 201, created.text
+    hid = created.json()["handoff_id"]
+
+    first = await client.post(
+        f"/projects/{owner}/macs-handoffs/{hid}/claim", headers=user_headers
+    )
+    assert first.status_code == 200, first.text
+
+    claim = await client.post(
+        f"/projects/{other}/macs-handoffs/{hid}/claim", headers=user_headers
+    )
+    fetched = await client.get(f"/handoffs/{hid}", headers=user_headers)
+    assert claim.status_code == 409, claim.text
+    assert fetched.status_code == 409, fetched.text
+    assert claim.json()["detail"] == fetched.json()["detail"]
+    assert claim.json()["detail"] == {
+        "message": "Handoff has already been claimed",
+        "claimed_by_project_id": owner,
+    }
+
+
+@pytest.mark.asyncio
+async def test_concurrent_claim_loser_matches_get_conflict(
+    client: AsyncClient, make_project, user_headers, monkeypatch
+):
+    """Two in-flight claims: one wins, the other gets the GET 409 object.
+
+    The loser must not commit a second job link (that insert is the primary key
+    that turns this race into a 500).
+    """
+    project_a = await make_project("Claim A")
+    project_b = await make_project("Claim B")
+    created = await client.post(
+        "/imacs/handoffs",
+        json={**VALID_RUN, "imacs_job_id": "job-claim-race"},
+        headers=key_headers(),
+    )
+    assert created.status_code == 201, created.text
+    hid = created.json()["handoff_id"]
+    _hold_both_handoff_reads(monkeypatch)
+
+    results = await asyncio.wait_for(
+        asyncio.gather(
+            client.post(
+                f"/projects/{project_a}/macs-handoffs/{hid}/claim",
+                headers=user_headers,
+            ),
+            client.post(
+                f"/projects/{project_b}/macs-handoffs/{hid}/claim",
+                headers=user_headers,
+            ),
+            return_exceptions=True,
+        ),
+        timeout=8,
+    )
+    snapshot = [_response_snapshot(r) for r in results]
+    assert all(not isinstance(r, Exception) for r in results), snapshot
+    by_status = {r.status_code: r for r in results}
+    assert sorted(by_status) == [200, 409], snapshot
+
+    winner = by_status[200].json()
+    loser = by_status[409].json()["detail"]
+    assert loser == {
+        "message": "Handoff has already been claimed",
+        "claimed_by_project_id": winner["project_id"],
+    }
+    fetched = await client.get(f"/handoffs/{hid}", headers=user_headers)
+    assert fetched.status_code == 409, fetched.text
+    assert fetched.json()["detail"] == loser
+
+    summary = await client.get("/imacs/jobs/job-claim-race/summary", headers=key_headers())
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["project_id"] == winner["project_id"]
+    history = await client.get(
+        f"/projects/{winner['project_id']}/macs-runs", headers=user_headers
+    )
+    assert history.status_code == 200
+    assert len(history.json()) == 1
+    other_id = project_b if winner["project_id"] == project_a else project_a
+    other_history = await client.get(
+        f"/projects/{other_id}/macs-runs", headers=user_headers
+    )
+    assert other_history.json() == []
+
+
+@pytest.mark.asyncio
+async def test_concurrent_create_with_handoff_loser_matches_get_conflict(
+    client: AsyncClient, user_headers, monkeypatch
+):
+    """Two creates of the same handoff: one project, one GET-shaped 409."""
+    created = await client.post(
+        "/imacs/handoffs",
+        json={**VALID_RUN, "imacs_job_id": "job-create-race"},
+        headers=key_headers(),
+    )
+    assert created.status_code == 201, created.text
+    hid = created.json()["handoff_id"]
+    _hold_both_handoff_reads(monkeypatch)
+
+    results = await asyncio.wait_for(
+        asyncio.gather(
+            client.post(
+                "/projects",
+                json={"name": "Create A", "mode": "timeEq", "handoff_id": hid},
+                headers=user_headers,
+            ),
+            client.post(
+                "/projects",
+                json={"name": "Create B", "mode": "timeEq", "handoff_id": hid},
+                headers=user_headers,
+            ),
+            return_exceptions=True,
+        ),
+        timeout=8,
+    )
+    snapshot = [_response_snapshot(r) for r in results]
+    assert all(not isinstance(r, Exception) for r in results), snapshot
+    by_status = {r.status_code: r for r in results}
+    assert sorted(by_status) == [201, 409], snapshot
+
+    winner_id = by_status[201].json()["id"]
+    loser = by_status[409].json()["detail"]
+    assert loser == {
+        "message": "Handoff has already been claimed",
+        "claimed_by_project_id": winner_id,
+    }
+    fetched = await client.get(f"/handoffs/{hid}", headers=user_headers)
+    assert fetched.status_code == 409, fetched.text
+    assert fetched.json()["detail"] == loser
+
+    listed = await client.get("/projects", headers=user_headers)
+    assert listed.status_code == 200, listed.text
+    names = {row["name"] for row in listed.json()}
+    assert names == {by_status[201].json()["name"]}
+
+    summary = await client.get("/imacs/jobs/job-create-race/summary", headers=key_headers())
+    assert summary.status_code == 200, summary.text
+    assert summary.json()["project_id"] == winner_id
 
 
 # ==============================================================================

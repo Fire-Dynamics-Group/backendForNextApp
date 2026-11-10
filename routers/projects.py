@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -24,6 +25,62 @@ from models.project_schemas import (
 )
 
 router = APIRouter()
+
+
+def claimed_handoff_detail(project_id) -> dict:
+    """Same 409 object as GET /handoffs/{id}."""
+    return {
+        "message": "Handoff has already been claimed",
+        "claimed_by_project_id": str(project_id) if project_id else None,
+    }
+
+
+async def claim_handoff_once(
+    db: AsyncSession, handoff: MacsHandoff, project_id: uuid.UUID
+) -> None:
+    """Attach this handoff to project_id only when claimed_at is still null.
+
+    Two requests can both observe a null claimed_at. The conditional update is
+    the gate: one row matches, the other comes back empty and raises 409.
+    """
+    now = datetime.now(timezone.utc)
+    handoff_id = handoff.id
+    lock_error = None
+    try:
+        claimed_id = (
+            await db.execute(
+                update(MacsHandoff)
+                .where(
+                    MacsHandoff.id == handoff_id,
+                    MacsHandoff.claimed_at.is_(None),
+                )
+                .values(claimed_at=now, claimed_project_id=project_id)
+                .returning(MacsHandoff.id)
+            )
+        ).scalar_one_or_none()
+    except OperationalError as exc:
+        claimed_id = None
+        lock_error = exc
+    if claimed_id is not None:
+        handoff.claimed_at = now
+        handoff.claimed_project_id = project_id
+        return
+
+    await db.rollback()
+    # Column select, not the entity: rollback expired the loaded handoff, and
+    # touching that instance would lazy-load outside the async greenlet.
+    current = (
+        await db.execute(
+            select(MacsHandoff.claimed_at, MacsHandoff.claimed_project_id).where(
+                MacsHandoff.id == handoff_id
+            )
+        )
+    ).one_or_none()
+    if current is not None and current.claimed_at is not None:
+        raise HTTPException(409, claimed_handoff_detail(current.claimed_project_id))
+    if lock_error is not None:
+        raise lock_error
+    raise HTTPException(404, "Handoff not found")
 
 
 @router.post("", response_model=ProjectSummary, status_code=201)
@@ -44,13 +101,7 @@ async def create_project(
         if handoff is None:
             raise HTTPException(404, "Handoff not found")
         if handoff.claimed_at is not None:
-            raise HTTPException(
-                status_code=409,
-                detail={
-                    "message": "Handoff has already been claimed",
-                    "claimed_by_project_id": str(handoff.claimed_project_id) if handoff.claimed_project_id else None,
-                },
-            )
+            raise HTTPException(409, claimed_handoff_detail(handoff.claimed_project_id))
         exp = handoff.expires_at if handoff.expires_at.tzinfo else handoff.expires_at.replace(tzinfo=timezone.utc)
         if exp < datetime.now(timezone.utc):
             raise HTTPException(410, "Handoff has expired")
@@ -73,9 +124,8 @@ async def create_project(
     await db.flush()
 
     if handoff is not None:
+        await claim_handoff_once(db, handoff, project.id)
         handoff.run.project_id = project.id
-        handoff.claimed_at = datetime.now(timezone.utc)
-        handoff.claimed_project_id = project.id
         macs_batch = dict((handoff.run.outputs or {}).get("macs_batch") or {})
 
         # If project name is default/generic, adopt the batch/project name from desktop
@@ -495,14 +545,13 @@ async def claim_macs_handoff(
     if handoff is None:
         raise HTTPException(404, "Handoff not found")
     if handoff.claimed_at is not None:
-        raise HTTPException(409, "Handoff has already been claimed")
+        raise HTTPException(409, claimed_handoff_detail(handoff.claimed_project_id))
     exp = handoff.expires_at if handoff.expires_at.tzinfo else handoff.expires_at.replace(tzinfo=timezone.utc)
     if exp < datetime.now(timezone.utc):
         raise HTTPException(410, "Handoff has expired")
 
+    await claim_handoff_once(db, handoff, project_id)
     handoff.run.project_id = project_id
-    handoff.claimed_at = datetime.now(timezone.utc)
-    handoff.claimed_project_id = project_id
 
     macs_batch = dict((handoff.run.outputs or {}).get("macs_batch") or {})
     if handoff.run.section and not macs_batch.get("governing_section"):
