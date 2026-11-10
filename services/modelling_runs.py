@@ -8,6 +8,27 @@ from datetime import datetime, timezone
 # Phase 2 turns this on. Nothing in phase 1 calls CloudHPC.
 CLOUDHPC_ENABLED = False
 
+
+class CloudHpcDisabled(RuntimeError):
+    """Raised by pull_csv while CLOUDHPC_ENABLED is off."""
+
+
+def pull_csv(run) -> None:
+    """Fetch *_hrr.csv and *_devc.csv for a CloudHPC run.
+
+    The adapter is not built. While CLOUDHPC_ENABLED is off this raises
+    CloudHpcDisabled and does not call the network. Two facts are still
+    unknown, and the adapter should not be written until they are:
+
+    - whether *_hrr.csv and *_devc.csv appear mid-run via sync/storage,
+      or only after the job finishes
+    - whether the fetch is GET /storage/view-url/{id} (mediaLink) or
+      GET /storage/download/{id}
+    """
+    if not CLOUDHPC_ENABLED:
+        raise CloudHpcDisabled("CloudHPC is disabled")
+    raise NotImplementedError("CloudHPC CSV adapter is not built")
+
 # The runner heartbeats about every 15s. Quiet for longer than this means offline.
 HEARTBEAT_OFFLINE_SECONDS = 90
 

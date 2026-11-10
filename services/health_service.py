@@ -26,6 +26,13 @@ REQUIRED_TABLES = (
     "runs",
     "run_events",
     "run_commands",
+    # Live HRR / DEVC series. Startup creates these with the modelling-run
+    # tables and refuses to boot if they are still missing.
+    "run_series_columns",
+    "run_series_points",
+    "run_series_counters",
+    "run_devc_selections",
+    "run_hrr_designs",
 )
 
 HEALTHY = "healthy"

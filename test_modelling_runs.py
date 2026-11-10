@@ -785,7 +785,17 @@ def test_cloudhpc_flag_defaults_off():
 def test_health_lists_modelling_tables():
     from services.health_service import REQUIRED_TABLES
 
-    for name in ("machines", "runs", "run_events", "run_commands"):
+    for name in (
+        "machines",
+        "runs",
+        "run_events",
+        "run_commands",
+        "run_series_columns",
+        "run_series_points",
+        "run_series_counters",
+        "run_devc_selections",
+        "run_hrr_designs",
+    ):
         assert name in REQUIRED_TABLES
 
 
@@ -811,16 +821,28 @@ async def test_startup_creates_modelling_tables_and_is_idempotent(monkeypatch):
     monkeypatch.setattr(database, "engine", engine)
     monkeypatch.setattr(database, "async_session", factory)
 
-    await main._ensure_modelling_run_tables()
-    await main._ensure_modelling_run_tables()
+    try:
+        await main._ensure_modelling_run_tables()
+        await main._ensure_modelling_run_tables()
 
-    async with engine.connect() as conn:
-        names = set(await conn.run_sync(lambda sync: inspect(sync).get_table_names()))
-    for table in ("machines", "runs", "run_events", "run_commands"):
-        assert table in names
-    await engine.dispose()
-    if os.path.exists(STARTUP_DB):
-        os.remove(STARTUP_DB)
+        async with engine.connect() as conn:
+            names = set(await conn.run_sync(lambda sync: inspect(sync).get_table_names()))
+        for table in (
+            "machines",
+            "runs",
+            "run_events",
+            "run_commands",
+            "run_series_columns",
+            "run_series_points",
+            "run_series_counters",
+            "run_devc_selections",
+            "run_hrr_designs",
+        ):
+            assert table in names
+    finally:
+        await engine.dispose()
+        if os.path.exists(STARTUP_DB):
+            os.remove(STARTUP_DB)
 
 
 @pytest.mark.asyncio
@@ -835,9 +857,11 @@ async def test_startup_fails_loudly_when_tables_are_missing(monkeypatch):
     monkeypatch.setattr(database, "engine", engine)
     monkeypatch.setattr(Base.metadata, "create_all", lambda *args, **kwargs: None)
 
-    with pytest.raises(RuntimeError, match="machines"):
-        await main._ensure_modelling_run_tables()
-
-    await engine.dispose()
-    if os.path.exists(db_path):
-        os.remove(db_path)
+    try:
+        with pytest.raises(RuntimeError, match="machines") as missing:
+            await main._ensure_modelling_run_tables()
+        assert "run_series_points" in str(missing.value)
+    finally:
+        await engine.dispose()
+        if os.path.exists(db_path):
+            os.remove(db_path)

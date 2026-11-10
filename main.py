@@ -174,7 +174,7 @@ async def _ensure_macs_tables():
 
 
 async def _ensure_modelling_run_tables():
-    """Create machines, runs, run_events, and run_commands on boot.
+    """Create machines, runs, events, commands, and chart series on boot.
 
     Railway starts uvicorn only, so an alembic-only table is missing in prod
     (smoke_layer_runs 500'd that way). Same create_all path as the other
@@ -187,13 +187,28 @@ async def _ensure_modelling_run_tables():
     from sqlalchemy import inspect
 
     from database import Base
-    from models.cfd_models import Machine, Run, RunCommand, RunEvent
+    from models.cfd_models import (
+        Machine,
+        Run,
+        RunCommand,
+        RunDevcSelection,
+        RunEvent,
+        RunHrrDesign,
+        RunSeriesColumn,
+        RunSeriesCounter,
+        RunSeriesPoint,
+    )
 
     tables = [
         Machine.__table__,
         Run.__table__,
         RunEvent.__table__,
         RunCommand.__table__,
+        RunSeriesColumn.__table__,
+        RunSeriesPoint.__table__,
+        RunSeriesCounter.__table__,
+        RunDevcSelection.__table__,
+        RunHrrDesign.__table__,
     ]
     async with database.engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all, tables=tables)

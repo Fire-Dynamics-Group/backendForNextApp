@@ -3,6 +3,7 @@
 Phase 1 adds machines, runs, run_events, and a per-machine command queue.
 The singleton cfd_runner_state row is still written for the first machine so
 GET /state keeps its old shape. A second machine does not overwrite it.
+Live charts: the runner POSTs /series, the page GETs /runs/{id}/series.
 Every route requires X-API-Key (FDS_API_KEY).
 """
 
@@ -31,6 +32,13 @@ from services.modelling_runs import (
     CLOUDHPC_ENABLED,
     as_utc,
     effective_machine_status,
+)
+from services.run_series import (
+    SeriesRejected,
+    get_devc_selection,
+    read_series,
+    set_devc_selection,
+    store_series,
 )
 
 logger = logging.getLogger(__name__)
@@ -62,6 +70,40 @@ class RunCreate(BaseModel):
 class CommandAck(BaseModel):
     status: str
     error: Optional[str] = None
+
+
+class HrrPointIn(BaseModel):
+    t: float
+    hrr: float
+
+
+class DevcColumnIn(BaseModel):
+    id: str
+    quantity: Optional[str] = None
+    unit: Optional[str] = None
+
+
+class DevcSampleIn(BaseModel):
+    t: float
+    values: Dict[str, float]
+
+
+class SeriesPush(BaseModel):
+    """Runner push. hrr points are {t, hrr} only. devc rows are one time
+    and the columns the runner is sampling.
+
+    design is the target HRR curve, {t, hrr} points or null. The runner
+    sends it once. Null and omission leave a curve already stored.
+    """
+
+    run_id: str
+    machine_name: Optional[str] = None
+    case_name: Optional[str] = None
+    chid: Optional[str] = None
+    devc_columns: List[DevcColumnIn] = []
+    hrr: List[HrrPointIn] = []
+    devc: List[DevcSampleIn] = []
+    design: Optional[List[HrrPointIn]] = None
 
 
 def verify_api_key(x_api_key: str = Header(...)):
@@ -942,3 +984,85 @@ async def _require_local_run(db: AsyncSession, run_id: str) -> Run:
     if run.machine_id is None:
         raise HTTPException(status_code=400, detail="Run has no machine")
     return run
+
+
+def _parse_since(raw: Optional[str]) -> Optional[int]:
+    if raw is None or not str(raw).strip():
+        return None
+    try:
+        return int(str(raw).strip())
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail="since must be an integer cursor"
+        ) from exc
+
+
+def _parse_device_ids(raw: str) -> List[str]:
+    chosen: List[str] = []
+    seen = set()
+    for part in raw.split(","):
+        column_id = part.strip()
+        if not column_id or column_id in seen:
+            continue
+        seen.add(column_id)
+        chosen.append(column_id)
+    return chosen
+
+
+async def _require_run(db: AsyncSession, run_id: str) -> Run:
+    run = await _get_run(db, run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Unknown run")
+    return run
+
+
+@router.post("/series")
+async def push_series(body: SeriesPush, db: AsyncSession = Depends(get_db)):
+    """Runner push. 2xx only after the rows commit, so the file cursor can move."""
+    run = await _require_run(db, body.run_id)
+    try:
+        await store_series(
+            db,
+            run.id,
+            [(point.t, point.hrr) for point in body.hrr],
+            [
+                (column.id, column.quantity, column.unit)
+                for column in body.devc_columns
+            ],
+            [(point.t, dict(point.values)) for point in body.devc],
+            None
+            if body.design is None
+            else [(point.t, point.hrr) for point in body.design],
+        )
+    except SeriesRejected as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    selected = await get_devc_selection(db, run.id)
+    await db.commit()
+    return {"selected_devc": selected}
+
+
+@router.get("/runs/{run_id}/series")
+async def get_series(
+    run_id: str,
+    since: Optional[str] = None,
+    devices: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Page poll. since is the previous cursor. devices is the selection.
+
+    An empty devices list returns the column catalog and no DEVC samples,
+    and clears the selection the runner is told on its next push.
+    """
+    run = await _require_run(db, run_id)
+    parsed_since = _parse_since(since)
+    if devices is not None:
+        try:
+            device_ids = await set_devc_selection(
+                db, run.id, _parse_device_ids(devices)
+            )
+        except SeriesRejected as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        await db.commit()
+    else:
+        device_ids = await get_devc_selection(db, run.id)
+    return await read_series(db, run.id, parsed_since, device_ids)
