@@ -20,6 +20,12 @@ REQUIRED_TABLES = (
     "elements",
     "cfd_simulations",
     "cfd_runner_state",
+    # Phase-1 modelling runs. Startup creates these and refuses to boot if
+    # they are still missing; /health names them if a later check finds a gap.
+    "machines",
+    "runs",
+    "run_events",
+    "run_commands",
 )
 
 HEALTHY = "healthy"

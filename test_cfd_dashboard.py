@@ -127,7 +127,7 @@ async def test_sim_started_creates_running_sim(client: AsyncClient):
     assert resp.status_code == 200
 
     # Verify via GET /state
-    state_resp = await client.get("/cfd-dashboard/state")
+    state_resp = await client.get("/cfd-dashboard/state", headers=API_KEY_HEADER)
     state = state_resp.json()
     assert state["current"] is not None
     assert state["current"]["name"] == "case1.fds"
@@ -164,7 +164,7 @@ async def test_sim_progress_updates(client: AsyncClient):
     )
     assert resp.status_code == 200
 
-    state = (await client.get("/cfd-dashboard/state")).json()
+    state = (await client.get("/cfd-dashboard/state", headers=API_KEY_HEADER)).json()
     assert state["current"]["progress_pct"] == 45.5
 
 
@@ -193,7 +193,7 @@ async def test_sim_completed(client: AsyncClient):
     )
     assert resp.status_code == 200
 
-    state = (await client.get("/cfd-dashboard/state")).json()
+    state = (await client.get("/cfd-dashboard/state", headers=API_KEY_HEADER)).json()
     # No longer running
     assert state["current"] is None
     # Should appear in completed list
@@ -208,7 +208,7 @@ async def test_sim_completed(client: AsyncClient):
 
 @pytest.mark.asyncio
 async def test_get_state_structure(client: AsyncClient):
-    state = (await client.get("/cfd-dashboard/state")).json()
+    state = (await client.get("/cfd-dashboard/state", headers=API_KEY_HEADER)).json()
     assert "runner" in state
     assert "current" in state
     assert "queue" in state
@@ -235,7 +235,7 @@ async def test_runner_started_creates_queued_sims(client: AsyncClient):
         headers=API_KEY_HEADER,
     )
 
-    state = (await client.get("/cfd-dashboard/state")).json()
+    state = (await client.get("/cfd-dashboard/state", headers=API_KEY_HEADER)).json()
     queue_names = [s["name"] for s in state["queue"]]
     assert "alpha.fds" in queue_names
     assert "beta.fds" in queue_names
@@ -269,7 +269,7 @@ async def test_sim_error(client: AsyncClient):
     )
     assert resp.status_code == 200
 
-    state = (await client.get("/cfd-dashboard/state")).json()
+    state = (await client.get("/cfd-dashboard/state", headers=API_KEY_HEADER)).json()
     assert state["current"] is None
     assert any(s["name"] == "bad.fds" for s in state["errors"])
     error_sim = next(s for s in state["errors"] if s["name"] == "bad.fds")
@@ -296,5 +296,5 @@ async def test_runner_idle(client: AsyncClient):
     )
     assert resp.status_code == 200
 
-    state = (await client.get("/cfd-dashboard/state")).json()
+    state = (await client.get("/cfd-dashboard/state", headers=API_KEY_HEADER)).json()
     assert state["runner"]["status"] == "idle"
