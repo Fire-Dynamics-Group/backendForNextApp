@@ -8,8 +8,10 @@ name: Pytest
 # instead, including test_imacs_macs_results.py and
 # test_timeeq_reliability_endpoint.py.
 #
-# It does not run scripts/smoke_projects_modes.py and does not set
-# SMOKE_BASE_URL. Ruff is not a step: this repo has no ruff config.
+# It does not run scripts/smoke_projects_modes.py. It does not set
+# SMOKE_BASE_URL, STAIRS_DEV_API, or any other API origin. With
+# STAIRS_DEV_API unset, test_stairs_dev_db.py skips before any request.
+# Ruff is not a step: this repo has no ruff config.
 #
 # scripts/mcp_smoke_test.py is a manual client for a local MCP server
 # (default http://127.0.0.1:8001/mcp/). The *_test.py name makes pytest

@@ -8,10 +8,11 @@ invariants missed: a flight can be non-degenerate, monotonic in z and inside the
 landings' bounding box yet still stop short of the destination landing — see
 Sam's Big Residential Project, a y-direction stair).
 
-Network test. Skips cleanly when the dev API is unreachable (offline / CI
-without egress). Override the endpoint with STAIRS_DEV_API.
+Network test. Makes no request unless STAIRS_DEV_API is set to an API
+origin. The pull-request suite leaves that variable unset, so this module
+skips. If it is set and the host does not answer, the module skips too.
 
-Run just this file:  pytest test_stairs_dev_db.py -v
+Run just this file:  STAIRS_DEV_API=https://<origin> pytest test_stairs_dev_db.py -v
 """
 import json
 import os
@@ -20,10 +21,16 @@ import urllib.request
 
 import pytest
 
+API = os.environ.get("STAIRS_DEV_API", "").strip().rstrip("/")
+if not API:
+    pytest.skip(
+        "STAIRS_DEV_API is unset; this file calls a live API",
+        allow_module_level=True,
+    )
+
 from fds import convertElPointsToCoords, makeElementsRelativeToOrigin, returnOrigin
 from stairs_fds import setup_landings
 
-API = os.environ.get("STAIRS_DEV_API", "https://backendfornextapp-dev.up.railway.app")
 # Geometry invariants below are independent of the vertical params (they affect z
 # heights / flight count, not the run-axis placement), so fixed values are fine.
 PARAMS = dict(fire_floor=2, total_floors=6, z=10.0, stair_enclosure_roof_z=30.0, px_per_m=33.6)
