@@ -106,6 +106,8 @@ async def create_project(
             time_eq_inputs["criticalTemp"] = handoff.run.critical_temp
         if not time_eq_inputs.get("sectionFactor") and handoff.run.section_factor is not None:
             time_eq_inputs["sectionFactor"] = handoff.run.section_factor
+        if not time_eq_inputs.get("exposure") and handoff.run.exposure:
+            time_eq_inputs["exposure"] = handoff.run.exposure
         if not time_eq_inputs.get("macsRunId") and handoff.run.id:
             time_eq_inputs["macsRunId"] = str(handoff.run.id)
         new_settings["timeEqInputs"] = time_eq_inputs
@@ -523,6 +525,8 @@ async def claim_macs_handoff(
         time_eq_inputs["criticalTemp"] = handoff.run.critical_temp
     if not time_eq_inputs.get("sectionFactor") and handoff.run.section_factor is not None:
         time_eq_inputs["sectionFactor"] = handoff.run.section_factor
+    if not time_eq_inputs.get("exposure") and handoff.run.exposure:
+        time_eq_inputs["exposure"] = handoff.run.exposure
     if not time_eq_inputs.get("macsRunId") and handoff.run.id:
         time_eq_inputs["macsRunId"] = str(handoff.run.id)
     new_settings["timeEqInputs"] = time_eq_inputs

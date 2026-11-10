@@ -38,7 +38,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
 
 from auth import entra  # noqa: E402
 from database import Base  # noqa: E402
-from models.db_models import Project  # noqa: E402
+from models.db_models import MacsHandoff, MacsRun, Project  # noqa: E402
 from test_auth import _FakeJwks, entra_token  # noqa: E402
 
 APP_KEY = "test-imacs-app-key-not-a-real-secret"
@@ -783,6 +783,131 @@ async def test_macs_batch_persisted_on_handoff_claim(client, user_headers):
     proj_resp = await client.get(f"/projects/{pid}", headers=user_headers)
     assert proj_resp.status_code == 200
     assert proj_resp.json()["settings"]["macsBatch"]["batch_id"] == "b-handoff-456"
+
+
+async def _insert_handoff(session_factory, *, exposure: str, job_id: str) -> tuple[str, str]:
+    """Store a handoff row directly so exposure can be blank.
+
+    POST /imacs/handoffs rejects a missing or unknown exposure, so the
+    'do not invent 3-sided' case cannot go through that route.
+    """
+    now = datetime.now(timezone.utc)
+    async with session_factory() as session:
+        run = MacsRun(
+            schema_="fd-macs-reliability/1",
+            inputs={},
+            outputs={},
+            checks=[],
+            time_series=[],
+            section="IPE_500",
+            exposure=exposure,
+            critical_temp=690,
+            section_factor=152,
+            governing_side="B",
+            windows_user="jbloggs",
+            client_timestamp=now,
+            imacs_job_id=job_id,
+        )
+        session.add(run)
+        await session.flush()
+        handoff = MacsHandoff(
+            run_id=run.id,
+            imacs_job_id=job_id,
+            created_at=now,
+            expires_at=now + timedelta(hours=1),
+        )
+        session.add(handoff)
+        await session.commit()
+        return str(handoff.id), str(run.id)
+
+
+@pytest.mark.asyncio
+async def test_create_with_handoff_copies_run_exposure(client, user_headers):
+    created = await client.post(
+        "/imacs/handoffs",
+        json={**VALID_RUN, "exposure": "4-sided", "imacs_job_id": "job-exposure-create"},
+        headers=key_headers(),
+    )
+    assert created.status_code == 201, created.text
+    hid = created.json()["handoff_id"]
+
+    proj = await client.post(
+        "/projects",
+        json={"name": "Exposure create", "mode": "timeEq", "handoff_id": hid},
+        headers=user_headers,
+    )
+    assert proj.status_code == 201, proj.text
+    pid = proj.json()["id"]
+
+    fetched = await client.get(f"/projects/{pid}", headers=user_headers)
+    assert fetched.status_code == 200, fetched.text
+    inputs = fetched.json()["settings"]["timeEqInputs"]
+    assert inputs["exposure"] == "4-sided"
+    assert inputs["section"] == "IPE_500"
+    assert inputs["criticalTemp"] == 690.0
+    assert inputs["sectionFactor"] == 152.0
+    assert inputs["macsRunId"]
+
+
+@pytest.mark.asyncio
+async def test_claim_copies_run_exposure(client, make_project, user_headers):
+    pid = await make_project("Exposure claim", settings={})
+    created = await client.post(
+        "/imacs/handoffs",
+        json={**VALID_RUN, "exposure": "4-sided", "imacs_job_id": "job-exposure-claim"},
+        headers=key_headers(),
+    )
+    assert created.status_code == 201, created.text
+    hid = created.json()["handoff_id"]
+
+    claim = await client.post(
+        f"/projects/{pid}/macs-handoffs/{hid}/claim", headers=user_headers
+    )
+    assert claim.status_code == 200, claim.text
+
+    fetched = await client.get(f"/projects/{pid}", headers=user_headers)
+    assert fetched.status_code == 200, fetched.text
+    inputs = fetched.json()["settings"]["timeEqInputs"]
+    assert inputs["exposure"] == "4-sided"
+    assert inputs["macsRunId"] == claim.json()["id"]
+
+
+@pytest.mark.asyncio
+async def test_missing_exposure_is_not_invented(
+    client, make_project, user_headers, session_factory
+):
+    create_hid, _ = await _insert_handoff(
+        session_factory, exposure="", job_id="job-exposure-blank-create"
+    )
+    proj = await client.post(
+        "/projects",
+        json={"name": "Blank exposure create", "mode": "timeEq", "handoff_id": create_hid},
+        headers=user_headers,
+    )
+    assert proj.status_code == 201, proj.text
+    created = await client.get(f"/projects/{proj.json()['id']}", headers=user_headers)
+    created_inputs = created.json()["settings"]["timeEqInputs"]
+    assert "exposure" not in created_inputs
+    assert created_inputs.get("exposure") != "3-sided"
+    assert created_inputs["section"] == "IPE_500"
+
+    claim_hid, _ = await _insert_handoff(
+        session_factory, exposure="", job_id="job-exposure-blank-claim"
+    )
+    pid = await make_project("Blank exposure claim", settings={})
+    claim = await client.post(
+        f"/projects/{pid}/macs-handoffs/{claim_hid}/claim", headers=user_headers
+    )
+    assert claim.status_code == 200, claim.text
+    claimed = await client.get(f"/projects/{pid}", headers=user_headers)
+    claimed_inputs = claimed.json()["settings"]["timeEqInputs"]
+    assert "exposure" not in claimed_inputs
+    assert claimed_inputs.get("exposure") != "3-sided"
+
+
+# ==============================================================================
+# Structural fire report
+# ==============================================================================
 
 
 @pytest.mark.asyncio
