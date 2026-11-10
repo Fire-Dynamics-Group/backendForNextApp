@@ -8,8 +8,10 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     Text,
+    UniqueConstraint,
     Uuid,
 )
 from sqlalchemy import JSON as JSONB
@@ -153,3 +155,75 @@ class RunCommand(Base):
             name="ck_run_commands_status",
         ),
     )
+
+
+class RunSeriesColumn(Base):
+    """DEVC catalog for one run: id, quantity, and unit. Not the samples."""
+
+    __tablename__ = "run_series_columns"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id = Column(
+        Uuid, ForeignKey("runs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    kind = Column(Text, nullable=False)
+    column_id = Column(Text, nullable=False)
+    quantity = Column(Text, nullable=True)
+    unit = Column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id", "kind", "column_id", name="uq_run_series_column"
+        ),
+        CheckConstraint(
+            "kind IN ('hrr', 'devc')", name="ck_run_series_columns_kind"
+        ),
+    )
+
+
+class RunSeriesPoint(Base):
+    """One sample of HRR or of one DEVC column. seq is never reused."""
+
+    __tablename__ = "run_series_points"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    run_id = Column(
+        Uuid, ForeignKey("runs.id", ondelete="CASCADE"), nullable=False
+    )
+    kind = Column(Text, nullable=False)
+    column_id = Column(Text, nullable=False)
+    t = Column(Float, nullable=False)
+    value = Column(Float, nullable=False)
+    seq = Column(Integer, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id", "kind", "column_id", "t", name="uq_run_series_point_t"
+        ),
+        CheckConstraint("kind IN ('hrr', 'devc')", name="ck_run_series_points_kind"),
+        Index("ix_run_series_points_cursor", "run_id", "kind", "seq"),
+        Index("ix_run_series_points_column", "run_id", "kind", "column_id"),
+    )
+
+
+class RunSeriesCounter(Base):
+    """One high-water seq per run, shared by HRR and DEVC. Never reused."""
+
+    __tablename__ = "run_series_counters"
+
+    run_id = Column(
+        Uuid, ForeignKey("runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    last_seq = Column(Integer, nullable=False, default=0)
+
+
+class RunDevcSelection(Base):
+    """Columns the page asked the runner to sample, in picker order."""
+
+    __tablename__ = "run_devc_selections"
+
+    run_id = Column(
+        Uuid, ForeignKey("runs.id", ondelete="CASCADE"), primary_key=True
+    )
+    column_id = Column(Text, primary_key=True)
+    position = Column(Integer, nullable=False)
