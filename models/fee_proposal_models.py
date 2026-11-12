@@ -10,8 +10,10 @@ class CountryEnum(str, Enum):
 
 
 class ClientDetails(BaseModel):
+    # first_name/surname are the person addressed; the company is its own line.
     first_name: str
     surname: str
+    company_name: str = ""
     address_lines: List[str] = []
 
 
