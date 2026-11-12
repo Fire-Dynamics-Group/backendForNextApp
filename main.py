@@ -278,8 +278,8 @@ app.include_router(efs_router, prefix="/efs", tags=["External Fire Spread"], dep
 app.include_router(cfd_dashboard_router, prefix="/cfd-dashboard", tags=["CFD Dashboard"])
 app.include_router(smoke_layer_router, prefix="/smoke-layer", tags=["Warehouse Smoke Layer"], dependencies=_user_gated)
 app.include_router(tool_search_router, prefix="/tool-search", tags=["Tool Search"])
-# i-macs desktop app: shared app key (X-IMACS-App-Key), deliberately NOT _user_gated.
-# The router carries its own require_imacs_app dependency. See auth/imacs.py.
+# i-macs desktop app: FD Entra bearer, with X-IMACS-App-Key kept for older
+# builds. Deliberately NOT _user_gated. See auth/imacs.py.
 app.include_router(imacs_router, prefix="/imacs", tags=["i-macs"])
 app.include_router(handoffs_router, prefix="/handoffs", tags=["Handoffs"], dependencies=_user_gated)
 

@@ -1,8 +1,9 @@
 """Endpoints for the i-macs Windows desktop app, mounted under `/imacs`.
 
-Every route here is gated by `require_imacs_app` (shared app key) and NOT by
-`current_user`. The upload-canvas read side lives on the projects and handoffs
-routers behind the normal user auth.
+Every route here is gated by `require_imacs_app`: a FD Microsoft Entra bearer
+token, or the shared app key for an older desktop build. These routes are
+not gated by `current_user`. The upload-canvas read side lives on the
+projects and handoffs routers behind the normal user auth.
 """
 
 from __future__ import annotations
