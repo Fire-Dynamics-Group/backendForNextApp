@@ -14,7 +14,8 @@ Model:
   * Summary: GET /imacs/jobs/{imacs_job_id}/summary (app key) returns linked project
     id and name, last_sent_at, and the latest time-eq outcome stored on the project
     (or null if not stored).
-  * App key works only on /imacs/*; Entra / current_user on browser routes.
+  * /imacs/* accepts a FD Entra bearer or, for older builds, the shared app key.
+    Browser routes stay on Entra / current_user and do not accept the app key.
 """
 from __future__ import annotations
 
