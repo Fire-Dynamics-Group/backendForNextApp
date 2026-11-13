@@ -10,18 +10,19 @@ from pathlib import Path
 
 from docx import Document
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import database
-from models.db_models import FeeTextBlock, FeeTextBlockHistory
+from models.db_models import FeeProposalGeneration, FeeTextBlock, FeeTextBlockHistory
 from models.fee_proposal_models import FeeProposalRequest
 from services.fee_document_service import generate_proposal
+from services.fee_generation_log import FeeGenerationContext, record_fee_generation
 from services.fee_text_blocks import WORD_ADDIN_PREFIX, build_text_map, get_word_addin_seed_blocks, token_errors
 
 router = APIRouter()
@@ -243,8 +244,31 @@ async def restore_word_text_block(key: str, history_id: int, body: WordActorOnly
         return _word_block_out(block)
 
 
+class WordFeeProposalRequest(FeeProposalRequest):
+    generation_context: Optional[FeeGenerationContext] = None
+
+
+class FeeGenerationOut(BaseModel):
+    id: str
+    created_at: Optional[datetime] = None
+    source: str
+    user_email: Optional[str] = None
+    user_name: Optional[str] = None
+    engineer_name: Optional[str] = None
+    is_test: bool
+    synergy_project_ref: Optional[str] = None
+    synergy_project_label: Optional[str] = None
+    project_name: Optional[str] = None
+    client_company_name: Optional[str] = None
+    has_missing_or_edited: bool
+    missing_from_synergy: List[str] = []
+    user_filled_missing: List[str] = []
+    inputs: Dict[str, Any] = {}
+    synergy_context: Optional[Dict[str, Any]] = None
+
+
 @router.post("/fee-proposal/render")
-async def render_fee_proposal(data: FeeProposalRequest):
+async def render_fee_proposal(data: WordFeeProposalRequest, request: Request):
     """The letter as a docx fragment for insertFileFromBase64.
 
     Word merges an inserted file's last paragraph into the paragraph it lands in, taking
@@ -256,7 +280,58 @@ async def render_fee_proposal(data: FeeProposalRequest):
         doc = Document(generate_proposal(data, texts))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    await record_fee_generation(
+        data,
+        source="word_addin",
+        ctx=data.generation_context,
+        forwarded_user_email=request.headers.get("x-forwarded-user"),
+    )
     doc.add_paragraph("")
     out = BytesIO()
     doc.save(out)
     return Response(content=out.getvalue(), media_type=DOCX)
+
+
+@router.get("/fee-proposal/generations", response_model=List[FeeGenerationOut])
+async def list_fee_proposal_generations(
+    include_tests: bool = False,
+    only_with_gaps: bool = False,
+    synergy_project_ref: Optional[str] = None,
+    limit: int = Query(50, ge=1, le=500),
+):
+    """List recorded fee proposal generations for reviewing missing/edited Synergy details."""
+    if database.async_session is None:
+        return []
+    stmt = select(FeeProposalGeneration).order_by(FeeProposalGeneration.created_at.desc()).limit(limit)
+    if not include_tests:
+        stmt = stmt.where(FeeProposalGeneration.is_test.is_(False))
+    if only_with_gaps:
+        stmt = stmt.where(FeeProposalGeneration.has_missing_or_edited.is_(True))
+    if synergy_project_ref:
+        stmt = stmt.where(FeeProposalGeneration.synergy_project_ref == synergy_project_ref)
+    async with database.async_session() as db:
+        rows = (await db.execute(stmt)).scalars().all()
+    out: List[FeeGenerationOut] = []
+    for row in rows:
+        ctx = row.synergy_context if isinstance(row.synergy_context, dict) else {}
+        out.append(
+            FeeGenerationOut(
+                id=str(row.id),
+                created_at=row.created_at,
+                source=row.source,
+                user_email=row.user_email,
+                user_name=row.user_name,
+                engineer_name=row.engineer_name,
+                is_test=bool(row.is_test),
+                synergy_project_ref=row.synergy_project_ref,
+                synergy_project_label=row.synergy_project_label,
+                project_name=row.project_name,
+                client_company_name=row.client_company_name,
+                has_missing_or_edited=bool(row.has_missing_or_edited),
+                missing_from_synergy=list(ctx.get("missing_from_synergy") or []),
+                user_filled_missing=list(ctx.get("user_filled_missing") or []),
+                inputs=row.inputs or {},
+                synergy_context=row.synergy_context,
+            )
+        )
+    return out

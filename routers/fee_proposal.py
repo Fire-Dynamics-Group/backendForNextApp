@@ -5,7 +5,7 @@ import os
 from datetime import datetime
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -16,6 +16,7 @@ from database import get_db
 from models.db_models import FeeTextBlock, FeeTextBlockHistory
 from models.fee_proposal_models import FeeProposalRequest, EngineerResponse
 from services.fee_document_service import generate_proposal, get_proposal_filename, rendered_block_keys
+from services.fee_generation_log import FeeGenerationContext, record_fee_generation
 from services.fee_text_blocks import WORD_ADDIN_PREFIX, build_text_map, token_errors
 
 router = APIRouter()
@@ -128,13 +129,23 @@ async def applicable_text_blocks(data: FeeProposalRequest):
         return []
 
 
+class WebFeeProposalRequest(FeeProposalRequest):
+    generation_context: Optional[FeeGenerationContext] = None
+
+
 @router.post("/generate")
-async def generate_fee_proposal(data: FeeProposalRequest):
+async def generate_fee_proposal(data: WebFeeProposalRequest, request: Request):
     """Generate a fee proposal Word document and return as download."""
     try:
         texts = await _load_text_map(data)
         doc_bytes = generate_proposal(data, texts)
         filename = get_proposal_filename(data)
+        await record_fee_generation(
+            data,
+            source="web_tool",
+            ctx=data.generation_context,
+            forwarded_user_email=request.headers.get("x-forwarded-user"),
+        )
 
         response = StreamingResponse(
             doc_bytes,

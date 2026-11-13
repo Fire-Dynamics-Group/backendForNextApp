@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Float,
@@ -173,3 +174,24 @@ class Element(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     floor = relationship("Floor", back_populates="elements")
+
+
+class FeeProposalGeneration(Base):
+    """Audit record of a fee proposal generation, including user inputs and Synergy gaps."""
+
+    __tablename__ = "fee_proposal_generations"
+
+    id = Column(Uuid, primary_key=True, default=uuid.uuid4)
+    created_at = Column(DateTime(timezone=True), nullable=False, default=utcnow, index=True)
+    source = Column(Text, nullable=False, default="word_addin")
+    user_email = Column(Text, nullable=True, index=True)
+    user_name = Column(Text, nullable=True)
+    engineer_name = Column(Text, nullable=True)
+    is_test = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    synergy_project_ref = Column(Text, nullable=True, index=True)
+    synergy_project_label = Column(Text, nullable=True)
+    project_name = Column(Text, nullable=True)
+    client_company_name = Column(Text, nullable=True)
+    has_missing_or_edited = Column(Boolean, nullable=False, default=False, server_default="false", index=True)
+    inputs = Column(JSONB, nullable=False, default=dict)
+    synergy_context = Column(JSONB, nullable=True)

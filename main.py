@@ -184,12 +184,30 @@ async def _ensure_macs_tables():
         raise
 
 
+async def _ensure_fee_proposal_generation_tables():
+    """Create fee_proposal_generations if alembic has not run."""
+    import database
+    if database.async_session is None or database.engine is None:
+        return
+    try:
+        from database import Base
+        from models.db_models import FeeProposalGeneration
+        async with database.engine.begin() as conn:
+            await conn.run_sync(
+                Base.metadata.create_all,
+                tables=[FeeProposalGeneration.__table__],
+            )
+    except Exception as e:  # noqa: BLE001 — setup must never block startup
+        print(f"Warning: fee_proposal_generations table setup failed: {e}")
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI):
     await _ensure_projects_mode_column()
     await _ensure_macs_tables()
     await _seed_text_blocks()
     await _ensure_tool_search_tables()
+    await _ensure_fee_proposal_generation_tables()
     if _MCP_AVAILABLE:
         async with mcp_lifespan(app):
             yield

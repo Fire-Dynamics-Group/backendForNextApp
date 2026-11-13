@@ -12,6 +12,7 @@ class CountryEnum(str, Enum):
 class ClientDetails(BaseModel):
     first_name: str
     surname: str
+    company_name: str = ""
     address_lines: List[str] = []
 
 
