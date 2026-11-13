@@ -22,7 +22,11 @@ import database
 from models.db_models import FeeProposalGeneration, FeeTextBlock, FeeTextBlockHistory
 from models.fee_proposal_models import FeeProposalRequest
 from services.fee_document_service import generate_proposal
-from services.fee_generation_log import FeeGenerationContext, record_fee_generation
+from services.fee_generation_log import (
+    FeeGenerationContext,
+    collect_previous_fee_options,
+    record_fee_generation,
+)
 from services.fee_text_blocks import WORD_ADDIN_PREFIX, build_text_map, get_word_addin_seed_blocks, token_errors
 
 router = APIRouter()
@@ -335,3 +339,36 @@ async def list_fee_proposal_generations(
             )
         )
     return out
+
+
+class PreviousFeeOptionsOut(BaseModel):
+    synergy_project_ref: str
+    generation_count: int
+    options: Dict[str, List[Dict[str, Any]]]
+
+
+@router.get("/fee-proposal/previous-options", response_model=PreviousFeeOptionsOut)
+async def get_previous_fee_options(synergy_project_ref: str = Query(..., min_length=1)):
+    """Return deduplicated non-test field options from past fee generations for one Synergy project."""
+    if database.async_session is None:
+        return PreviousFeeOptionsOut(
+            synergy_project_ref=synergy_project_ref,
+            generation_count=0,
+            options=collect_previous_fee_options([]),
+        )
+    stmt = (
+        select(FeeProposalGeneration)
+        .where(
+            FeeProposalGeneration.synergy_project_ref == synergy_project_ref,
+            FeeProposalGeneration.is_test.is_(False),
+        )
+        .order_by(FeeProposalGeneration.created_at.desc())
+        .limit(50)
+    )
+    async with database.async_session() as db:
+        rows = (await db.execute(stmt)).scalars().all()
+    return PreviousFeeOptionsOut(
+        synergy_project_ref=synergy_project_ref,
+        generation_count=len(rows),
+        options=collect_previous_fee_options(rows),
+    )

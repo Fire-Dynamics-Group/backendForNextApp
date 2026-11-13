@@ -176,3 +176,85 @@ async def record_fee_generation(
     except Exception as exc:  # noqa: BLE001 — never fail generation over audit logging
         print(f"Warning: failed to record fee proposal generation: {exc}")
         return None
+
+
+def _norm_str(value: Any) -> str:
+    return " ".join(str(value or "").strip().split()).lower()
+
+
+def _add_option(
+    buckets: Dict[str, Dict[str, Any]],
+    field: str,
+    dedup_key: str,
+    value: Any,
+    *,
+    by: Optional[str],
+    created_at: Any,
+) -> None:
+    bucket = buckets[field]
+    existing = bucket.get(dedup_key)
+    if existing is not None:
+        existing["count"] += 1
+        return
+    bucket[dedup_key] = {
+        "value": value,
+        "count": 1,
+        "latest_at": created_at.isoformat() if hasattr(created_at, "isoformat") else created_at,
+        "by": by,
+    }
+
+
+def collect_previous_fee_options(rows: List[FeeProposalGeneration]) -> Dict[str, List[Dict[str, Any]]]:
+    """Deduplicate non-empty client/project values from past generations (most-recent-first)."""
+    fields = ("company", "names", "address", "projectName", "projectLocation", "country")
+    buckets: Dict[str, Dict[str, Any]] = {f: {} for f in fields}
+
+    for row in rows:
+        inputs = row.inputs if isinstance(row.inputs, dict) else {}
+        client = inputs.get("client") if isinstance(inputs.get("client"), dict) else {}
+        project = inputs.get("project") if isinstance(inputs.get("project"), dict) else {}
+        by = row.user_name or row.engineer_name or row.user_email or None
+        ts = row.created_at
+
+        company = str(client.get("company_name") or "").strip()
+        if company:
+            _add_option(buckets, "company", _norm_str(company), company, by=by, created_at=ts)
+
+        first = str(client.get("first_name") or "").strip()
+        last = str(client.get("surname") or "").strip()
+        if first or last:
+            _add_option(
+                buckets,
+                "names",
+                f"{_norm_str(first)}|{_norm_str(last)}",
+                {"firstName": first, "lastName": last},
+                by=by,
+                created_at=ts,
+            )
+
+        raw_lines = client.get("address_lines")
+        if isinstance(raw_lines, list):
+            lines = [str(line).strip() for line in raw_lines if str(line or "").strip()]
+            if lines:
+                _add_option(
+                    buckets,
+                    "address",
+                    "\n".join(_norm_str(line) for line in lines),
+                    lines,
+                    by=by,
+                    created_at=ts,
+                )
+
+        pname = str(project.get("project_name") or "").strip()
+        if pname:
+            _add_option(buckets, "projectName", _norm_str(pname), pname, by=by, created_at=ts)
+
+        ploc = str(project.get("project_location") or "").strip()
+        if ploc:
+            _add_option(buckets, "projectLocation", _norm_str(ploc), ploc, by=by, created_at=ts)
+
+        country = str(project.get("country") or "").strip()
+        if country in ("EW", "J", "OTHER"):
+            _add_option(buckets, "country", country, country, by=by, created_at=ts)
+
+    return {f: list(buckets[f].values()) for f in fields}

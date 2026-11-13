@@ -147,6 +147,27 @@ async def test_render_stores_inputs_synergy_gaps_and_filters_ian_tests(monkeypat
         assert ian_row["is_test"] is True
         assert ian_row["has_missing_or_edited"] is False
 
+        # previous-options returns deduplicated non-test options for 0400, excluding Ian's test run
+        res_opts = await client.get(
+            "/word/fee-proposal/previous-options",
+            params={"synergy_project_ref": "synergy:5466:2665297"},
+        )
+        assert res_opts.status_code == 200
+        opts_body = res_opts.json()
+        assert opts_body["generation_count"] == 1
+        assert opts_body["options"]["company"][0]["value"] == "Amazon UK"
+        assert opts_body["options"]["names"][0]["value"] == {"firstName": "Jane", "lastName": "Doe"}
+        assert opts_body["options"]["address"][0]["value"] == ["1 High St", "Dunstable"]
+        assert opts_body["options"]["projectLocation"][0]["value"] == "Dunstable"
+
+        # 0406 only had Ian's test run -> 0 previous options
+        res_ian_opts = await client.get(
+            "/word/fee-proposal/previous-options",
+            params={"synergy_project_ref": "synergy:5466:2694397"},
+        )
+        assert res_ian_opts.status_code == 200
+        assert res_ian_opts.json()["generation_count"] == 0
+
     await engine.dispose()
 
 
