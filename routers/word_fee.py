@@ -301,7 +301,7 @@ async def list_fee_proposal_generations(
     include_tests: bool = False,
     only_with_gaps: bool = False,
     synergy_project_ref: Optional[str] = None,
-    limit: int = Query(50, ge=1, le=500),
+    limit: int = Query(50, ge=1, le=2000),
 ):
     """List recorded fee proposal generations for reviewing missing/edited Synergy details."""
     if database.async_session is None:
