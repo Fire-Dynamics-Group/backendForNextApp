@@ -1,10 +1,12 @@
 """Tests for project persistence: DB models, API endpoints, and S3 service."""
+import asyncio
 import os
 import uuid
 
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 # Use SQLite for tests (no Postgres required)
@@ -318,6 +320,199 @@ async def test_save_removes_floor_dropped_from_payload(client: AsyncClient):
     floors = one.json()["floors"]
     assert len(floors) == 1
     assert floors[0]["id"] == floor0_id  # surviving floor kept its id
+
+
+def _is_project_load(statement) -> bool:
+    descriptions = getattr(statement, "column_descriptions", None) or []
+    return any(d.get("entity") is Project for d in descriptions)
+
+
+def _hold_both_project_loads(monkeypatch):
+    """Release both saves only after each has loaded the project.
+
+    Without this, SQLite often runs one request to commit before the other
+    starts, which hides the check-then-insert race on uq_project_floor.
+    """
+    release = asyncio.Event()
+    state = {"n": 0}
+    real_execute = AsyncSession.execute
+
+    async def gated_execute(self, statement, *args, **kwargs):
+        result = await real_execute(self, statement, *args, **kwargs)
+        if _is_project_load(statement):
+            state["n"] += 1
+            if state["n"] >= 2:
+                release.set()
+            await release.wait()
+        return result
+
+    monkeypatch.setattr(AsyncSession, "execute", gated_execute)
+    return state
+
+
+def _save_snapshot(result) -> str:
+    if isinstance(result, Exception):
+        return f"{type(result).__name__}: {result}"
+    return f"{result.status_code} {result.text}"
+
+
+@pytest.mark.asyncio
+async def test_save_duplicate_floor_numbers_does_not_500(client: AsyncClient):
+    """One payload that lists the same floor_number twice must not 500.
+
+    save_project inserts a floor when its in-memory map misses that number,
+    and it does not put the row it just inserted back into the map. The second
+    copy inserts again and Postgres raises UniqueViolation on uq_project_floor.
+    """
+    resp = await client.post("/projects", json={"name": "Duplicate floors"})
+    project_id = resp.json()["id"]
+
+    resp = await client.post(f"/projects/{project_id}/save", json={
+        "settings": {"scenarioType": "MOE"},
+        "floors": [
+            {
+                "floor_number": 0,
+                "name": "First copy",
+                "elements": [
+                    {"element_index": 0, "type": "polyline", "points": [{"x": 0, "y": 0}], "comments": "drop-me"},
+                ],
+            },
+            {
+                "floor_number": 0,
+                "name": "Kept copy",
+                "pixels_per_mesh": 3.5,
+                "elements": [
+                    {"element_index": 0, "type": "rect", "points": [{"x": 1, "y": 1}], "comments": "keep-me"},
+                ],
+            },
+        ],
+    })
+    assert resp.status_code == 200, resp.text
+    floors = resp.json()["floors"]
+    assert len(floors) == 1
+    assert floors[0]["floor_number"] == 0
+    assert floors[0]["name"] == "Kept copy"
+    floor_id = floors[0]["id"]
+
+    detail = (await client.get(f"/projects/{project_id}/floors/{floor_id}")).json()
+    assert detail["pixels_per_mesh"] == 3.5
+    assert [el["comments"] for el in detail["elements"]] == ["keep-me"]
+
+    # The collapsed floor keeps its id on the next save.
+    again = await client.post(f"/projects/{project_id}/save", json={
+        "settings": {"scenarioType": "MOE"},
+        "floors": [{"floor_number": 0, "name": "Kept copy", "elements": [
+            {"element_index": 0, "type": "rect", "points": [{"x": 1, "y": 1}], "comments": "keep-me"},
+        ]}],
+    })
+    assert again.status_code == 200, again.text
+    assert again.json()["floors"][0]["id"] == floor_id
+
+
+@pytest.mark.asyncio
+async def test_overlapping_saves_of_a_new_floor_do_not_500(client: AsyncClient, monkeypatch):
+    """Two saves that both loaded no floors must not both INSERT floor 0.
+
+    A handoff project has no floor until the first save. Autosave and the PDF
+    upload can both pass that check before either commits, and the loser's
+    INSERT hits uq_project_floor. Both requests should succeed and leave one
+    floor row (the same id).
+    """
+    resp = await client.post("/projects", json={"name": "Overlapping save"})
+    assert resp.status_code == 201, resp.text
+    project_id = resp.json()["id"]
+    _hold_both_project_loads(monkeypatch)
+
+    payload = {
+        "settings": {},
+        "floors": [{"floor_number": 0, "name": "Fire Floor", "elements": [
+            {"element_index": 0, "type": "polyline", "points": [{"x": 0, "y": 0}], "comments": "obstruction"},
+        ]}],
+    }
+    results = await asyncio.wait_for(
+        asyncio.gather(
+            client.post(f"/projects/{project_id}/save", json=payload),
+            client.post(f"/projects/{project_id}/save", json={**payload, "name": "Second saver"}),
+            return_exceptions=True,
+        ),
+        timeout=8,
+    )
+    snapshot = [_save_snapshot(r) for r in results]
+    assert all(not isinstance(r, Exception) for r in results), snapshot
+    assert [r.status_code for r in results] == [200, 200], snapshot
+
+    ids = [r.json()["floors"][0]["id"] for r in results]
+    assert ids[0] == ids[1]
+    detail = (await client.get(f"/projects/{project_id}")).json()
+    assert [f["floor_number"] for f in detail["floors"]] == [0]
+    assert detail["floors"][0]["id"] == ids[0]
+
+
+@pytest.mark.asyncio
+async def test_save_floor_unique_conflict_returns_409(client: AsyncClient, monkeypatch):
+    """A uq_project_floor violation that still escapes the upsert is a 409.
+
+    The save is idempotent on (project_id, floor_number). This covers a
+    conflict the upsert did not absorb: the client gets a clear 409, not an
+    unhandled IntegrityError (which uvicorn turns into a 500).
+    """
+    resp = await client.post("/projects", json={"name": "Conflict fallback"})
+    project_id = resp.json()["id"]
+
+    async def commit_unique_violation(self):
+        raise IntegrityError(
+            "INSERT INTO floors",
+            {},
+            Exception('duplicate key value violates unique constraint "uq_project_floor"'),
+        )
+
+    monkeypatch.setattr(AsyncSession, "commit", commit_unique_violation)
+    resp = await client.post(
+        f"/projects/{project_id}/save",
+        json={"settings": {}, "floors": [{"floor_number": 0, "name": "F", "elements": []}]},
+    )
+    assert resp.status_code == 409, getattr(resp, "text", resp)
+    detail = resp.json()["detail"]
+    assert detail["constraint"] == "uq_project_floor"
+    assert "floor" in detail["message"].lower()
+
+
+@pytest.mark.asyncio
+async def test_floor_upsert_keeps_id_and_pdf_key(client: AsyncClient, test_session: AsyncSession):
+    """ON CONFLICT update must not mint a new floor id or clear pdf_s3_key."""
+    from sqlalchemy import select
+
+    from routers.projects import _upsert_floor
+
+    resp = await client.post("/projects", json={"name": "Upsert PDF"})
+    project_id = resp.json()["id"]
+    saved = await client.post(f"/projects/{project_id}/save", json={
+        "settings": {},
+        "floors": [{"floor_number": 0, "name": "Original", "elements": []}],
+    })
+    assert saved.status_code == 200, saved.text
+    floor_id = saved.json()["floors"][0]["id"]
+
+    floor = (await test_session.execute(
+        select(Floor).where(Floor.id == uuid.UUID(floor_id))
+    )).scalar_one()
+    floor.pdf_s3_key = "plans/floor0.pdf"
+    await test_session.commit()
+
+    from models.project_schemas import FloorSavePayload
+
+    kept_id = await _upsert_floor(
+        test_session,
+        uuid.UUID(project_id),
+        FloorSavePayload(floor_number=0, name="Renamed", pixels_per_mesh=4.0),
+    )
+    await test_session.commit()
+
+    assert str(kept_id) == floor_id
+    detail = (await client.get(f"/projects/{project_id}/floors/{floor_id}")).json()
+    assert detail["name"] == "Renamed"
+    assert detail["pdf_s3_key"] == "plans/floor0.pdf"
+    assert detail["pixels_per_mesh"] == 4.0
 
 
 @pytest.mark.asyncio

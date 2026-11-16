@@ -7,7 +7,9 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy import delete, select, update
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,6 +19,7 @@ from database import get_db
 from models.db_models import Element, Floor, ImacsJobLink, MacsHandoff, MacsRun, Project
 from models.macs_schemas import MacsRunOut
 from models.project_schemas import (
+    FloorSavePayload,
     ProjectCreate,
     ProjectDetail,
     ProjectSavePayload,
@@ -25,6 +28,77 @@ from models.project_schemas import (
 )
 
 router = APIRouter()
+
+
+def _is_project_floor_unique_violation(exc: BaseException) -> bool:
+    """True when this IntegrityError is uq_project_floor (project_id, floor_number)."""
+    parts = [str(exc)]
+    orig = getattr(exc, "orig", None)
+    if orig is not None:
+        parts.append(str(orig))
+    text = " ".join(parts)
+    if "uq_project_floor" in text:
+        return True
+    return "floors.project_id" in text and "floor_number" in text
+
+
+def _floor_insert(db: AsyncSession):
+    bind = db.bind
+    if bind is None:
+        bind = db.sync_session.get_bind()
+    name = bind.dialect.name
+    if name == "postgresql":
+        return pg_insert
+    if name == "sqlite":
+        return sqlite_insert
+    raise RuntimeError(f"No floor upsert for dialect {name}")
+
+
+def _apply_floor_fields(floor: Floor, fp: FloorSavePayload) -> None:
+    floor.name = fp.name
+    floor.canvas_dimensions = fp.canvas_dimensions
+    floor.pixels_per_mesh = fp.pixels_per_mesh
+    floor.origin_pixels = fp.origin_pixels
+    floor.settings = fp.settings
+
+
+async def _upsert_floor(
+    db: AsyncSession, project_id: uuid.UUID, fp: FloorSavePayload
+) -> uuid.UUID:
+    """Insert a floor, or update the existing row on uq_project_floor.
+
+    pdf_s3_key, id, and created_at stay as they are on conflict so a racing
+    save cannot mint a second floor or drop a PDF attached between the two.
+    """
+    now = datetime.now(timezone.utc)
+    insert = _floor_insert(db)
+    stmt = insert(Floor).values(
+        id=uuid.uuid4(),
+        project_id=project_id,
+        floor_number=fp.floor_number,
+        name=fp.name,
+        canvas_dimensions=fp.canvas_dimensions,
+        pixels_per_mesh=fp.pixels_per_mesh,
+        origin_pixels=fp.origin_pixels,
+        settings=fp.settings,
+        created_at=now,
+        updated_at=now,
+    )
+    stmt = stmt.on_conflict_do_update(
+        index_elements=[Floor.project_id, Floor.floor_number],
+        set_={
+            "name": stmt.excluded.name,
+            "canvas_dimensions": stmt.excluded.canvas_dimensions,
+            "pixels_per_mesh": stmt.excluded.pixels_per_mesh,
+            "origin_pixels": stmt.excluded.origin_pixels,
+            "settings": stmt.excluded.settings,
+            "updated_at": stmt.excluded.updated_at,
+        },
+    ).returning(Floor.id)
+    floor_id = (await db.execute(stmt)).scalar_one()
+    if isinstance(floor_id, uuid.UUID):
+        return floor_id
+    return uuid.UUID(str(floor_id))
 
 
 def claimed_handoff_detail(project_id) -> dict:
@@ -665,44 +739,65 @@ async def save_project(
     project.settings = body.settings
     project.updated_at = datetime.now(timezone.utc)
 
-    # Reconcile floors by floor_number, updating in place so floor ids stay
-    # stable across saves. The frontend caches floorId for PDF upload/fetch, so
-    # minting a new floor uuid on every save (the old delete-then-recreate)
-    # left that cached id stale -> mid-session PDF calls 404. Existing floors'
-    # pdf_s3_key is preserved automatically (we never reassign it here).
+    # Reconcile floors by (project_id, floor_number), the uq_project_floor key.
+    # Update a floor we already loaded so its id and pdf_s3_key stay put — the
+    # frontend caches floorId for PDF upload/fetch. A number we did not load
+    # is inserted with ON CONFLICT DO UPDATE on that same key. Two saves can
+    # both observe "no such floor" (first save of a handoff project, autosave
+    # overlapping the PDF upload) and a payload can list the same floor_number
+    # twice; a plain INSERT for each of those is the UniqueViolation that
+    # became a 500. Last entry for a duplicated floor_number wins.
+    floors_by_number: dict[int, FloorSavePayload] = {}
+    for fp in body.floors:
+        floors_by_number[fp.floor_number] = fp
+    incoming_floors = list(floors_by_number.values())
+    incoming_numbers = set(floors_by_number)
+
     existing_floors = {f.floor_number: f for f in project.floors}
-    incoming_numbers = {fp.floor_number for fp in body.floors}
 
     # Drop floors that are no longer present (cascades to their elements).
-    for floor_number, floor in existing_floors.items():
+    # Flush those deletes before any insert. The unit of work writes INSERTs
+    # before DELETEs, so a floor number that left and came back in one save
+    # would collide with the row still waiting to be deleted.
+    for floor_number, floor in list(existing_floors.items()):
         if floor_number not in incoming_numbers:
             await db.delete(floor)
+            del existing_floors[floor_number]
+    await db.flush()
 
-    for fp in body.floors:
+    for fp in incoming_floors:
         floor = existing_floors.get(fp.floor_number)
         if floor is None:
-            floor = Floor(project_id=project_id, floor_number=fp.floor_number)
-            db.add(floor)
-        floor.name = fp.name
-        floor.canvas_dimensions = fp.canvas_dimensions
-        floor.pixels_per_mesh = fp.pixels_per_mesh
-        floor.origin_pixels = fp.origin_pixels
-        floor.settings = fp.settings
-        await db.flush()  # ensure floor.id for the elements below
+            floor_id = await _upsert_floor(db, project_id, fp)
+        else:
+            _apply_floor_fields(floor, fp)
+            floor_id = floor.id
 
         # Replace this floor's elements wholesale (element identity isn't
         # tracked across saves; element_index carries the frontend's id).
-        await db.execute(delete(Element).where(Element.floor_id == floor.id))
+        await db.execute(delete(Element).where(Element.floor_id == floor_id))
         for el in fp.elements:
             db.add(Element(
-                floor_id=floor.id,
+                floor_id=floor_id,
                 element_index=el.element_index,
                 type=el.type,
                 points=[p.model_dump() for p in el.points],
                 comments=el.comments,
             ))
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        if _is_project_floor_unique_violation(exc):
+            raise HTTPException(
+                409,
+                {
+                    "message": "Could not save this floor because that floor number is already used on the project",
+                    "constraint": "uq_project_floor",
+                },
+            ) from exc
+        raise
 
     # Expire cached state so the reload sees fresh data
     db.expire_all()
