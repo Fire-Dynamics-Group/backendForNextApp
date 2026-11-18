@@ -34,6 +34,19 @@ router = APIRouter(dependencies=[Depends(require_imacs_app)])
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 
+def _display_project_name(project: Project) -> str:
+    """Prefer Synergy job number + report project name when linked in settings.reportDetails."""
+    rd = (project.settings or {}).get("reportDetails") or {}
+    if not isinstance(rd, dict):
+        return project.name
+    job = str(rd.get("jobNumber") or "").strip()
+    rname = str(rd.get("projectName") or "").strip()
+    base = rname or project.name
+    if job and not base.lower().startswith(job.lower()):
+        return f"{job} {base}"
+    return base
+
+
 @router.get("/projects", response_model=list[ImacsProjectOut])
 async def list_projects(
     db: DbSession,
@@ -45,11 +58,23 @@ async def list_projects(
     query = select(Project)
     if mode is not None:
         query = query.where(Project.mode == mode)
-    if q:
-        escaped = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        query = query.where(Project.name.ilike(f"%{escaped}%", escape="\\"))
     result = await db.execute(query.order_by(Project.updated_at.desc()))
-    return result.scalars().all()
+    projects = result.scalars().all()
+    q_norm = (q or "").strip().lower()
+    out: list[ImacsProjectOut] = []
+    for p in projects:
+        display = _display_project_name(p)
+        if q_norm and q_norm not in p.name.lower() and q_norm not in display.lower():
+            continue
+        out.append(
+            ImacsProjectOut(
+                id=p.id,
+                name=display,
+                mode=p.mode,
+                updated_at=p.updated_at,
+            )
+        )
+    return out
 
 
 async def _save_macs_run(
@@ -183,7 +208,7 @@ async def get_job_summary(
 
     return ImacsJobSummary(
         project_id=project.id,
-        project_name=project.name,
+        project_name=_display_project_name(project),
         last_sent_at=max_received,
         outcome=outcome,
     )

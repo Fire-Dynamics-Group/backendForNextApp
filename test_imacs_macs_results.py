@@ -1062,3 +1062,43 @@ async def test_structural_fire_report_endpoint(client, user_headers):
     assert "Monte Carlo" in full_text or "Time Equivalence" in full_text
     assert "Panattoni California Drive" in full_text
 
+
+@pytest.mark.asyncio
+async def test_imacs_projects_and_summary_surface_synergy_job_number_and_name(
+    client: AsyncClient, user_headers
+):
+    create_resp = await client.post(
+        "/projects",
+        json={
+            "name": "Test 10k Project",
+            "mode": "timeEq",
+            "settings": {
+                "reportDetails": {
+                    "jobNumber": "0002",
+                    "projectName": "No1 Blackhorse Lane",
+                    "synergyProjectRef": "synergy:5466:2088437",
+                }
+            },
+        },
+        headers=user_headers,
+    )
+    assert create_resp.status_code == 201
+    pid = create_resp.json()["id"]
+
+    # Search by Synergy job number ("0002") and by Synergy project name ("blackhorse")
+    for query in ("0002", "blackhorse"):
+        listed = await client.get(f"/imacs/projects?mode=timeEq&q={query}", headers=key_headers())
+        assert listed.status_code == 200
+        assert any(p["id"] == pid and p["name"] == "0002 No1 Blackhorse Lane" for p in listed.json())
+
+    # Linking a job surfaces the same Synergy job number + name in /imacs/jobs/{id}/summary
+    link_resp = await client.post(
+        "/imacs/jobs/job-synergy-1/link",
+        json={"project_id": pid},
+        headers=key_headers(),
+    )
+    assert link_resp.status_code == 200
+    summary = await client.get("/imacs/jobs/job-synergy-1/summary", headers=key_headers())
+    assert summary.status_code == 200
+    assert summary.json()["project_name"] == "0002 No1 Blackhorse Lane"
+
