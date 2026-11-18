@@ -739,8 +739,12 @@ async def generate_structural_fire_report_endpoint(
     docx_bytes = build_structural_fire_report_docx(project, latest_run)
 
     import re
-    safe_name = re.sub(r"[^\w\s-]", "", project.name or "Project").strip().replace(" ", "_")
-    filename = f"Structural_Fire_Report_{safe_name}.docx"
+    report_details = (project.settings or {}).get("reportDetails") or {}
+    raw_name = (report_details.get("projectName") or "").strip() or project.name or "Project"
+    compact_name = re.sub(r"[^A-Za-z0-9]", "", raw_name) or "Project"
+    job_num = re.sub(r"[^\w-]", "", (report_details.get("jobNumber") or "").strip())
+    prefix = f"{job_num}-" if job_num else ""
+    filename = f"{prefix}Fire Dynamics-SFR-{compact_name}-Rev00.docx"
 
     return Response(
         content=docx_bytes,
