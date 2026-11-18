@@ -416,9 +416,25 @@ def _populate_tabular_results_cell(cell: Any, time_series: list[dict[str, Any]],
     sampled = _sample_time_series(time_series)
 
     if existing_tbl_el is not None:
-        from docx.table import Table as _T
+        from docx.table import Table as _T, _Cell
         tbl = _T(existing_tbl_el, cell)
         if len(tbl.rows) >= 3:
+            # Template A.2 nested table has 11 columns (missing Unity factor); append the 12th column to match A.1
+            tbl_grid = existing_tbl_el.find(f"./{{{W_NS}}}tblGrid")
+            if tbl_grid is not None:
+                grid_cols = tbl_grid.findall(f"./{{{W_NS}}}gridCol")
+                if len(grid_cols) == len(col_keys) - 1 and grid_cols:
+                    tbl_grid.append(copy.deepcopy(grid_cols[-1]))
+            for r_idx, tr_el in enumerate(existing_tbl_el.findall(f"./{{{W_NS}}}tr")):
+                row_tcs = tr_el.findall(f"./{{{W_NS}}}tc")
+                if len(row_tcs) == len(col_keys) - 1 and row_tcs:
+                    new_tc = copy.deepcopy(row_tcs[-1])
+                    tr_el.append(new_tc)
+                    if r_idx == 0:
+                        _set_cell_lines(_Cell(new_tc, tbl), ["Unity factor"], default_pt=7.5)
+                    elif r_idx == 1:
+                        _set_cell_lines(_Cell(new_tc, tbl), ["-"], default_pt=7.5)
+
             proto_tr = copy.deepcopy(tbl.rows[2]._tr)
             # Remove all old template data rows (keep header rows 0 and 1)
             for tr in list(existing_tbl_el.findall(f"./{{{W_NS}}}tr"))[2:]:
