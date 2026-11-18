@@ -1049,6 +1049,7 @@ async def test_structural_fire_report_endpoint(client, user_headers):
     assert report_resp.status_code == 200
     assert report_resp.headers["content-type"] == "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     assert "attachment; filename=" in report_resp.headers["content-disposition"]
+    assert "Fire Dynamics-SFR-PanattoniCaliforniaDrive-Rev00.docx" in report_resp.headers["content-disposition"]
     docx_bytes = report_resp.content
     assert len(docx_bytes) > 1000
 
