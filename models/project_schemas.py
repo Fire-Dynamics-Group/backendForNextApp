@@ -117,7 +117,7 @@ class FloorSavePayload(BaseModel):
 class ProjectSavePayload(BaseModel):
     """Full project save: settings + all floors + all elements in one shot."""
     name: Optional[str] = None
-    settings: dict[str, Any] = {}
+    settings: Optional[dict[str, Any]] = None
     floors: Optional[list[FloorSavePayload]] = None
 
 

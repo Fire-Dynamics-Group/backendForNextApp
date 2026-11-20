@@ -1152,4 +1152,17 @@ async def test_settings_only_save_preserves_existing_floors_and_elements(
     floor_resp = await client.get(f"/projects/{pid}/floors/{fid}", headers=user_headers)
     assert floor_resp.status_code == 200
     assert len(floor_resp.json()["elements"]) == 1
+    # Merging settings also preserves earlier keys (e.g. timeEqInputs) when reportDetails is saved, and vice versa
+    assert save_settings.json()["settings"]["timeEqInputs"] == {"fireResistancePeriod": 60}
+    assert save_settings.json()["settings"]["reportDetails"] == {"jobNumber": "0002"}
+
+    # Canvas-only save omitting `reportDetails` (and/or omitting `settings`) must preserve `reportDetails`
+    save_canvas = await client.post(
+        f"/projects/{pid}/save",
+        json={"settings": {"timeEqInputs": {"fireResistancePeriod": 90}}},
+        headers=user_headers,
+    )
+    assert save_canvas.status_code == 200
+    assert save_canvas.json()["settings"]["reportDetails"] == {"jobNumber": "0002"}
+    assert save_canvas.json()["settings"]["timeEqInputs"] == {"fireResistancePeriod": 90}
 

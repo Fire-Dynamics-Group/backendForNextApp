@@ -662,7 +662,8 @@ async def save_project(
     # Update project-level fields
     if body.name is not None:
         project.name = body.name
-    project.settings = body.settings
+    if body.settings is not None:
+        project.settings = {**(project.settings or {}), **body.settings}
     project.updated_at = datetime.now(timezone.utc)
 
     # Reconcile floors by floor_number, updating in place so floor ids stay
