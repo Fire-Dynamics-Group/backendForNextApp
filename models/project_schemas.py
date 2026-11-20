@@ -118,7 +118,7 @@ class ProjectSavePayload(BaseModel):
     """Full project save: settings + all floors + all elements in one shot."""
     name: Optional[str] = None
     settings: dict[str, Any] = {}
-    floors: list[FloorSavePayload] = []
+    floors: Optional[list[FloorSavePayload]] = None
 
 
 # Rebuild forward refs

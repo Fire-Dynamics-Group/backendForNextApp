@@ -1102,3 +1102,54 @@ async def test_imacs_projects_and_summary_surface_synergy_job_number_and_name(
     assert summary.status_code == 200
     assert summary.json()["project_name"] == "0002 No1 Blackhorse Lane"
 
+
+@pytest.mark.asyncio
+async def test_settings_only_save_preserves_existing_floors_and_elements(
+    client: AsyncClient, user_headers
+):
+    create_resp = await client.post(
+        "/projects",
+        json={"name": "Compartment Keep Test", "mode": "timeEq"},
+        headers=user_headers,
+    )
+    assert create_resp.status_code == 201
+    pid = create_resp.json()["id"]
+
+    # Save a floor with compartment elements
+    save_floor = await client.post(
+        f"/projects/{pid}/save",
+        json={
+            "settings": {"timeEqInputs": {"fireResistancePeriod": 60}},
+            "floors": [
+                {
+                    "floor_number": 0,
+                    "name": "Compartment",
+                    "elements": [
+                        {
+                            "element_index": 1,
+                            "type": "polyline",
+                            "points": [{"x": 0, "y": 0}, {"x": 100, "y": 0}],
+                            "comments": "obstruction",
+                        }
+                    ],
+                }
+            ],
+        },
+        headers=user_headers,
+    )
+    assert save_floor.status_code == 200
+    assert len(save_floor.json()["floors"]) == 1
+
+    # Settings-only save (omitting `floors`, as ReportBuilderTab does) must preserve floors + elements
+    save_settings = await client.post(
+        f"/projects/{pid}/save",
+        json={"settings": {"reportDetails": {"jobNumber": "0002"}}},
+        headers=user_headers,
+    )
+    assert save_settings.status_code == 200
+    assert len(save_settings.json()["floors"]) == 1
+    fid = save_settings.json()["floors"][0]["id"]
+    floor_resp = await client.get(f"/projects/{pid}/floors/{fid}", headers=user_headers)
+    assert floor_resp.status_code == 200
+    assert len(floor_resp.json()["elements"]) == 1
+
