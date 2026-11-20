@@ -105,6 +105,7 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     T = _TextAccessor(texts if texts is not None else build_text_map([]), record_keys)
     first_name = data.client.first_name
     surname = data.client.surname
+    company_name = data.client.company_name
     address_lines = data.client.address_lines
     project_name = data.project.project_name
     project_location = data.project.project_location
@@ -155,7 +156,10 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
 
     # CLIENT ADDRESS
     _add_blank_line(doc, 2)
-    _add_para(doc, f"{first_name} {surname}", "Standard_Text")
+    if company_name.strip():
+        _add_para(doc, company_name, "Standard_Text")
+    if first_name.strip() or surname.strip():
+        _add_para(doc, f"{first_name} {surname}", "Standard_Text")
     for line in address_lines:
         if line.strip():
             _add_para(doc, line, "Standard_Text_No_Line_Spacing")
