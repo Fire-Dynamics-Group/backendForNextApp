@@ -97,6 +97,30 @@ def test_collated_report_uses_template_and_strips_panattoni_leakage():
                 ]
             },
             "shear_check": {"checked": 5000, "sub_limit_runs": []},
+            "sample_runs": [
+                {
+                    "run_id": 1001,
+                    "run_number": 101,
+                    "total_runs": 5000,
+                    "qf": 500.0,
+                    "window_percent": 20.0,
+                    "uf_max": 0.45,
+                    "time_series": [
+                        {"time_step": 0, "time_min": 0.0, "fire_temp": 20.0, "lofl_temp": 20.0, "mesh_temp": 20.0, "slabtop_temp": 20.0, "slabbot_temp": 20.0, "beam_hot_capacity": 40.0, "deflection": 100.0, "slab_yield": 1.0, "enhancement": 2.0, "slab_cap": 2.0, "total_plate_capacity": 42.0, "utilization_factor": 0.45}
+                    ],
+                },
+                {
+                    "run_id": 1002,
+                    "run_number": 202,
+                    "total_runs": 5000,
+                    "qf": 700.0,
+                    "window_percent": 15.0,
+                    "uf_max": 0.79,
+                    "time_series": [
+                        {"time_step": 0, "time_min": 0.0, "fire_temp": 20.0, "lofl_temp": 20.0, "mesh_temp": 20.0, "slabtop_temp": 20.0, "slabbot_temp": 20.0, "beam_hot_capacity": 40.0, "deflection": 100.0, "slab_yield": 1.0, "enhancement": 2.0, "slab_cap": 2.0, "total_plate_capacity": 42.0, "utilization_factor": 0.79}
+                    ],
+                },
+            ],
             "charts": {
                 "scatter": SAMPLE_PNG_B64,
                 "totalCapacity": SAMPLE_PNG_B64,
@@ -165,6 +189,19 @@ def test_collated_report_uses_template_and_strips_panattoni_leakage():
     assert "98.80%" in body_text or "98.8%" in body_text or "98.80%" in table_text
     assert "UB 457x191x67" in body_text or "UB 457x191x67" in table_text
     assert "548.5" in body_text or "548.5" in table_text
+
+    # Both A.1 and A.2 Sheet 3 Tabular results nested tables must have 12 columns including Unity factor
+    nested_tabular = [
+        nt
+        for tbl in doc.tables
+        if tbl.rows and ("A.1." in tbl.rows[0].cells[0].text or "A.2." in tbl.rows[0].cells[0].text)
+        and "Sheet 3" in tbl.rows[0].cells[0].text
+        for nt in tbl.rows[7].cells[0].tables
+    ]
+    assert len(nested_tabular) == 2
+    for nt in nested_tabular:
+        assert len(nt.columns) == 12
+        assert "unity factor" in " ".join(nt.rows[0].cells[-1].text.split()).lower()
 
     # 5. Charts slotted in (4 MACS + 2 Time Eq + static theory images)
     with zipfile.ZipFile(io.BytesIO(docx_bytes)) as z:
