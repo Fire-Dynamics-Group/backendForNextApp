@@ -670,37 +670,38 @@ async def save_project(
     # minting a new floor uuid on every save (the old delete-then-recreate)
     # left that cached id stale -> mid-session PDF calls 404. Existing floors'
     # pdf_s3_key is preserved automatically (we never reassign it here).
-    existing_floors = {f.floor_number: f for f in project.floors}
-    incoming_numbers = {fp.floor_number for fp in body.floors}
+    if body.floors is not None:
+        existing_floors = {f.floor_number: f for f in project.floors}
+        incoming_numbers = {fp.floor_number for fp in body.floors}
 
-    # Drop floors that are no longer present (cascades to their elements).
-    for floor_number, floor in existing_floors.items():
-        if floor_number not in incoming_numbers:
-            await db.delete(floor)
+        # Drop floors that are no longer present (cascades to their elements).
+        for floor_number, floor in existing_floors.items():
+            if floor_number not in incoming_numbers:
+                await db.delete(floor)
 
-    for fp in body.floors:
-        floor = existing_floors.get(fp.floor_number)
-        if floor is None:
-            floor = Floor(project_id=project_id, floor_number=fp.floor_number)
-            db.add(floor)
-        floor.name = fp.name
-        floor.canvas_dimensions = fp.canvas_dimensions
-        floor.pixels_per_mesh = fp.pixels_per_mesh
-        floor.origin_pixels = fp.origin_pixels
-        floor.settings = fp.settings
-        await db.flush()  # ensure floor.id for the elements below
+        for fp in body.floors:
+            floor = existing_floors.get(fp.floor_number)
+            if floor is None:
+                floor = Floor(project_id=project_id, floor_number=fp.floor_number)
+                db.add(floor)
+            floor.name = fp.name
+            floor.canvas_dimensions = fp.canvas_dimensions
+            floor.pixels_per_mesh = fp.pixels_per_mesh
+            floor.origin_pixels = fp.origin_pixels
+            floor.settings = fp.settings
+            await db.flush()  # ensure floor.id for the elements below
 
-        # Replace this floor's elements wholesale (element identity isn't
-        # tracked across saves; element_index carries the frontend's id).
-        await db.execute(delete(Element).where(Element.floor_id == floor.id))
-        for el in fp.elements:
-            db.add(Element(
-                floor_id=floor.id,
-                element_index=el.element_index,
-                type=el.type,
-                points=[p.model_dump() for p in el.points],
-                comments=el.comments,
-            ))
+            # Replace this floor's elements wholesale (element identity isn't
+            # tracked across saves; element_index carries the frontend's id).
+            await db.execute(delete(Element).where(Element.floor_id == floor.id))
+            for el in fp.elements:
+                db.add(Element(
+                    floor_id=floor.id,
+                    element_index=el.element_index,
+                    type=el.type,
+                    points=[p.model_dump() for p in el.points],
+                    comments=el.comments,
+                ))
 
     await db.commit()
 
