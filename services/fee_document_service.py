@@ -281,10 +281,16 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     validity_date = (datetime.now() + timedelta(days=60)).strftime("%d/%m/%y")
     PII_fmt = "{:0,.0f}".format(PII)
     vat_text = "+VAT" if vat_applies else ""
+    terms_presets = {
+        "ace": ("TERMS_PII_ACE", "TERMS_ACE", "TERMS_INVOICING"),
+        "winvic": ("TERMS_PII_WINVIC", "TERMS_WINVIC", "TERMS_INVOICING_WINVIC"),
+    }
+    terms_key = (getattr(data.fee_options, "business_terms", None) or "ace").strip().lower()
+    pii_block, contract_block, invoicing_block = terms_presets.get(terms_key, terms_presets["ace"])
     _add_para(doc, "Terms of Business", "Subheading")
-    _add_para(doc, f"We propose to offer professional indemnity insurance to the value of \u00a3{PII_fmt} in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.", "Standard_Text")
-    _add_para(doc, _safe_format(T.TERMS_ACE, vat_text=vat_text), "Standard_Text")
-    _add_para(doc, T.TERMS_INVOICING, "Standard_Text")
+    _add_para(doc, _safe_format(getattr(T, pii_block), pii_limit=PII_fmt), "Standard_Text")
+    _add_para(doc, _safe_format(getattr(T, contract_block), vat_text=vat_text), "Standard_Text")
+    _add_para(doc, getattr(T, invoicing_block), "Standard_Text")
     _add_para(doc, f"This fee proposal is valid until {validity_date} (60 days).", "Standard_Text")
 
     # CLOSING

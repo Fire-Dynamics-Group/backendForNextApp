@@ -92,6 +92,17 @@ INTRO_APPENDIX_REFERENCE = (
 
 # Terms of business
 
+TERMS_PII_ACE = (
+    "We propose to offer professional indemnity insurance to the value of "
+    "\u00a3{pii_limit} in the aggregate for this project. If a higher level of "
+    "PII is required, this will need to be agreed prior to commencement of the works."
+)
+
+TERMS_PII_WINVIC = (
+    "We propose to offer professional indemnity insurance to the value of "
+    "\u00a3{pii_limit} in the aggregate for this project."
+)
+
 TERMS_ACE = (
     "This proposal is based on the ACE Short Form Agreement 2015 (unamended) "
     "with an aggregate limit to liability equal to the extent of professional "
@@ -104,10 +115,24 @@ TERMS_ACE = (
     "\u00a31,500{vat_text} for external review of the terms is required."
 )
 
+TERMS_WINVIC = (
+    "This proposal is based on the existing contractual agreement terms. "
+    "If Collateral Warranties or any other bespoke client agreements are "
+    "proposed to be included, a charge of \u00a31,500{vat_text} for external "
+    "review of the terms is required."
+)
+
 TERMS_INVOICING = (
     "Invoices will be issued on a monthly basis to reflect the work completed. "
     "Our standard terms are for payment to be received in our bank account "
     "within 30 days of the date our invoice is issued."
+)
+
+TERMS_INVOICING_WINVIC = (
+    "Invoices will be issued on the completion of the reports/deliverables "
+    "or on a monthly basis for the construction stage. Our standard terms are "
+    "for payment to be received in our bank account within 30 days of the date "
+    "our invoice is issued."
 )
 
 TERMS_CLOSING = (

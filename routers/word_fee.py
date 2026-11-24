@@ -141,27 +141,27 @@ async def _word_set_content(db: AsyncSession, block: FeeTextBlock, content: str,
     await db.commit()
 
 
-async def _load_word_text_map():
+async def _load_word_text_map(overrides=None):
     """Load Word add-in wording separately from the web proposal wording."""
     if database.async_session is None:
         store = _local_store()
         return build_text_map([
             (key, block["kind"], block["content"])
             for key, block in store["blocks"].items()
-        ])
+        ], overrides=overrides)
     try:
         async with database.async_session() as session:
             rows = (await session.execute(
                 select(FeeTextBlock).where(FeeTextBlock.key.like(f"{WORD_ADDIN_PREFIX}%"))
             )).scalars().all()
         if not rows:
-            return None
+            return build_text_map([], overrides=overrides) if overrides else None
         return build_text_map([
             (row.key[len(WORD_ADDIN_PREFIX):], row.kind, row.content) for row in rows
-        ])
+        ], overrides=overrides)
     except Exception as exc:  # noqa: BLE001 — wording storage must not block document generation
         print(f"Warning: failed to load Word add-in fee text blocks: {exc}")
-        return None
+        return build_text_map([], overrides=overrides) if overrides else None
 
 
 @router.get("/fee-proposal/text-blocks", response_model=List[WordTextBlockOut])
@@ -280,7 +280,8 @@ async def render_fee_proposal(data: WordFeeProposalRequest, request: Request):
     createDocument (the "New document" path) is unaffected by the extra paragraph.
     """
     try:
-        texts = await _load_word_text_map()
+        overrides = getattr(data, "text_overrides", None) or None
+        texts = await _load_word_text_map(overrides=overrides)
         doc = Document(generate_proposal(data, texts))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

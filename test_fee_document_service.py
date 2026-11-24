@@ -176,6 +176,41 @@ def test_exclusions_omits_duplicate_external_walls_bullet():
     assert "External Walls" not in text
     assert "Letters of Comfort" in text
 
+
+class TestBusinessTermsPresets:
+    def test_default_is_ace_terms(self):
+        text = _all_text(generate_proposal(_base_request(DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)))))
+        assert "ACE Short Form Agreement 2015 (unamended)" in text
+        assert "If a higher level of PII is required" in text
+        assert "Invoices will be issued on a monthly basis to reflect the work completed." in text
+
+    def test_winvic_terms_renders_winvic_paragraphs_and_vat(self):
+        req = FeeProposalRequest(
+            client=ClientDetails(first_name="Test", surname="Client", address_lines=["1 Test St"]),
+            project=ProjectDetails(project_name="Winvic Project", project_location="Northampton", country=CountryEnum.ENGLAND_WALES),
+            fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=5000000, include_hourly_rates=False, business_terms="winvic"),
+            design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        )
+        text = _all_text(generate_proposal(req))
+        assert "£5,000,000 in the aggregate for this project." in text
+        assert "If a higher level of PII is required" not in text
+        assert "existing contractual agreement terms" in text
+        assert "Collateral Warranties" in text
+        assert "£1,500+VAT" in text
+        assert "completion of the reports/deliverables or on a monthly basis for the construction stage" in text
+
+    def test_winvic_terms_override_replaces_template_text(self):
+        from services.fee_text_blocks import build_text_map
+        req = FeeProposalRequest(
+            client=ClientDetails(first_name="Test", surname="Client", address_lines=["1 Test St"]),
+            project=ProjectDetails(project_name="Winvic Project", project_location="Northampton", country=CountryEnum.ENGLAND_WALES),
+            fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=5000000, include_hourly_rates=False, business_terms="winvic"),
+            design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        )
+        texts = build_text_map([], overrides={"TERMS_WINVIC": "Custom Winvic terms {vat_text}."})
+        text = _all_text(generate_proposal(req, texts))
+        assert "Custom Winvic terms +VAT." in text
+
     def test_other_country_without_vat_omits_note_under_fee_table(self):
         stages = DesignStagesRiba1to4(
             stage_1=ServiceConfig(included=True, fee=5000),

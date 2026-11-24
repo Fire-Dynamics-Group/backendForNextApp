@@ -32,6 +32,7 @@ class FeeOptions(BaseModel):
     engineer_name: str
     pii_limit: int = 100000
     include_hourly_rates: bool = False
+    business_terms: str = "ace"
 
 
 class ServiceConfig(BaseModel):
