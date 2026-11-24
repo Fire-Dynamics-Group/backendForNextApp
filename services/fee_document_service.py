@@ -621,12 +621,6 @@ def _write_appendix_b(doc, data, input_data, T):
         n2 = p.add_run(T.EXCL_FIRE_STRATEGY_DRAWINGS)
         n2.font.underline = False
 
-        p = _add_para(doc, "", "ASTUTE_Bullet_Points")
-        n = p.add_run("External Walls")
-        n.font.underline = True
-        n2 = p.add_run(T.EXCL_EXTERNAL_WALLS_WITH_EWS1 if s6.ews1_forms.included else T.EXCL_EXTERNAL_WALLS_WITHOUT_EWS1)
-        n2.font.underline = False
-
         if not (s14.stage_1.included or s14.stage_2.included or s14.stage_3.included or s14.stage_4.included):
             p = _add_para(doc, "", "ASTUTE_Bullet_Points")
             n = p.add_run("Fire Strategy Development")

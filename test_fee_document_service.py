@@ -170,6 +170,12 @@ class TestClientAddressCompanyLine:
         assert paras[idx + 1 : idx + 3] == ["Waddington Architects", "6th Floor"]
         assert paras.count("Waddington Architects") == 1
 
+
+def test_exclusions_omits_duplicate_external_walls_bullet():
+    text = _all_text(generate_proposal(_base_request(DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)))))
+    assert "External Walls" not in text
+    assert "Letters of Comfort" in text
+
     def test_other_country_without_vat_omits_note_under_fee_table(self):
         stages = DesignStagesRiba1to4(
             stage_1=ServiceConfig(included=True, fee=5000),
