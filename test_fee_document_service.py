@@ -125,6 +125,103 @@ class TestVatByCountry:
             _country_request(CountryEnum.OTHER, vat_applicable=True, stages_1_4=stages)))
         assert "All fees quoted are exclusive of VAT." in text
 
+
+class TestClientAddressCompanyLine:
+    def test_company_name_printed_as_first_line_of_address(self):
+        req = FeeProposalRequest(
+            client=ClientDetails(
+                first_name="Matt",
+                surname="Rentsch",
+                company_name="Waddington Architects and Masterplanners",
+                address_lines=["6th Floor", "8 Hill Street", "St Helier", "JE2 4UA"],
+            ),
+            project=ProjectDetails(project_name="Hope Centre", project_location="Jersey", country=CountryEnum.JERSEY),
+            fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=100000, include_hourly_rates=False),
+            design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        )
+        buf = generate_proposal(req)
+        buf.seek(0)
+        paras = [p.text for p in Document(buf).paragraphs if p.text.strip()]
+        idx = paras.index("Matt Rentsch")
+        assert paras[idx + 1 : idx + 6] == [
+            "Waddington Architects and Masterplanners",
+            "6th Floor",
+            "8 Hill Street",
+            "St Helier",
+            "JE2 4UA",
+        ]
+
+    def test_company_name_not_duplicated_when_already_first_address_line(self):
+        req = FeeProposalRequest(
+            client=ClientDetails(
+                first_name="Matt",
+                surname="Rentsch",
+                company_name="Waddington Architects",
+                address_lines=["Waddington Architects", "6th Floor"],
+            ),
+            project=ProjectDetails(project_name="Hope Centre", project_location="Jersey", country=CountryEnum.JERSEY),
+            fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=100000, include_hourly_rates=False),
+            design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        )
+        buf = generate_proposal(req)
+        buf.seek(0)
+        paras = [p.text for p in Document(buf).paragraphs if p.text.strip()]
+        idx = paras.index("Matt Rentsch")
+        assert paras[idx + 1 : idx + 3] == ["Waddington Architects", "6th Floor"]
+        assert paras.count("Waddington Architects") == 1
+
+
+def test_exclusions_omits_duplicate_external_walls_bullet():
+    text = _all_text(generate_proposal(_base_request(DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)))))
+    assert "External Walls" not in text
+    assert "Letters of Comfort" in text
+
+
+class TestBusinessTermsPresets:
+    def test_default_is_ace_terms(self):
+        text = _all_text(generate_proposal(_base_request(DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)))))
+        assert "ACE Short Form Agreement 2015 (unamended)" in text
+        assert "If a higher level of PII is required" in text
+        assert "Invoices will be issued on a monthly basis to reflect the work completed." in text
+
+    def test_winvic_terms_renders_winvic_paragraphs_and_vat(self):
+        req = FeeProposalRequest(
+            client=ClientDetails(first_name="Test", surname="Client", address_lines=["1 Test St"]),
+            project=ProjectDetails(project_name="Winvic Project", project_location="Northampton", country=CountryEnum.ENGLAND_WALES),
+            fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=5000000, include_hourly_rates=False, business_terms="winvic"),
+            design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        )
+        text = _all_text(generate_proposal(req))
+        assert "£5,000,000 in the aggregate for this project." in text
+        assert "If a higher level of PII is required" not in text
+        assert "existing contractual agreement terms" in text
+        assert "Collateral Warranties" in text
+        assert "£1,500+VAT" in text
+        assert "completion of the reports/deliverables or on a monthly basis for the construction stage" in text
+
+    def test_winvic_terms_override_replaces_template_text(self):
+        from services.fee_text_blocks import build_text_map
+        req = FeeProposalRequest(
+            client=ClientDetails(first_name="Test", surname="Client", address_lines=["1 Test St"]),
+            project=ProjectDetails(project_name="Winvic Project", project_location="Northampton", country=CountryEnum.ENGLAND_WALES),
+            fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=5000000, include_hourly_rates=False, business_terms="winvic"),
+            design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        )
+        texts = build_text_map([], overrides={"TERMS_WINVIC": "Custom Winvic terms {vat_text}."})
+        text = _all_text(generate_proposal(req, texts))
+        assert "Custom Winvic terms +VAT." in text
+
+
+def test_closing_line_kept_with_signature_block():
+    buf = generate_proposal(_base_request(DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000))))
+    buf.seek(0)
+    doc = Document(buf)
+    closing_idx = next(i for i, p in enumerate(doc.paragraphs) if "I trust this provides you with the information" in p.text)
+    fire_dyn_idx = next(i for i, p in enumerate(doc.paragraphs) if i > closing_idx and p.text == "Fire Dynamics")
+    for p in doc.paragraphs[closing_idx:fire_dyn_idx]:
+        assert p.paragraph_format.keep_with_next is True
+        assert p.paragraph_format.keep_together is True
+
     def test_other_country_without_vat_omits_note_under_fee_table(self):
         stages = DesignStagesRiba1to4(
             stage_1=ServiceConfig(included=True, fee=5000),

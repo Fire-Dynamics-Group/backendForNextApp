@@ -105,6 +105,7 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     T = _TextAccessor(texts if texts is not None else build_text_map([]), record_keys)
     first_name = data.client.first_name
     surname = data.client.surname
+    company_name = (data.client.company_name or "").strip()
     address_lines = data.client.address_lines
     project_name = data.project.project_name
     project_location = data.project.project_location
@@ -155,10 +156,14 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
 
     # CLIENT ADDRESS
     _add_blank_line(doc, 2)
-    _add_para(doc, f"{first_name} {surname}", "Standard_Text")
-    for line in address_lines:
-        if line.strip():
-            _add_para(doc, line, "Standard_Text_No_Line_Spacing")
+    full_name = f"{first_name} {surname}".strip()
+    if full_name:
+        _add_para(doc, full_name, "Standard_Text")
+    non_empty_lines = [line for line in address_lines if line.strip()]
+    if company_name and (not non_empty_lines or non_empty_lines[0].strip().lower() != company_name.lower()):
+        _add_para(doc, company_name, "Standard_Text_No_Line_Spacing")
+    for line in non_empty_lines:
+        _add_para(doc, line, "Standard_Text_No_Line_Spacing")
     _add_blank_line(doc, 3)
 
     # INTRODUCTION
@@ -276,14 +281,21 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     validity_date = (datetime.now() + timedelta(days=60)).strftime("%d/%m/%y")
     PII_fmt = "{:0,.0f}".format(PII)
     vat_text = "+VAT" if vat_applies else ""
+    terms_presets = {
+        "ace": ("TERMS_PII_ACE", "TERMS_ACE", "TERMS_INVOICING"),
+        "winvic": ("TERMS_PII_WINVIC", "TERMS_WINVIC", "TERMS_INVOICING_WINVIC"),
+    }
+    terms_key = (getattr(data.fee_options, "business_terms", None) or "ace").strip().lower()
+    pii_block, contract_block, invoicing_block = terms_presets.get(terms_key, terms_presets["ace"])
     _add_para(doc, "Terms of Business", "Subheading")
-    _add_para(doc, f"We propose to offer professional indemnity insurance to the value of \u00a3{PII_fmt} in the aggregate for this project. If a higher level of PII is required, this will need to be agreed prior to commencement of the works.", "Standard_Text")
-    _add_para(doc, _safe_format(T.TERMS_ACE, vat_text=vat_text), "Standard_Text")
-    _add_para(doc, T.TERMS_INVOICING, "Standard_Text")
+    _add_para(doc, _safe_format(getattr(T, pii_block), pii_limit=PII_fmt), "Standard_Text")
+    _add_para(doc, _safe_format(getattr(T, contract_block), vat_text=vat_text), "Standard_Text")
+    _add_para(doc, getattr(T, invoicing_block), "Standard_Text")
     _add_para(doc, f"This fee proposal is valid until {validity_date} (60 days).", "Standard_Text")
 
     # CLOSING
     _add_blank_line(doc, 2)
+    closing_start = len(doc.paragraphs)
     _add_para(doc, T.TERMS_CLOSING, "Standard_Text")
     _add_blank_line(doc, 2)
     _add_para(doc, "Yours Sincerely ", "Standard_Text_No_Line_Spacing")
@@ -296,6 +308,10 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     _add_para(doc, engineer, "Sig")
     _add_para(doc, job_title, "Sig")
     _add_para(doc, "Fire Dynamics", "Sig")
+    for para in doc.paragraphs[closing_start:-1]:
+        para.paragraph_format.keep_with_next = True
+    for para in doc.paragraphs[closing_start:]:
+        para.paragraph_format.keep_together = True
 
     # HEADER
     section = doc.sections[0]
@@ -614,12 +630,6 @@ def _write_appendix_b(doc, data, input_data, T):
         n = p.add_run("Fire Strategy Drawings in CAD/BIM Format")
         n.font.underline = True
         n2 = p.add_run(T.EXCL_FIRE_STRATEGY_DRAWINGS)
-        n2.font.underline = False
-
-        p = _add_para(doc, "", "ASTUTE_Bullet_Points")
-        n = p.add_run("External Walls")
-        n.font.underline = True
-        n2 = p.add_run(T.EXCL_EXTERNAL_WALLS_WITH_EWS1 if s6.ews1_forms.included else T.EXCL_EXTERNAL_WALLS_WITHOUT_EWS1)
         n2.font.underline = False
 
         if not (s14.stage_1.included or s14.stage_2.included or s14.stage_3.included or s14.stage_4.included):
