@@ -125,6 +125,51 @@ class TestVatByCountry:
             _country_request(CountryEnum.OTHER, vat_applicable=True, stages_1_4=stages)))
         assert "All fees quoted are exclusive of VAT." in text
 
+
+class TestClientAddressCompanyLine:
+    def test_company_name_printed_as_first_line_of_address(self):
+        req = FeeProposalRequest(
+            client=ClientDetails(
+                first_name="Matt",
+                surname="Rentsch",
+                company_name="Waddington Architects and Masterplanners",
+                address_lines=["6th Floor", "8 Hill Street", "St Helier", "JE2 4UA"],
+            ),
+            project=ProjectDetails(project_name="Hope Centre", project_location="Jersey", country=CountryEnum.JERSEY),
+            fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=100000, include_hourly_rates=False),
+            design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        )
+        buf = generate_proposal(req)
+        buf.seek(0)
+        paras = [p.text for p in Document(buf).paragraphs if p.text.strip()]
+        idx = paras.index("Matt Rentsch")
+        assert paras[idx + 1 : idx + 6] == [
+            "Waddington Architects and Masterplanners",
+            "6th Floor",
+            "8 Hill Street",
+            "St Helier",
+            "JE2 4UA",
+        ]
+
+    def test_company_name_not_duplicated_when_already_first_address_line(self):
+        req = FeeProposalRequest(
+            client=ClientDetails(
+                first_name="Matt",
+                surname="Rentsch",
+                company_name="Waddington Architects",
+                address_lines=["Waddington Architects", "6th Floor"],
+            ),
+            project=ProjectDetails(project_name="Hope Centre", project_location="Jersey", country=CountryEnum.JERSEY),
+            fee_options=FeeOptions(engineer_name="Sam Bennett", pii_limit=100000, include_hourly_rates=False),
+            design_stages_1_4=DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000)),
+        )
+        buf = generate_proposal(req)
+        buf.seek(0)
+        paras = [p.text for p in Document(buf).paragraphs if p.text.strip()]
+        idx = paras.index("Matt Rentsch")
+        assert paras[idx + 1 : idx + 3] == ["Waddington Architects", "6th Floor"]
+        assert paras.count("Waddington Architects") == 1
+
     def test_other_country_without_vat_omits_note_under_fee_table(self):
         stages = DesignStagesRiba1to4(
             stage_1=ServiceConfig(included=True, fee=5000),
