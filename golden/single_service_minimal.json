@@ -143,7 +143,7 @@
     },
     {
       "style": "Standard_Text",
-      "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice for the proposed works at Test Tower in London.It is understood that our involvement is required during RIBA Stage 1.",
+      "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice for the proposed works at Test Tower in London. It is understood that our involvement is required during RIBA Stage 1.",
       "runs": [
         {
           "text": "Further to recent discussions, please find detailed below our fees for providing specialist fire safety engineering advice",
@@ -160,7 +160,7 @@
           "image": false
         },
         {
-          "text": "It is understood that our involvement is required during RIBA Stage 1.",
+          "text": " It is understood that our involvement is required during RIBA Stage 1.",
           "bold": null,
           "underline": null,
           "superscript": false,
@@ -623,26 +623,6 @@
         },
         {
           "text": " - Fire strategy drawings will be provided in PDF format to allow the relevant information to be inputted into CAD drawings or BIM models by other members of the design team, as necessary.",
-          "bold": null,
-          "underline": false,
-          "superscript": false,
-          "image": false
-        }
-      ]
-    },
-    {
-      "style": "ASTUTE_Bullet_Points",
-      "text": "External Walls - The completion of EWS1 forms, or other non-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
-      "runs": [
-        {
-          "text": "External Walls",
-          "bold": null,
-          "underline": true,
-          "superscript": false,
-          "image": false
-        },
-        {
-          "text": " - The completion of EWS1 forms, or other non-statutory \"letters of comfort\" required by external parties are not included in this proposal.",
           "bold": null,
           "underline": false,
           "superscript": false,
