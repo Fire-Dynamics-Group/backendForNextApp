@@ -211,6 +211,17 @@ class TestBusinessTermsPresets:
         text = _all_text(generate_proposal(req, texts))
         assert "Custom Winvic terms +VAT." in text
 
+
+def test_closing_line_kept_with_signature_block():
+    buf = generate_proposal(_base_request(DesignStagesRiba1to4(stage_1=ServiceConfig(included=True, fee=5000))))
+    buf.seek(0)
+    doc = Document(buf)
+    closing_idx = next(i for i, p in enumerate(doc.paragraphs) if "I trust this provides you with the information" in p.text)
+    fire_dyn_idx = next(i for i, p in enumerate(doc.paragraphs) if i > closing_idx and p.text == "Fire Dynamics")
+    for p in doc.paragraphs[closing_idx:fire_dyn_idx]:
+        assert p.paragraph_format.keep_with_next is True
+        assert p.paragraph_format.keep_together is True
+
     def test_other_country_without_vat_omits_note_under_fee_table(self):
         stages = DesignStagesRiba1to4(
             stage_1=ServiceConfig(included=True, fee=5000),

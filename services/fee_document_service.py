@@ -295,6 +295,7 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
 
     # CLOSING
     _add_blank_line(doc, 2)
+    closing_start = len(doc.paragraphs)
     _add_para(doc, T.TERMS_CLOSING, "Standard_Text")
     _add_blank_line(doc, 2)
     _add_para(doc, "Yours Sincerely ", "Standard_Text_No_Line_Spacing")
@@ -307,6 +308,10 @@ def generate_proposal(data, texts=None, record_keys=None) -> io.BytesIO:
     _add_para(doc, engineer, "Sig")
     _add_para(doc, job_title, "Sig")
     _add_para(doc, "Fire Dynamics", "Sig")
+    for para in doc.paragraphs[closing_start:-1]:
+        para.paragraph_format.keep_with_next = True
+    for para in doc.paragraphs[closing_start:]:
+        para.paragraph_format.keep_together = True
 
     # HEADER
     section = doc.sections[0]
