@@ -15,9 +15,9 @@ token is valid, including when the env var is unset.
   valid app key, bearer absent    200
   valid app key, bearer rejected  200  older clients that also send a key
   bearer rejected, no valid key   401  Not authorised.
-  nothing sent, key configured    401  Sign in to Upload Canvas.
+  nothing sent (even if key unset)  401  Sign in to Upload Canvas.
   wrong app key                   403  Not authorised.
-  key unset, no valid bearer      503  i-macs access is not configured.
+  app key sent, key unset         503  i-macs access is not configured.
 
 The key is compared with hmac.compare_digest. Browser routes stay on
 `auth.deps.current_user`.
@@ -70,13 +70,13 @@ def require_imacs_app(
             detail="Not authorised.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if not expected:
-        log.error("auth: IMACS_APP_KEY is not set; rejecting i-macs request")
-        raise HTTPException(status_code=503, detail="i-macs access is not configured.")
     if not presented:
         raise HTTPException(
             status_code=401,
             detail="Sign in to Upload Canvas.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    if not expected:
+        log.error("auth: IMACS_APP_KEY is not set; rejecting i-macs request")
+        raise HTTPException(status_code=503, detail="i-macs access is not configured.")
     raise HTTPException(status_code=403, detail="Not authorised.")

@@ -134,3 +134,11 @@ def test_unset_app_key_still_fails_closed_without_a_bearer(api, monkeypatch):
     res = client.get("/imacs/projects", headers={"X-IMACS-App-Key": APP_KEY})
     assert res.status_code == 503
     assert res.json()["detail"] == "i-macs access is not configured."
+
+
+def test_missing_credentials_ask_to_sign_in_even_when_app_key_unset(api, monkeypatch):
+    client, _private_pem = api
+    monkeypatch.delenv("IMACS_APP_KEY", raising=False)
+    res = client.get("/imacs/projects")
+    assert res.status_code == 401
+    assert res.json()["detail"] == "Sign in to Upload Canvas."
